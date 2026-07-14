@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <!-- Dégradé émeraude pour les 5 pales principales -->
+    <linearGradient id="emerald1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F8563"/>
+      <stop offset="100%" stop-color="#0B6E4F"/>
+    </linearGradient>
+    <linearGradient id="emerald2" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0B6E4F"/>
+      <stop offset="100%" stop-color="#074B36"/>
+    </linearGradient>
+    <linearGradient id="emerald3" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0F8563"/>
+      <stop offset="100%" stop-color="#0B6E4F"/>
+    </linearGradient>
+    <linearGradient id="emerald4" x1="100%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#074B36"/>
+      <stop offset="100%" stop-color="#0B6E4F"/>
+    </linearGradient>
+    <linearGradient id="emerald5" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#0F8563"/>
+      <stop offset="100%" stop-color="#074B36"/>
+    </linearGradient>
+    <!-- Dégradé doré pour la pale spéciale (le tour de quelqu'un) -->
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D9A441"/>
+      <stop offset="100%" stop-color="#B9852A"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- 6 pales en forme de diaphragme photo, tournées à 60° d'intervalle -->
+  <!-- Centre dégagé (circle aperture) -->
+  <g transform="translate(100,100)">
+    <!-- Pale 1 (émeraude) — 0° -->
+    <path d="M 0,-12 C 15,-40 55,-65 42,-72 C 28,-80 -5,-55 -12,-28 Z" 
+          fill="url(#emerald1)" opacity="0.95"/>
+    <!-- Pale 2 (émeraude) — 60° -->
+    <path d="M 0,-12 C 15,-40 55,-65 42,-72 C 28,-80 -5,-55 -12,-28 Z" 
+          fill="url(#emerald2)" opacity="0.9" transform="rotate(60)"/>
+    <!-- Pale 3 (DORÉE — le tour de quelqu'un) — 120° -->
+    <path d="M 0,-12 C 15,-40 55,-65 42,-72 C 28,-80 -5,-55 -12,-28 Z" 
+          fill="url(#gold)" opacity="1" transform="rotate(120)"/>
+    <!-- Pale 4 (émeraude) — 180° -->
+    <path d="M 0,-12 C 15,-40 55,-65 42,-72 C 28,-80 -5,-55 -12,-28 Z" 
+          fill="url(#emerald3)" opacity="0.85" transform="rotate(180)"/>
+    <!-- Pale 5 (émeraude) — 240° -->
+    <path d="M 0,-12 C 15,-40 55,-65 42,-72 C 28,-80 -5,-55 -12,-28 Z" 
+          fill="url(#emerald4)" opacity="0.9" transform="rotate(240)"/>
+    <!-- Pale 6 (émeraude) — 300° -->
+    <path d="M 0,-12 C 15,-40 55,-65 42,-72 C 28,-80 -5,-55 -12,-28 Z" 
+          fill="url(#emerald5)" opacity="0.95" transform="rotate(300)"/>
+  </g>
+</svg>

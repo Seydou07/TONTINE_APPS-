@@ -1,0 +1,31 @@
+<svg width="200" height="240" viewBox="0 0 200 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Logo Icon -->
+  <g transform="translate(100, 80)">
+    <!-- Blade 1: Gold (Top) -->
+    <path d="M0 -50 C15 -45, 25 -35, 28 -20 C30 -5, 25 5, 15 10 L0 0 L-15 10 C-25 5, -30 -5, -28 -20 C-25 -35, -15 -45, 0 -50 Z" fill="#D9A441" transform="rotate(0)"/>
+    
+    <!-- Blade 2: Emerald Green -->
+    <path d="M0 -50 C15 -45, 25 -35, 28 -20 C30 -5, 25 5, 15 10 L0 0 L-15 10 C-25 5, -30 -5, -28 -20 C-25 -35, -15 -45, 0 -50 Z" fill="#0F8563" transform="rotate(51.4)"/>
+    
+    <!-- Blade 3: Emerald Green -->
+    <path d="M0 -50 C15 -45, 25 -35, 28 -20 C30 -5, 25 5, 15 10 L0 0 L-15 10 C-25 5, -30 -5, -28 -20 C-25 -35, -15 -45, 0 -50 Z" fill="#0F8563" transform="rotate(102.8)"/>
+    
+    <!-- Blade 4: Emerald Green -->
+    <path d="M0 -50 C15 -45, 25 -35, 28 -20 C30 -5, 25 5, 15 10 L0 0 L-15 10 C-25 5, -30 -5, -28 -20 C-25 -35, -15 -45, 0 -50 Z" fill="#063C2C" transform="rotate(154.2)"/>
+    
+    <!-- Blade 5: Emerald Green -->
+    <path d="M0 -50 C15 -45, 25 -35, 28 -20 C30 -5, 25 5, 15 10 L0 0 L-15 10 C-25 5, -30 -5, -28 -20 C-25 -35, -15 -45, 0 -50 Z" fill="#063C2C" transform="rotate(205.6)"/>
+    
+    <!-- Blade 6: Emerald Green -->
+    <path d="M0 -50 C15 -45, 25 -35, 28 -20 C30 -5, 25 5, 15 10 L0 0 L-15 10 C-25 5, -30 -5, -28 -20 C-25 -35, -15 -45, 0 -50 Z" fill="#0F8563" transform="rotate(257)"/>
+    
+    <!-- Blade 7: Emerald Green -->
+    <path d="M0 -50 C15 -45, 25 -35, 28 -20 C30 -5, 25 5, 15 10 L0 0 L-15 10 C-25 5, -30 -5, -28 -20 C-25 -35, -15 -45, 0 -50 Z" fill="#0F8563" transform="rotate(308.4)"/>
+    
+    <!-- Center Negative Space -->
+    <circle cx="0" cy="0" r="15" fill="white"/>
+  </g>
+  
+  <!-- Wordmark -->
+  <text x="100" y="200" text-anchor="middle" font-family="Arial, sans-serif" font-weight="800" font-size="42" fill="#074B36" letter-spacing="-1">Venega</text>
+</svg>
