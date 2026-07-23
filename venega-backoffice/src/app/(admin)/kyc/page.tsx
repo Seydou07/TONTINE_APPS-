@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { mockUsers } from '@venega/types/mocks';
-import { Search, CheckCircle, XCircle, Clock, Eye, FileText, User, Calendar, Image } from 'lucide-react';
+import { Search, CheckCircle, XCircle, Clock, Eye, FileText, User, Calendar, Image, AlertTriangle } from 'lucide-react';
 import Modal, { DetailRow } from '@/components/Modal';
+import { useToast, ConfirmDialog, addAuditLog, initKycStore, getKycStatus, setKycStatus } from '@/lib/admin-store';
 
-const statusColors: Record<string, string> = { VERIFIED: 'bg-emerald-50 text-emerald-600', PENDING: 'bg-amber-50 text-amber-600', NOT_SUBMITTED: 'bg-gray-100 text-gray-500' };
-const statusLabel: Record<string, string> = { VERIFIED: 'Vérifié', PENDING: 'En attente', NOT_SUBMITTED: 'Non soumis' };
+const statusColors: Record<string, string> = { VERIFIED: 'bg-emerald-50 text-emerald-600', PENDING: 'bg-amber-50 text-amber-600', NOT_SUBMITTED: 'bg-gray-100 text-gray-500', REJECTED: 'bg-red-50 text-red-500' };
+const statusLabel: Record<string, string> = { VERIFIED: 'Vérifié', PENDING: 'En attente', NOT_SUBMITTED: 'Non soumis', REJECTED: 'Rejeté' };
 
 const mockKycData: Record<string, { documentType: string; idDocumentUrl: string; selfieUrl: string; submittedAt: string }> = {
   u4: { documentType: 'CNIB', idDocumentUrl: '/docs/u4_cnib.jpg', selfieUrl: '/docs/u4_selfie.jpg', submittedAt: '2026-07-10T14:30:00Z' },
@@ -17,30 +18,60 @@ const mockKycData: Record<string, { documentType: string; idDocumentUrl: string;
 };
 
 export default function KycPage() {
+  const { addToast } = useToast();
   const [search, setSearch] = useState('');
-  const [tab, setTab] = useState<'pending' | 'verified' | 'not_submitted'>('pending');
+  const [tab, setTab] = useState<'pending' | 'verified' | 'not_submitted' | 'rejected'>('pending');
   const [selected, setSelected] = useState<any>(null);
+  const [confirmAction, setConfirmAction] = useState<{ type: 'approve' | 'reject'; user: any } | null>(null);
+  const [, forceUpdate] = useState(0);
 
-  const pending = mockUsers.filter((u) => u.kycStatus === 'PENDING');
-  const verified = mockUsers.filter((u) => u.kycStatus === 'VERIFIED');
-  const notSubmitted = mockUsers.filter((u) => u.kycStatus === 'NOT_SUBMITTED');
+  // Initialize KYC store from mock data
+  useMemo(() => initKycStore(mockUsers), []);
 
-  const filtered = (tab === 'pending' ? pending : tab === 'verified' ? verified : notSubmitted)
+  const getUserStatus = (u: any) => {
+    const override = getKycStatus(u.id);
+    return override || u.kycStatus;
+  };
+
+  const pending = mockUsers.filter((u) => getUserStatus(u) === 'PENDING');
+  const verified = mockUsers.filter((u) => getUserStatus(u) === 'VERIFIED');
+  const notSubmitted = mockUsers.filter((u) => getUserStatus(u) === 'NOT_SUBMITTED');
+  const rejected = mockUsers.filter((u) => getUserStatus(u) === 'REJECTED');
+
+  const filtered = (tab === 'pending' ? pending : tab === 'verified' ? verified : tab === 'rejected' ? rejected : notSubmitted)
     .filter((u) => !search || `${u.firstName} ${u.lastName} ${u.phoneNumber}`.toLowerCase().includes(search.toLowerCase()));
 
   const tabs = [
     { key: 'pending' as const, label: 'En attente', count: pending.length },
     { key: 'verified' as const, label: 'Vérifié', count: verified.length },
     { key: 'not_submitted' as const, label: 'Non soumis', count: notSubmitted.length },
+    { key: 'rejected' as const, label: 'Rejeté', count: rejected.length },
   ];
+
+  const handleApprove = (user: any) => {
+    setKycStatus(user.id, 'VERIFIED');
+    setConfirmAction(null);
+    addAuditLog({ action: 'KYC approuvé', adminName: 'Admin A.', target: `${user.firstName} ${user.lastName}`, targetType: 'kyc', type: 'success' });
+    addToast('success', 'KYC approuvé', `${user.firstName} ${user.lastName} a été vérifié`);
+    forceUpdate((n) => n + 1);
+  };
+
+  const handleReject = (user: any) => {
+    setKycStatus(user.id, 'REJECTED');
+    setConfirmAction(null);
+    addAuditLog({ action: 'KYC rejeté', adminName: 'Admin A.', target: `${user.firstName} ${user.lastName}`, targetType: 'kyc', type: 'danger', details: 'Documents non conformes' });
+    addToast('error', 'KYC rejeté', `${user.firstName} ${user.lastName} — documents non conformes`);
+    forceUpdate((n) => n + 1);
+  };
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
           { label: 'En attente', value: pending.length, color: 'bg-amber-50', icon: Clock, iconColor: 'text-amber-500' },
           { label: 'Vérifié', value: verified.length, color: 'bg-emerald-50', icon: CheckCircle, iconColor: 'text-emerald-500' },
           { label: 'Non soumis', value: notSubmitted.length, color: 'bg-gray-50', icon: XCircle, iconColor: 'text-gray-400' },
+          { label: 'Rejeté', value: rejected.length, color: 'bg-red-50', icon: AlertTriangle, iconColor: 'text-red-400' },
         ].map((s) => (
           <div key={s.label} className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3">
             <div className={`w-10 h-10 rounded-xl ${s.color} flex items-center justify-center`}>
@@ -106,10 +137,12 @@ export default function KycPage() {
                     className="flex-1 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl text-[12px] font-medium hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5">
                     <Eye size={13} /> Voir documents
                   </button>
-                  <button className="flex-1 py-2 bg-emerald-500 text-white rounded-xl text-[12px] font-medium hover:bg-emerald-600 transition-colors">
+                  <button onClick={() => setConfirmAction({ type: 'approve', user: u })}
+                    className="flex-1 py-2 bg-emerald-500 text-white rounded-xl text-[12px] font-medium hover:bg-emerald-600 transition-colors">
                     Approuver
                   </button>
-                  <button className="py-2 px-3 bg-white border border-red-200 text-red-500 rounded-xl text-[12px] font-medium hover:bg-red-50 transition-colors">
+                  <button onClick={() => setConfirmAction({ type: 'reject', user: u })}
+                    className="py-2 px-3 bg-white border border-red-200 text-red-500 rounded-xl text-[12px] font-medium hover:bg-red-50 transition-colors">
                     Rejeter
                   </button>
                 </div>
@@ -162,6 +195,40 @@ export default function KycPage() {
         </div>
       )}
 
+      {tab === 'rejected' && (
+        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-gray-50">
+                {['Utilisateur', 'Téléphone', 'Date', 'Raison'].map((h) => (
+                  <th key={h} className="text-left text-[11px] font-medium text-gray-400 uppercase tracking-wider px-5 py-3">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {filtered.map((u) => (
+                <tr key={u.id} onClick={() => setSelected(u)} className="hover:bg-gray-50/50 transition-colors cursor-pointer">
+                  <td className="px-5 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-500 text-[11px] font-bold shrink-0">
+                        {u.firstName?.[0]}{u.lastName?.[0]}
+                      </div>
+                      <p className="text-[13px] font-medium text-gray-900">{u.firstName} {u.lastName}</p>
+                    </div>
+                  </td>
+                  <td className="px-5 py-3 text-[13px] text-gray-600">{u.phoneNumber}</td>
+                  <td className="px-5 py-3 text-[12px] text-gray-400">
+                    {new Date(u.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  </td>
+                  <td className="px-5 py-3 text-[12px] text-red-500">Documents non conformes</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {filtered.length === 0 && <p className="text-center py-8 text-[13px] text-gray-400">Aucun KYC rejeté</p>}
+        </div>
+      )}
+
       {tab === 'not_submitted' && (
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
           <table className="w-full">
@@ -198,6 +265,7 @@ export default function KycPage() {
         </div>
       )}
 
+      {/* Detail Modal */}
       <Modal open={!!selected} onClose={() => setSelected(null)} title="Vérification KYC" subtitle={selected?.id} width="max-w-2xl">
         {selected && (
           <div className="space-y-5">
@@ -209,12 +277,11 @@ export default function KycPage() {
                 <p className="text-[15px] font-semibold text-gray-900">{selected.firstName} {selected.lastName}</p>
                 <p className="text-[13px] text-gray-400">{selected.phoneNumber}</p>
               </div>
-              <span className={`ml-auto inline-flex px-3 py-1 rounded-full text-[12px] font-medium ${statusColors[selected.kycStatus]}`}>{statusLabel[selected.kycStatus]}</span>
+              <span className={`ml-auto inline-flex px-3 py-1 rounded-full text-[12px] font-medium ${statusColors[getUserStatus(selected)]}`}>{statusLabel[getUserStatus(selected)]}</span>
             </div>
             <div className="space-y-1">
               <DetailRow label="ID" value={selected.id} mono />
               <DetailRow label="Téléphone" value={selected.phoneNumber} />
-              <DetailRow label="Date de naissance" value={selected.dateOfBirth || '—'} />
               <DetailRow label="Score réputation" value={`${selected.reputationScore}/100`} />
               <DetailRow label="Inscrit le" value={new Date(selected.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })} />
             </div>
@@ -254,15 +321,31 @@ export default function KycPage() {
                 </div>
               );
             })()}
-            {selected.kycStatus === 'PENDING' && (
+            {getUserStatus(selected) === 'PENDING' && (
               <div className="flex gap-3 pt-3 border-t border-gray-100">
-                <button className="flex-1 py-2.5 bg-emerald-500 text-white rounded-xl text-[13px] font-medium hover:bg-emerald-600 transition-colors">Approuver le KYC</button>
-                <button className="flex-1 py-2.5 bg-white border border-red-200 text-red-500 rounded-xl text-[13px] font-medium hover:bg-red-50 transition-colors">Rejeter</button>
+                <button onClick={() => { setSelected(null); setConfirmAction({ type: 'approve', user: selected }); }}
+                  className="flex-1 py-2.5 bg-emerald-500 text-white rounded-xl text-[13px] font-medium hover:bg-emerald-600 transition-colors">Approuver le KYC</button>
+                <button onClick={() => { setSelected(null); setConfirmAction({ type: 'reject', user: selected }); }}
+                  className="flex-1 py-2.5 bg-white border border-red-200 text-red-500 rounded-xl text-[13px] font-medium hover:bg-red-50 transition-colors">Rejeter</button>
               </div>
             )}
           </div>
         )}
       </Modal>
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog
+        open={!!confirmAction}
+        title={confirmAction?.type === 'approve' ? 'Approuver ce KYC ?' : 'Rejeter ce KYC ?'}
+        message={confirmAction?.type === 'approve'
+          ? `Vous êtes sur le point de valider l'identité de ${confirmAction?.user.firstName} ${confirmAction?.user.lastName}. Cette action sera tracée dans le journal d'audit.`
+          : `Vous êtes sur le point de rejeter les documents de ${confirmAction?.user.firstName} ${confirmAction?.user.lastName}. L'utilisateur sera notifié.`
+        }
+        confirmLabel={confirmAction?.type === 'approve' ? 'Approuver' : 'Rejeter'}
+        type={confirmAction?.type === 'approve' ? 'success' : 'danger'}
+        onConfirm={() => confirmAction && (confirmAction.type === 'approve' ? handleApprove(confirmAction.user) : handleReject(confirmAction.user))}
+        onCancel={() => setConfirmAction(null)}
+      />
     </div>
   );
 }

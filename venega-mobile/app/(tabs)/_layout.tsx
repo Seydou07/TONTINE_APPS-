@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { Home, Users, Plus, Bell, User } from 'lucide-react-native';
-import { colors } from '@venega/design-tokens/src/native';
+import { colors } from '@venega/design-tokens';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import React from 'react';
 
@@ -27,7 +27,7 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Accueil',
-          tabBarIcon: ({ color, focused }) => (
+          tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
             <Home size={24} color={color} fill={focused ? color : 'transparent'} />
           ),
         }}
@@ -36,7 +36,7 @@ export default function TabLayout() {
         name="circles"
         options={{
           title: 'Cercles',
-          tabBarIcon: ({ color, focused }) => (
+          tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
             <Users size={24} color={color} fill={focused ? color : 'transparent'} />
           ),
         }}
@@ -45,7 +45,7 @@ export default function TabLayout() {
         name="create"
         options={{
           title: 'Créer',
-          tabBarIcon: ({ color }) => (
+          tabBarIcon: ({ color }: { color: string }) => (
             <View style={styles.createButton}>
               <Plus size={20} color="#FFFFFF" />
             </View>
@@ -56,7 +56,7 @@ export default function TabLayout() {
         name="notifications"
         options={{
           title: 'Notifications',
-          tabBarIcon: ({ color, focused }) => (
+          tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
             <View>
               <Bell size={24} color={color} fill={focused ? color : 'transparent'} />
               <View style={styles.badge} />
@@ -68,7 +68,7 @@ export default function TabLayout() {
         name="profile"
         options={{
           title: 'Profil',
-          tabBarIcon: ({ color, focused }) => (
+          tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
             <User size={24} color={color} fill={focused ? color : 'transparent'} />
           ),
         }}

@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ArrowRight, Coins } from 'lucide-react';
-import { mockTransactions } from '../../../../packages/types/src/mock-data';
+import { mockTransactions } from '@venega/types';
 
 const formatXOF = (amount: number) => {
   return new Intl.NumberFormat('fr-BF', { style: 'currency', currency: 'XOF', minimumFractionDigits: 0 }).format(amount);

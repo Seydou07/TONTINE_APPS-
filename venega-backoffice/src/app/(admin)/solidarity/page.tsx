@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { mockSolidarityRequests, mockCircles, mockUsers, mockMemberships } from '@venega/types/mocks';
-import { HandHeart, CheckCircle, XCircle, Eye, ArrowUpRight } from 'lucide-react';
+import { HandHeart, CheckCircle, XCircle, Eye, ArrowUpRight, Filter, X, MessageSquare } from 'lucide-react';
 import Modal, { DetailRow } from '@/components/Modal';
+import { useToast } from '@/lib/admin-store';
+import { addAuditLog } from '@/lib/admin-store';
 
 const fmt = (n: number) => `${n.toLocaleString('fr-FR')} XOF`;
 const statusColors: Record<string, string> = { APPROVED: 'bg-emerald-50 text-emerald-600', VOTING: 'bg-amber-50 text-amber-600', REJECTED: 'bg-red-50 text-red-500' };
@@ -12,20 +14,44 @@ const eventLabel: Record<string, string> = { HOSPITALISATION: 'Hospitalisation',
 
 export default function SolidarityPage() {
   const [selected, setSelected] = useState<any>(null);
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [adminNote, setAdminNote] = useState('');
+  const { addToast } = useToast();
+
+  const filtered = useMemo(() => {
+    if (filterStatus === 'all') return mockSolidarityRequests;
+    return mockSolidarityRequests.filter((r) => r.status === filterStatus);
+  }, [filterStatus]);
 
   const approved = mockSolidarityRequests.filter((r) => r.status === 'APPROVED');
   const voting = mockSolidarityRequests.filter((r) => r.status === 'VOTING');
+  const rejected = mockSolidarityRequests.filter((r) => r.status === 'REJECTED');
   const totalRequested = mockSolidarityRequests.reduce((s, r) => s + r.amountRequested, 0);
   const totalApproved = approved.reduce((s, r) => s + r.amountApproved, 0);
 
+  const handleAddNote = () => {
+    if (!adminNote.trim() || !selected) return;
+    addAuditLog({
+      action: 'Note admin ajoutée',
+      adminName: JSON.parse(localStorage.getItem('venega_admin_user') || '{}').name || 'Admin',
+      target: `${selected.requesterName} — ${eventLabel[selected.eventType] || selected.eventType}`,
+      targetType: 'solidarity',
+      type: 'info',
+      details: adminNote.trim(),
+    });
+    addToast('success', 'Note enregistrée', `Note ajoutée pour la demande de ${selected.requesterName}`);
+    setAdminNote('');
+  };
+
   return (
     <div className="space-y-4">
+      {/* Summary cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
           { label: 'Total demandé', value: fmt(totalRequested), color: 'bg-blue-50', iconColor: 'text-blue-500' },
           { label: 'Approuvé', value: fmt(totalApproved), color: 'bg-emerald-50', iconColor: 'text-emerald-500' },
           { label: 'En vote', value: voting.length.toString(), color: 'bg-amber-50', iconColor: 'text-amber-500' },
-          { label: 'Fonds solidarité', value: fmt(approved.reduce((s, r) => s + r.amountApproved, 0)), color: 'bg-violet-50', iconColor: 'text-violet-500' },
+          { label: 'Rejeté', value: rejected.length.toString(), color: 'bg-red-50', iconColor: 'text-red-500' },
         ].map((s, i) => (
           <div key={i} className="bg-white rounded-2xl border border-gray-100 p-4">
             <div className="flex items-center gap-3">
@@ -41,12 +67,31 @@ export default function SolidarityPage() {
         ))}
       </div>
 
+      {/* Search + filters */}
+      <div className="bg-white rounded-2xl border border-gray-100 p-3 flex items-center gap-3">
+        <span className="text-[13px] font-medium text-gray-500">Statut :</span>
+        <div className="flex gap-2">
+          {[
+            { key: 'all', label: 'Toutes', count: mockSolidarityRequests.length },
+            { key: 'VOTING', label: 'En vote', count: voting.length },
+            { key: 'APPROVED', label: 'Approuvé', count: approved.length },
+            { key: 'REJECTED', label: 'Rejeté', count: rejected.length },
+          ].map((f) => (
+            <button key={f.key} onClick={() => setFilterStatus(f.key)}
+              className={`px-3 py-1.5 rounded-xl text-[12px] font-medium transition-colors ${filterStatus === f.key ? 'bg-emerald-50 border border-emerald-200 text-emerald-700' : 'bg-gray-50 border border-gray-100 text-gray-500 hover:bg-gray-100'}`}>
+              {f.label} ({f.count})
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Table */}
       <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
         <div className="px-5 py-3 border-b border-gray-50">
-          <p className="text-[13px] font-semibold text-gray-900">Demandes de solidarité</p>
+          <p className="text-[13px] font-semibold text-gray-900">Demandes de solidarité ({filtered.length})</p>
         </div>
         <div className="divide-y divide-gray-50">
-          {mockSolidarityRequests.map((r) => {
+          {filtered.map((r) => {
             const circle = mockCircles.find((c) => c.id === r.circleId);
             return (
               <button key={r.id} onClick={() => setSelected(r)}
@@ -64,20 +109,24 @@ export default function SolidarityPage() {
                       <p className="text-[12px] text-gray-400 mt-0.5 max-w-md truncate">{r.reason}</p>
                     </div>
                   </div>
-                  <div className="text-right flex items-center gap-4">
-                    <div>
-                      <p className="text-[14px] font-bold text-gray-900">{fmt(r.amountRequested)}</p>
-                      <p className="text-[11px] text-gray-400">{circle?.name || r.circleId}</p>
-                    </div>
-                    <Eye size={15} className="text-gray-300" />
+                  <div className="text-right">
+                    <p className="text-[14px] font-bold text-gray-900">{fmt(r.amountRequested)}</p>
+                    <p className="text-[11px] text-gray-400">{circle?.name || r.circleId}</p>
                   </div>
                 </div>
               </button>
             );
           })}
         </div>
+        {filtered.length === 0 && (
+          <div className="p-8 text-center">
+            <HandHeart size={24} className="text-gray-300 mx-auto mb-3" />
+            <p className="text-[13px] text-gray-400">Aucune demande pour ce filtre</p>
+          </div>
+        )}
       </div>
 
+      {/* Detail modal */}
       <Modal open={!!selected} onClose={() => setSelected(null)} title="Demande de solidarité" subtitle={selected?.id} width="max-w-2xl">
         {selected && (
           <div className="space-y-5">
@@ -123,9 +172,25 @@ export default function SolidarityPage() {
                     </div>
                   ))}
                 </div>
-                <p className="text-[11px] text-gray-400 mt-2 italic">Les votes sont effectués par les membres du cercle. L&apos;administrateur intervient uniquement en cas de problème.</p>
               </div>
             )}
+
+            {/* Admin intervention section */}
+            <div className="border-t border-gray-100 pt-4">
+              <h4 className="text-[13px] font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                <MessageSquare size={14} /> Intervention administrateur
+              </h4>
+              <p className="text-[11px] text-gray-400 italic mb-3">Les votes sont effectués par les membres. L&apos;administrateur intervient uniquement en cas de problème (fraude, contestation, etc.)</p>
+              <div className="flex gap-2">
+                <input type="text" placeholder="Ajouter une note..." value={adminNote} onChange={(e) => setAdminNote(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddNote()}
+                  className="flex-1 px-3 py-2 bg-gray-50 border border-gray-100 rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400" />
+                <button onClick={handleAddNote} disabled={!adminNote.trim()}
+                  className="px-4 py-2 bg-emerald-500 text-white rounded-xl text-[13px] font-medium hover:bg-emerald-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                  Enregistrer
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </Modal>

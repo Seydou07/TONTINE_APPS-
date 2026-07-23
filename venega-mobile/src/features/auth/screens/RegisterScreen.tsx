@@ -19,7 +19,7 @@ import {
   User,
 } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { colors, spacing, radius } from '@venega/design-tokens/src/native';
+import { colors, spacing, radius } from '@venega/design-tokens';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -35,7 +35,7 @@ export default function RegisterScreen() {
   const handleRegister = async () => {
     setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await new Promise<void>((resolve) => setTimeout(() => resolve(), 1500));
       router.push('/otp');
     } catch (error) {
       console.error('Registration error:', error);

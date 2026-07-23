@@ -12,7 +12,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowRight, CheckCircle2 } from 'lucide-react-native';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
-import { colors, spacing, radius } from '@venega/design-tokens/src/native';
+import { colors, spacing, radius } from '@venega/design-tokens';
 
 const CODE_LENGTH = 6;
 
@@ -24,7 +24,7 @@ export default function OtpScreen() {
   const inputsRef = useRef<(TextInput | null)[]>([]);
 
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: ReturnType<typeof setInterval>;
     if (resendCooldown > 0) {
       timer = setInterval(() => {
         setResendCooldown((prev) => prev - 1);
@@ -56,7 +56,7 @@ export default function OtpScreen() {
   const handleVerify = async () => {
     setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await new Promise<void>((resolve) => setTimeout(() => resolve(), 1500));
       router.replace('/profile-setup');
     } catch (error) {
       console.error('OTP verification error:', error);

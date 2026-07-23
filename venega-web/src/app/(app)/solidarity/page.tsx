@@ -11,7 +11,7 @@ import {
   Coins,
   Vote,
 } from "lucide-react";
-import { mockSolidarityRequests } from '../../../packages/types/src/mock-data';
+import { mockSolidarityRequests } from '@venega/types';
 
 const formatXOF = (amount: number) => {
   return new Intl.NumberFormat("fr-BF", {

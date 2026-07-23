@@ -1,2 +1,2 @@
-import NotificationsScreen from '../../../src/features/notifications/screens/NotificationsScreen';
+import NotificationsScreen from '@/src/features/notifications/screens/NotificationsScreen';
 export default NotificationsScreen;

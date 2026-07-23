@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ArrowRight, Bell } from 'lucide-react';
-import { mockNotifications } from '../../../../packages/types/src/mock-data';
+import { mockNotifications } from '@venega/types';
 
 export default function NotificationsList() {
   return (

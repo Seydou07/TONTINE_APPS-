@@ -3,7 +3,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { MessageSquare, Users } from "lucide-react";
-import { mockCircles, mockChatMessages } from '../../../packages/types/src/mock-data';
+import { mockCircles, mockChatMessages } from '@venega/types';
 
 const formatDate = (dateStr: string) => {
   return new Date(dateStr).toLocaleTimeString("fr-FR", {
@@ -13,10 +13,10 @@ const formatDate = (dateStr: string) => {
 };
 
 export default function MessagesPage() {
-  const [activeCircle, setActiveCircle] = React.useState(mockCircles[0]);
-  const messages = mockChatMessages.filter(
-    (m) => m.circleId === activeCircle.id
-  );
+  const [activeCircle, setActiveCircle] = React.useState(mockCircles[0]!);
+  const messages = activeCircle ? mockChatMessages.filter(
+    (m) => m.circleId === activeCircle!.id
+  ) : [];
 
   return (
     <div className="flex-1 flex h-[calc(100vh-80px)]">

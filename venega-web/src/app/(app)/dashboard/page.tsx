@@ -1,11 +1,9 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { Plus } from 'lucide-react';
-import { mockCurrentUser } from '../../../packages/types/src/mock-data';
+import { mockCurrentUser } from '@venega/types';
 import StatsCards from '@/features/dashboard/components/StatsCards';
 import CircleCardGrid from '@/features/dashboard/components/CircleCardGrid';
 import RecentTransactions from '@/features/dashboard/components/RecentTransactions';
@@ -27,10 +25,6 @@ export default function DashboardPage() {
             </h1>
             <p className="text-text-muted mt-1">Voici l'état de vos cercles aujourd'hui</p>
           </div>
-          <Link href="/dashboard" className="btn-primary">
-            <Plus size={20} />
-            Créer un cercle
-          </Link>
         </div>
       </motion.div>
 

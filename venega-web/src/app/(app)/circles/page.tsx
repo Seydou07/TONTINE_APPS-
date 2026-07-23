@@ -1,10 +1,11 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { Coins, Users, Plus, ArrowRight, Filter } from "lucide-react";
-import { mockCircles } from '../../../packages/types/src/mock-data';
-import { CircleType } from '../../../packages/types/src';
+import { mockCircles } from '@venega/types';
+import { CircleType } from '@venega/types';
 
 const formatXOF = (amount: number) => {
   return new Intl.NumberFormat("fr-BF", {
@@ -28,10 +29,10 @@ export default function CirclesPage() {
               Gérez vos tontines et caisses de solidarité
             </p>
           </div>
-          <button className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl font-worksans font-semibold shadow-md hover:shadow-lg transition-all">
+          <Link href="/circles/create" className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl font-worksans font-semibold shadow-md hover:shadow-lg transition-all">
             <Plus size={20} />
             Créer un cercle
-          </button>
+          </Link>
         </div>
 
         {/* Filters */}

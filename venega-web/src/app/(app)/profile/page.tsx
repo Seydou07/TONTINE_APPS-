@@ -9,7 +9,7 @@ import {
   LogOut,
   CheckCircle2,
 } from "lucide-react";
-import { mockCurrentUser } from '../../../packages/types/src/mock-data';
+import { mockCurrentUser } from '@venega/types';
 import Image from "next/image";
 
 export default function ProfilePage() {
@@ -49,18 +49,18 @@ export default function ProfilePage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-surface border border-border rounded-xl p-4 text-center">
             <p className="text-3xl font-bold font-sora text-primary">
-              {mockCurrentUser.completedCycles}
+              {mockCurrentUser.reputationScore}
             </p>
             <p className="text-sm text-text-muted font-worksans">
-              Cycles complétés
+              Score de confiance
             </p>
           </div>
           <div className="bg-surface border border-border rounded-xl p-4 text-center">
             <p className="text-3xl font-bold font-sora text-accent">
-              {mockCurrentUser.reliabilityScore}
+              {mockCurrentUser.reputationScore}
             </p>
             <p className="text-sm text-text-muted font-worksans">
-              Score de confiance
+              Score de fiabilité
             </p>
           </div>
           <div className="bg-surface border border-border rounded-xl p-4 text-center">

@@ -2,16 +2,18 @@
 
 import React, { useState, useMemo } from 'react';
 import { mockUsers, mockMemberships, mockCircles } from '@venega/types/mocks';
-import { Search, Download, Filter, ChevronDown } from 'lucide-react';
+import { Search, Download, Filter, ChevronDown, X } from 'lucide-react';
 import Modal, { DetailRow } from '@/components/Modal';
+import { exportUsersCSV } from '@/lib/admin-store';
 
 const statusColors: Record<string, string> = {
   VERIFIED: 'bg-emerald-50 text-emerald-600',
   PENDING: 'bg-amber-50 text-amber-600',
   NOT_SUBMITTED: 'bg-gray-100 text-gray-500',
+  REJECTED: 'bg-red-50 text-red-500',
 };
 const statusLabels: Record<string, string> = {
-  VERIFIED: 'Vérifié', PENDING: 'En attente', NOT_SUBMITTED: 'Non soumis',
+  VERIFIED: 'Vérifié', PENDING: 'En attente', NOT_SUBMITTED: 'Non soumis', REJECTED: 'Rejeté',
 };
 const roleLabels: Record<string, string> = { PRESIDENT: 'Président', TREASURER: 'Trésorier', SECRETARY: 'Secrétaire', MEMBER: 'Membre' };
 const roleColors: Record<string, string> = { PRESIDENT: 'text-amber-600 bg-amber-50', TREASURER: 'text-blue-600 bg-blue-50', SECRETARY: 'text-violet-600 bg-violet-50', MEMBER: 'text-gray-500 bg-gray-100' };
@@ -20,6 +22,9 @@ export default function UsersPage() {
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState<'all' | 'in_circle' | 'presidents' | 'no_circle'>('all');
   const [selected, setSelected] = useState<any>(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterKyc, setFilterKyc] = useState<string>('all');
+  const [filterCircle, setFilterCircle] = useState<string>('all');
 
   const getMemberInfo = (userId: string) => {
     return mockMemberships.filter((m) => m.userId === userId).map((m) => {
@@ -40,8 +45,12 @@ export default function UsersPage() {
     if (tab === 'in_circle') list = mockUsers.filter((u) => mockMemberships.some((m) => m.userId === u.id));
     else if (tab === 'presidents') list = mockUsers.filter((u) => mockMemberships.some((m) => m.userId === u.id && m.role === 'PRESIDENT'));
     else if (tab === 'no_circle') list = mockUsers.filter((u) => !mockMemberships.some((m) => m.userId === u.id));
+    if (filterKyc !== 'all') list = list.filter((u) => u.kycStatus === filterKyc);
+    if (filterCircle !== 'all') list = list.filter((u) => mockMemberships.some((m) => m.userId === u.id && m.circleId === filterCircle));
     return list.filter((u) => !search || `${u.firstName} ${u.lastName} ${u.phoneNumber}`.toLowerCase().includes(search.toLowerCase()));
-  }, [tab, search]);
+  }, [tab, search, filterKyc, filterCircle]);
+
+  const activeFilters = (filterKyc !== 'all' ? 1 : 0) + (filterCircle !== 'all' ? 1 : 0);
 
   return (
     <div className="space-y-4">
@@ -52,14 +61,42 @@ export default function UsersPage() {
             className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-100 rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all" />
         </div>
         <div className="flex items-center gap-2">
-          <button className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-100 rounded-xl text-[13px] text-gray-500 hover:bg-gray-100 transition-colors">
-            <Filter size={14} /> Filtres <ChevronDown size={12} />
+          <button onClick={() => setShowFilters(!showFilters)}
+            className={`flex items-center gap-2 px-3 py-2 rounded-xl text-[13px] transition-colors ${activeFilters > 0 ? 'bg-emerald-50 border border-emerald-200 text-emerald-700' : 'bg-gray-50 border border-gray-100 text-gray-500 hover:bg-gray-100'}`}>
+            <Filter size={14} /> Filtres {activeFilters > 0 && `(${activeFilters})`}
           </button>
-          <button className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-xl text-[13px] font-medium text-gray-600 hover:bg-gray-50 transition-colors">
-            <Download size={14} /> Exporter
+          <button onClick={() => exportUsersCSV(filtered)}
+            className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-xl text-[13px] font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+            <Download size={14} /> Exporter CSV
           </button>
         </div>
       </div>
+
+      {showFilters && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-4">
+          <span className="text-[12px] font-medium text-gray-500">Filtrer par :</span>
+          <select value={filterKyc} onChange={(e) => setFilterKyc(e.target.value)}
+            className="px-3 py-1.5 bg-gray-50 border border-gray-100 rounded-xl text-[12px] font-medium text-gray-600 focus:outline-none focus:border-emerald-400 cursor-pointer">
+            <option value="all">KYC : Tous</option>
+            <option value="VERIFIED">Vérifié</option>
+            <option value="PENDING">En attente</option>
+            <option value="NOT_SUBMITTED">Non soumis</option>
+          </select>
+          <select value={filterCircle} onChange={(e) => setFilterCircle(e.target.value)}
+            className="px-3 py-1.5 bg-gray-50 border border-gray-100 rounded-xl text-[12px] font-medium text-gray-600 focus:outline-none focus:border-emerald-400 cursor-pointer">
+            <option value="all">Cercle : Tous</option>
+            {mockCircles.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+          {activeFilters > 0 && (
+            <button onClick={() => { setFilterKyc('all'); setFilterCircle('all'); }}
+              className="flex items-center gap-1 px-2 py-1 text-[12px] font-medium text-red-500 hover:text-red-600 transition-colors">
+              <X size={12} /> Effacer
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="bg-white rounded-2xl border border-gray-100 p-3 flex items-center gap-3">
         <div className="flex bg-gray-50 rounded-xl p-0.5 border border-gray-100">
@@ -157,7 +194,19 @@ export default function UsersPage() {
               <DetailRow label="Score réputation" value={`${selected.reputationScore}/100`} />
               <DetailRow label="Inscrit le" value={new Date(selected.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })} />
             </div>
-
+            {getMemberInfo(selected.id).length > 0 && (
+              <div>
+                <p className="text-[12px] font-semibold text-gray-700 mb-2 uppercase tracking-wider">Cercles</p>
+                <div className="space-y-1">
+                  {getMemberInfo(selected.id).map((m) => (
+                    <div key={m.circleId} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                      <span className="text-[13px] font-medium text-gray-900">{m.circleName}</span>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${roleColors[m.role]}`}>{roleLabels[m.role]}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </Modal>

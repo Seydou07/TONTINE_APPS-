@@ -32,6 +32,10 @@ export enum TransactionType {
   PAYOUT = 'PAYOUT',
   /** Décaissement d'aide depuis le fonds de solidarité */
   ASSISTANCE_DISBURSEMENT = 'ASSISTANCE_DISBURSEMENT',
+  /** Frais de rachat d'un nouveau membre (cotisations passées) */
+  JOINING_FEE = 'JOINING_FEE',
+  /** Dépôt de garantie */
+  DEPOSIT = 'DEPOSIT',
 }
 
 /** Statut d'une transaction */
@@ -87,4 +91,30 @@ export enum PaymentStatus {
 export enum ContributionMode {
   CASH = 'CASH',
   NATURE = 'NATURE',
+}
+
+/** Statut d'une demande d'adhésion à un cercle */
+export enum MembershipRequestStatus {
+  /** En attente de validation du président */
+  PENDING = 'PENDING',
+  /** Validée par le président — le membre peut payer et rejoindre */
+  APPROVED = 'APPROVED',
+  /** Rejetée par le président */
+  REJECTED = 'REJECTED',
+  /** Le membre a payé et est officiellement intégré */
+  COMPLETED = 'COMPLETED',
+}
+
+/** Type d'événement de fiabilité pour le suivi des retards */
+export enum ReliabilityEventType {
+  /** Cotisation payée à temps */
+  ON_TIME = 'ON_TIME',
+  /** Cotisation payée en retard */
+  LATE = 'LATE',
+  /** Cotisation non payée (manquée) */
+  MISSED = 'MISSED',
+  /** Membre exclu pour impayés */
+  EXCLUDED = 'EXCLUDED',
+  /** Remboursement partiel après exclusion */
+  PARTIAL_REFUND = 'PARTIAL_REFUND',
 }

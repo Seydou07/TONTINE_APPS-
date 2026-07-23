@@ -13,12 +13,13 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   interpolate,
+  interpolateColor,
   Extrapolate,
   withSpring,
 } from 'react-native-reanimated';
 import { Image } from 'expo-image';
 import { ArrowRight } from 'lucide-react-native';
-import { colors, spacing, radius } from '@venega/design-tokens/src/native';
+import { colors, spacing, radius } from '@venega/design-tokens';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -161,11 +162,10 @@ function PaginationDot({
       Extrapolate.CLAMP
     );
 
-    const backgroundColor = interpolate(
+    const backgroundColor = interpolateColor(
       scrollX.value,
       inputRange,
       [colors.border, colors.primary.DEFAULT, colors.border],
-      Extrapolate.CLAMP
     );
 
     return {

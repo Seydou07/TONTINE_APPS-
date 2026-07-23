@@ -2,6 +2,12 @@
  * VENEGA — Données Mockées Réalistes
  * Simule des utilisateurs et cercles burkinabè avec des montants en XOF.
  * À utiliser pour le développement frontend tant que le backend n'est pas connecté.
+ *
+ * NOTE : Les données mockées incluent les nouvelles fonctionnalités :
+ *   - Options de création de cercle (frais de gestion, dépôt, recalcul, etc.)
+ *   - Demandes d'adhésion avec conditions, CNIB, frais de rachat
+ *   - Score de fiabilité et événements de retard
+ *   - Validation des cotisations par le groupe
  */
 
 import {
@@ -15,6 +21,8 @@ import {
   Frequency,
   PaymentStatus,
   ContributionMode,
+  MembershipRequestStatus,
+  ReliabilityEventType,
 } from './enums';
 import type {
   User,
@@ -28,6 +36,9 @@ import type {
   AppNotification,
   CircleStats,
   AdminStats,
+  MembershipRequest,
+  ReliabilityEvent,
+  TurnValidation,
 } from './models';
 
 // ── Utilisateurs ──
@@ -98,6 +109,17 @@ export const mockUsers: User[] = [
     reputationScore: 60,
     createdAt: '2026-03-01T16:00:00Z',
   },
+  {
+    id: 'u7',
+    phoneNumber: '+22676789012',
+    displayName: 'Boubacar Diallo',
+    firstName: 'Boubacar',
+    lastName: 'Diallo',
+    avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
+    kycStatus: KycStatus.VERIFIED,
+    reputationScore: 85,
+    createdAt: '2026-03-10T10:00:00Z',
+  },
 ];
 
 // ── Cercles ──
@@ -116,6 +138,14 @@ export const mockCircles: Circle[] = [
     memberCount: 6,
     activeCycleId: 'cy1',
     createdAt: '2026-03-01T10:00:00Z',
+    // ── Options configurées par le président ──
+    managementFee: 500,
+    depositRequired: true,
+    recalculateOnLeave: true,
+    exclusionThreshold: 3,
+    nextPaymentRequired: true,
+    conditions: 'Cotisation obligatoire le 1er de chaque mois avant 18h00. Tout retard de plus de 5 jours entraîne une pénalité. Après 3 retards, le membre peut être exclu. Le président valide les virements après vérification.',
+    isActive: true,
   },
   {
     id: 'c2',
@@ -130,6 +160,13 @@ export const mockCircles: Circle[] = [
     memberCount: 10,
     activeCycleId: 'cy2',
     createdAt: '2026-04-01T08:00:00Z',
+    managementFee: 1000,
+    depositRequired: false,
+    recalculateOnLeave: false,
+    exclusionThreshold: 2,
+    nextPaymentRequired: false,
+    conditions: 'Cotisation hebdomadaire de 25 000 F le samedi matin. Pas de retard toléré. Le bénéficiaire est désigné par ordre de passage.',
+    isActive: true,
   },
   {
     id: 'c3',
@@ -144,6 +181,13 @@ export const mockCircles: Circle[] = [
     memberCount: 15,
     activeCycleId: 'cy3',
     createdAt: '2026-05-15T12:00:00Z',
+    managementFee: 0,
+    depositRequired: false,
+    recalculateOnLeave: false,
+    exclusionThreshold: 3,
+    nextPaymentRequired: false,
+    conditions: 'Cotisation mensuelle de 5 000 F pour le fonds de solidarité. Les demandes d\'aide sont votées par les membres. Le président et le trésorier valident ensemble tout décaissement.',
+    isActive: true,
   },
 ];
 
@@ -180,15 +224,36 @@ export const mockCycles: Cycle[] = [
   },
 ];
 
-// ── Membres du cercle c1 ──
+// ── Membres du cercle c1 (avec scores de fiabilité) ──
 
 export const mockMemberships: Membership[] = [
-  { userId: 'u1', circleId: 'c1', role: Role.PRESIDENT, turnOrder: 1, paymentStatus: PaymentStatus.PAID, joinedAt: '2026-03-01T10:00:00Z', user: mockUsers[0]! },
-  { userId: 'u2', circleId: 'c1', role: Role.TREASURER, turnOrder: 2, paymentStatus: PaymentStatus.PAID, joinedAt: '2026-03-02T09:00:00Z', user: mockUsers[1]! },
-  { userId: 'u3', circleId: 'c1', role: Role.MEMBER, turnOrder: 3, paymentStatus: PaymentStatus.PAID, joinedAt: '2026-03-03T11:00:00Z', user: mockUsers[2]! },
-  { userId: 'u4', circleId: 'c1', role: Role.MEMBER, turnOrder: 4, paymentStatus: PaymentStatus.LATE, joinedAt: '2026-03-04T14:00:00Z', user: mockUsers[3]! },
-  { userId: 'u5', circleId: 'c1', role: Role.SECRETARY, turnOrder: 5, paymentStatus: PaymentStatus.PENDING, joinedAt: '2026-03-05T08:00:00Z', user: mockUsers[4]! },
-  { userId: 'u6', circleId: 'c1', role: Role.MEMBER, turnOrder: 6, paymentStatus: PaymentStatus.PENDING, joinedAt: '2026-03-10T16:00:00Z', user: mockUsers[5]! },
+  { userId: 'u1', circleId: 'c1', role: Role.PRESIDENT, turnOrder: 1, paymentStatus: PaymentStatus.PAID, joinedAt: '2026-03-01T10:00:00Z', user: mockUsers[0]!, reliabilityScore: 95, hasReceivedPayout: true, hasDeposit: true },
+  { userId: 'u2', circleId: 'c1', role: Role.TREASURER, turnOrder: 2, paymentStatus: PaymentStatus.PAID, joinedAt: '2026-03-02T09:00:00Z', user: mockUsers[1]!, reliabilityScore: 90, hasReceivedPayout: true, hasDeposit: true },
+  { userId: 'u3', circleId: 'c1', role: Role.MEMBER, turnOrder: 3, paymentStatus: PaymentStatus.PAID, joinedAt: '2026-03-03T11:00:00Z', user: mockUsers[2]!, reliabilityScore: 100, hasReceivedPayout: true, hasDeposit: true },
+  { userId: 'u4', circleId: 'c1', role: Role.MEMBER, turnOrder: 4, paymentStatus: PaymentStatus.LATE, joinedAt: '2026-03-04T14:00:00Z', user: mockUsers[3]!, reliabilityScore: 70, hasReceivedPayout: false, hasDeposit: true },
+  { userId: 'u5', circleId: 'c1', role: Role.SECRETARY, turnOrder: 5, paymentStatus: PaymentStatus.PENDING, joinedAt: '2026-03-05T08:00:00Z', user: mockUsers[4]!, reliabilityScore: 88, hasReceivedPayout: false, hasDeposit: true },
+  { userId: 'u6', circleId: 'c1', role: Role.MEMBER, turnOrder: 6, paymentStatus: PaymentStatus.PENDING, joinedAt: '2026-03-10T16:00:00Z', user: mockUsers[5]!, reliabilityScore: 55, hasReceivedPayout: false, hasDeposit: false },
+];
+
+// ── Demandes d'adhésion en attente ──
+
+export const mockMembershipRequests: MembershipRequest[] = [
+  {
+    id: 'mr1',
+    circleId: 'c1',
+    userId: 'u7',
+    status: MembershipRequestStatus.PENDING,
+    fullName: 'Boubacar Diallo',
+    phoneNumber: '+22676789012',
+    depositNumber: '+22676789012',
+    cnibFrontUrl: '/mock/cnib-front-boubacar.jpg',
+    cnibBackUrl: '/mock/cnib-back-boubacar.jpg',
+    conditionsAccepted: true,
+    joiningFee: 30000,
+    depositAmount: 10000,
+    createdAt: '2026-07-10T14:00:00Z',
+    user: mockUsers[6]!,
+  },
 ];
 
 // ── Transactions récentes ──
@@ -265,6 +330,36 @@ export const mockSolidarityRequests: SolidarityRequest[] = [
   },
 ];
 
+// ── Événements de fiabilité (historique des retards/paiements) ──
+
+export const mockReliabilityEvents: ReliabilityEvent[] = [
+  // Moussa (u4) — 1 retard au tour 1
+  { id: 're1', userId: 'u4', circleId: 'c1', cycleId: 'cy1', type: ReliabilityEventType.LATE, scoreImpact: -1, description: 'Cotisation tour 1 payée le 5 juin (deadline: 1er juin)', createdAt: '2026-06-05T14:00:00Z' },
+  // Moussa (u4) — 1 retard au tour 2
+  { id: 're2', userId: 'u4', circleId: 'c1', cycleId: 'cy1', type: ReliabilityEventType.LATE, scoreImpact: -1, description: 'Cotisation tour 2 payée le 10 juillet (deadline: 1er juillet)', createdAt: '2026-07-10T09:00:00Z' },
+  // Rasmata (u5) — en attente au tour 2
+  { id: 're3', userId: 'u5', circleId: 'c1', cycleId: 'cy1', type: ReliabilityEventType.MISSED, scoreImpact: -3, description: 'Cotisation tour 2 non payée (deadline: 1er juillet)', createdAt: '2026-07-10T00:00:00Z' },
+  // Adama (u6) — en attente au tour 2
+  { id: 're4', userId: 'u6', circleId: 'c1', cycleId: 'cy1', type: ReliabilityEventType.MISSED, scoreImpact: -3, description: 'Cotisation tour 2 non payée (deadline: 1er juillet)', createdAt: '2026-07-10T00:00:00Z' },
+  // Adama (u6) — paiement à temps au tour 1
+  { id: 're5', userId: 'u6', circleId: 'c1', cycleId: 'cy1', type: ReliabilityEventType.ON_TIME, scoreImpact: 1, description: 'Cotisation tour 1 payée le 3 juin (deadline: 1er juin — retard de 2 jours, mais validé)', createdAt: '2026-06-03T16:00:00Z' },
+];
+
+// ── Validation du tour en cours (Tour 3 — c1) ──
+
+export const mockTurnValidation: TurnValidation = {
+  circleId: 'c1',
+  cycleId: 'cy1',
+  turnNumber: 3,
+  totalRequired: 6,
+  totalValidated: 4,
+  nextPaymentDone: false,
+  canRelease: false,
+  poolAmount: 40000,
+  managementFeeTotal: 3000,
+  beneficiaryAmount: 60000,
+};
+
 // ── Grand livre solidarité ──
 
 export const mockLedgerEntries: LedgerEntry[] = [
@@ -289,6 +384,8 @@ export const mockNotifications: AppNotification[] = [
   { id: 'n1', userId: 'u1', title: 'Cotisation reçue', body: 'Ibrahim Sawadogo a payé sa cotisation de 10 000 F CFA', type: 'PAYMENT_RECEIVED', read: false, createdAt: '2026-07-01T10:30:00Z' },
   { id: 'n2', userId: 'u1', title: 'Rappel de cotisation', body: 'Moussa Kaboré est en retard de 3 jours sur sa cotisation', type: 'PAYMENT_REMINDER', read: false, createdAt: '2026-07-04T08:00:00Z' },
   { id: 'n3', userId: 'u1', title: 'Demande d\'aide', body: 'Rasmata Zongo a soumis une demande d\'aide pour un mariage', type: 'AID_REQUEST', actionUrl: '/circles/c1/solidarity', read: true, createdAt: '2026-07-04T09:00:00Z' },
+  { id: 'n4', userId: 'u1', title: 'Nouvelle demande d\'adhésion', body: 'Boubacar Diallo demande à rejoindre Tontine Famille Ouédraogo', type: 'MEMBERSHIP_REQUEST', actionUrl: '/circles/c1', read: false, createdAt: '2026-07-10T14:00:00Z' },
+  { id: 'n5', userId: 'u5', title: 'Avertissement retard', body: 'Vous avez 1 retard dans Tontine Famille Ouédraogo. Score actuel : 88/100', type: 'EXCLUSION_WARNING', read: false, createdAt: '2026-07-10T00:00:00Z' },
 ];
 
 // ── Statistiques ──

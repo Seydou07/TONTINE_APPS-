@@ -3,8 +3,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Coins, Users, CheckCircle2, AlertCircle } from 'lucide-react';
-import { mockCircleStats } from '../../../../packages/types/src/mock-data';
-import { CircleType } from '../../../../packages/types/src';
+import { mockCircleStats } from '@venega/types';
+import { CircleType } from '@venega/types';
 
 const formatXOF = (amount: number) => {
   return new Intl.NumberFormat('fr-BF', { style: 'currency', currency: 'XOF', minimumFractionDigits: 0 }).format(amount);

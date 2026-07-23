@@ -99,7 +99,7 @@ export default function OtpPage() {
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: index * 0.1 }}
-            ref={(el) => (inputsRef.current[index] = el)}
+            ref={(el) => { inputsRef.current[index] = el; }}
             type="text"
             maxLength={1}
             value={digit}

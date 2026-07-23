@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
 import { router } from 'expo-router';
-import * as Animatable from 'react-native-animatable';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { Users, TrendingUp, Shield, ArrowRight } from 'lucide-react-native';
 import { colors, spacing, radius } from '@venega/design-tokens';
 
@@ -22,31 +22,31 @@ export default function LandingScreen() {
         </View>
 
         <View style={styles.hero}>
-          <Animatable.View animation="fadeInDown" duration={1000} style={styles.heroImageContainer}>
+          <Animated.View entering={FadeInDown.duration(1000)} style={styles.heroImageContainer}>
             <View style={styles.heroImage} />
             <View style={styles.badge}>
               <Users size={16} color={colors.primary.DEFAULT} />
               <Text style={styles.badgeText}>+2 400 membres actifs</Text>
             </View>
-          </Animatable.View>
+          </Animated.View>
 
-          <Animatable.Text animation="fadeInUp" duration={1000} delay={200} style={styles.title}>
+          <Animated.Text entering={FadeInUp.delay(200).duration(1000)} style={styles.title}>
             Gérer votre épargne{'\n'}en communauté{' '}
             <Text style={{ color: colors.primary.DEFAULT }}>simplement</Text>
-          </Animatable.Text>
+          </Animated.Text>
 
-          <Animatable.Text animation="fadeInUp" duration={1000} delay={400} style={styles.subtitle}>
+          <Animated.Text entering={FadeInUp.delay(400).duration(1000)} style={styles.subtitle}>
             Digitalisez vos tontines et votre caisse de solidarité, avec une interface claire et moderne.
-          </Animatable.Text>
+          </Animated.Text>
         </View>
 
         <View style={styles.features}>
           {features.map((feature, index) => (
-            <Animatable.View key={index} animation="fadeInUp" duration={1000} delay={600 + index * 150} style={styles.featureCard}>
+            <Animated.View key={index} entering={FadeInUp.delay(600 + index * 150).duration(1000)} style={styles.featureCard}>
               <View style={styles.featureIcon}>{feature.icon}</View>
               <Text style={styles.featureTitle}>{feature.title}</Text>
               <Text style={styles.featureDesc}>{feature.description}</Text>
-            </Animatable.View>
+            </Animated.View>
           ))}
         </View>
 

@@ -4,8 +4,8 @@ import React from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ArrowRight, Users, Coins, Calendar } from 'lucide-react';
-import { mockCircles } from '../../../../packages/types/src/mock-data';
-import { CircleType } from '../../../../packages/types/src';
+import { mockCircles } from '@venega/types';
+import { CircleType } from '@venega/types';
 
 const formatXOF = (amount: number) => {
   return new Intl.NumberFormat('fr-BF', { style: 'currency', currency: 'XOF', minimumFractionDigits: 0 }).format(amount);

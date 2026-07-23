@@ -6,6 +6,8 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
+    "./enums": "./src/enums.ts",
+    "./models": "./src/models.ts",
     "./mocks": "./src/mock-data.ts"
   },
   "files": ["src"]

@@ -1,0 +1,592 @@
+// ══════════════════════════════════════════════════════════════════════════════
+// VENEGA — Schéma Prisma Complet
+// Base de données : PostgreSQL
+// Backend : NestJS + Prisma ORM
+// ══════════════════════════════════════════════════════════════════════════════
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ENUMS
+// ══════════════════════════════════════════════════════════════════════════════
+
+/// Type de cercle — définit le comportement de l'application pour ce groupe
+enum CircleType {
+  TONTINE_ONLY     // Tontine rotative pure
+  SOLIDARITY_ONLY  // Caisse de solidarité pure
+  HYBRID           // Tontine + Caisse de solidarité greffée
+}
+
+/// Rôle d'un membre dans un cercle
+enum Role {
+  PRESIDENT
+  TREASURER
+  SECRETARY
+  MEMBER
+}
+
+/// Type de transaction financière
+enum TransactionType {
+  TONTINE_CONTRIBUTION      // Cotisation tontine
+  SOLIDARITY_CONTRIBUTION   // Cotisation solidarité
+  PAYOUT                    // Reversement cagnotte au bénéficiaire
+  ASSISTANCE_DISBURSEMENT   // Décaissement d'aide depuis le fonds solidarité
+  JOINING_FEE               // Frais de rachat d'un nouveau membre
+  DEPOSIT                   // Dépôt de garantie
+  MANAGEMENT_FEE            // Commission du président (marge)
+}
+
+/// Statut d'une transaction
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+/// Type d'événement de vie pour les demandes d'assistance
+enum EventType {
+  MALADIE
+  HOSPITALISATION
+  MARIAGE
+  DECES
+  NAISSANCE
+  AUTRE
+}
+
+/// Statut de vérification KYC
+enum KycStatus {
+  NOT_SUBMITTED
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+/// Statut d'une demande d'assistance
+enum AidRequestStatus {
+  PENDING
+  VOTING
+  APPROVED
+  REJECTED
+  DISBURSED
+}
+
+/// Fréquence du cycle
+enum Frequency {
+  DAILY
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+}
+
+/// Statut de paiement d'un membre pour un cycle donné
+enum PaymentStatus {
+  PAID
+  LATE
+  PENDING
+}
+
+/// Mode de contribution (espèces ou nature)
+enum ContributionMode {
+  CASH
+  NATURE
+}
+
+/// Statut d'une demande d'adhésion à un cercle
+enum MembershipRequestStatus {
+  PENDING    // En attente de validation du président
+  APPROVED   // Validée — le membre peut payer et rejoindre
+  REJECTED   // Rejetée par le président
+  COMPLETED  // Le membre a payé et est officiellement intégré
+}
+
+/// Type d'événement de fiabilité pour le suivi des retards
+enum ReliabilityEventType {
+  ON_TIME         // Cotisation payée à temps (+0)
+  LATE            // Cotisation payée en retard (-1)
+  MISSED          // Cotisation non payée (-3)
+  EXCLUDED        // Membre exclu pour impayés
+  PARTIAL_REFUND  // Remboursement partiel après exclusion
+}
+
+/// Type d'entrée au grand livre solidarité
+enum LedgerEntryType {
+  CREDIT
+  DEBIT
+}
+
+/// Type de notification
+enum NotificationType {
+  PAYMENT_REMINDER
+  PAYMENT_RECEIVED
+  AID_REQUEST
+  AID_APPROVED
+  PAYOUT
+  NEW_MEMBER
+  CHAT
+  MEMBERSHIP_REQUEST
+  MEMBERSHIP_APPROVED
+  MEMBERSHIP_REJECTED
+  EXCLUSION_WARNING
+  EXCLUDED
+}
+
+/// Opérateur mobile money
+enum MobileMoneyProvider {
+  ORANGE_MONEY
+  MOOV_MONEY
+}
+
+/// Type de document d'identité
+enum DocumentType {
+  CNIB
+  PASSPORT
+}
+
+/// Rôle administrateur backoffice
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+  MODERATOR
+}
+
+/// Statut du compte utilisateur
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+  BANNED
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MODÈLES
+// ══════════════════════════════════════════════════════════════════════════════
+
+/// Utilisateur de la plateforme
+model User {
+  id             String        @id @default(cuid())
+  phoneNumber    String        @unique
+  passwordHash   String
+  displayName    String
+  firstName      String
+  lastName       String
+  avatarUrl      String?
+  email          String?       @unique
+  kycStatus      KycStatus     @default(NOT_SUBMITTED)
+  kycDocumentUrl String?
+  kycSelfieUrl   String?
+  kycDocumentType DocumentType?
+  reputationScore Int           @default(50)
+  isPhoneVerified Boolean       @default(false)
+  status         AccountStatus @default(ACTIVE)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  // ── Relations ──
+  memberships           Membership[]
+  membershipRequests    MembershipRequest[]
+  transactions          Transaction[]
+  solidarityRequests    SolidarityRequest[]
+  aidVotes              AidVote[]
+  chatMessages          ChatMessage[]
+  notifications         AppNotification[]
+  reliabilityEvents     ReliabilityEvent[]
+  createdCircles        Circle[]          @relation("CircleCreator")
+  refreshTokens         RefreshToken[]
+
+  @@index([phoneNumber])
+  @@index([kycStatus])
+  @@index([reputationScore])
+}
+
+/// Token de rafraîchissement JWT
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([token])
+}
+
+/// Cercle (tontine, solidarité, ou hybride)
+model Circle {
+  id                  String       @id @default(cuid())
+  name                String
+  type                CircleType
+  tontineAmount       Int          @default(0)    // Montant cotisation tontine en XOF
+  solidarityAmount    Int          @default(0)    // Montant cotisation solidarité en XOF
+  frequency           Frequency
+  contributionMode    ContributionMode @default(CASH)
+  beneficiariesPerTurn Int         @default(1)
+  inviteCode          String       @unique
+  conditions          String                    // Conditions d'adhésion rédigées par le président
+  isActive            Boolean      @default(true)
+
+  // ── Options configurables par le président ──
+  managementFee       Int          @default(0)    // Frais de gestion (marge) en XOF par tour
+  depositRequired     Boolean      @default(false) // Dépôt de garantie obligatoire
+  recalculateOnLeave  Boolean      @default(false) // Recalculer les cotisations si départ
+  exclusionThreshold  Int          @default(3)    // Nombre de retards avant exclusion possible
+  nextPaymentRequired Boolean      @default(false) // Bénéficiaire doit payer le tour suivant
+
+  // ── Métadonnées ──
+  memberCount         Int          @default(0)
+  maxMembers          Int          @default(20)
+  activeCycleId       String?
+  createdById         String
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  // ── Relations ──
+  createdBy       User              @relation("CircleCreator", fields: [createdById], references: [id])
+  activeCycle     Cycle?            @relation("ActiveCycle", fields: [activeCycleId], references: [id])
+  cycles          Cycle[]
+  memberships     Membership[]
+  membershipRequests MembershipRequest[]
+  transactions    Transaction[]
+  solidarityRequests SolidarityRequest[]
+  ledgerEntries   LedgerEntry[]
+  chatMessages    ChatMessage[]
+  turnValidations TurnValidation[]
+
+  @@index([inviteCode])
+  @@index([createdById])
+  @@index([type])
+  @@index([isActive])
+}
+
+/// Cycle d'un cercle (une rotation complète ou un exercice comptable)
+model Cycle {
+  id           String    @id @default(cuid())
+  circleId     String
+  startDate    DateTime
+  endDate      DateTime?
+  isActive     Boolean   @default(true)
+  currentTurn  Int       @default(0)  // Numéro du tour actuel
+  totalTurns   Int       @default(0)  // Nombre total de tours
+  createdAt    DateTime  @default(now())
+
+  // ── Relations ──
+  circle            Circle            @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  circleAsActive    Circle?           @relation("ActiveCycle")
+  memberships       Membership[]
+  transactions      Transaction[]
+  solidarityRequests SolidarityRequest[]
+  reliabilityEvents ReliabilityEvent[]
+  turnValidations   TurnValidation[]
+
+  @@unique([circleId, id])
+  @@index([circleId])
+  @@index([isActive])
+}
+
+/// Appartenance d'un utilisateur à un cercle
+model Membership {
+  id              String        @id @default(cuid())
+  userId          String
+  circleId        String
+  role            Role          @default(MEMBER)
+  turnOrder       Int?          // Position dans l'ordre de passage (null si SOLIDARITY_ONLY)
+  paymentStatus   PaymentStatus @default(PENDING)
+  reliabilityScore Int          @default(100)  // Score fiabilité individuel
+  hasReceivedPayout Boolean     @default(false) // A déjà reçu la cagnotte → ne peut plus quitter
+  hasDeposit      Boolean       @default(false) // Dépôt de garantie actif
+  joinedAt        DateTime      @default(now())
+  leftAt          DateTime?     // Date de départ (volontaire ou exclusion)
+  isExcluded      Boolean       @default(false)
+  excludedAt      DateTime?
+
+  // ── Relations ──
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  circle  Circle  @relation(fields: [circleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, circleId])
+  @@index([userId])
+  @@index([circleId])
+  @@index([paymentStatus])
+  @@index([reliabilityScore])
+}
+
+/// Demande d'adhésion à un cercle
+model MembershipRequest {
+  id                  String                  @id @default(cuid())
+  circleId            String
+  userId              String
+  status              MembershipRequestStatus @default(PENDING)
+
+  // ── Informations fournies par le candidat ──
+  fullName            String
+  phoneNumber         String
+  depositNumber       String                  // Numéro Mobile Money pour recevoir la cagnotte
+  cnibFrontUrl        String                  // Copie CNIB recto
+  cnibBackUrl         String                  // Copie CNIB verso
+
+  // ── Validation des conditions ──
+  conditionsAccepted  Boolean                 @default(false)
+  joiningFee          Int                     @default(0)  // Frais de rachat (tours_passés × cotisation)
+  depositAmount       Int                     @default(0)  // Montant dépôt de garantie
+
+  // ── Décision ──
+  createdAt           DateTime                @default(now())
+  decidedAt           DateTime?
+  decidedById         String?                 // Le président qui a décidé
+  rejectionReason     String?
+
+  // ── Relations ──
+  circle    Circle  @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  decidedBy User?   @relation("MembershipDecision", fields: [decidedById], references: [id])
+
+  @@index([circleId])
+  @@index([userId])
+  @@index([status])
+}
+
+/// Transaction financière
+model Transaction {
+  id                 String            @id @default(cuid())
+  userId             String
+  cycleId            String
+  circleId           String
+  amount             Int               // Montant en XOF
+  type               TransactionType
+  status             TransactionStatus @default(PENDING)
+  providerReference  String?           // Référence CinetPay
+  provider           MobileMoneyProvider? // ORANGE_MONEY ou MOOV_MONEY
+  metadata           Json?             // Données supplémentaires (reçus, détails erreurs)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  // ── Relations ──
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cycle    Cycle  @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  circle   Circle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+
+  // ── Entrées ledger liées ──
+  ledgerEntries LedgerEntry[]
+
+  @@index([userId])
+  @@index([cycleId])
+  @@index([circleId])
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
+  @@index([providerReference])
+}
+
+/// Demande d'assistance (solidarité)
+model SolidarityRequest {
+  id              String          @id @default(cuid())
+  userId          String
+  cycleId         String
+  circleId        String
+  eventType       EventType
+  reason          String
+  amountRequested Int             // Montant demandé en XOF
+  amountApproved  Int             @default(0) // Montant approuvé après validation
+  status          AidRequestStatus @default(PENDING)
+  proofUrl        String?         // Justificatif uploadé
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  // ── Relations ──
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cycle  Cycle  @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  circle Circle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  votes  AidVote[]
+
+  @@index([circleId])
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+/// Vote sur une demande d'aide
+model AidVote {
+  id        String   @id @default(cuid())
+  requestId String
+  userId    String
+  approved  Boolean
+  votedAt   DateTime @default(now())
+
+  // ── Relations ──
+  request SolidarityRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([requestId, userId])
+  @@index([requestId])
+  @@index([userId])
+}
+
+/// Entrée du grand livre comptable de solidarité
+model LedgerEntry {
+  id                      String          @id @default(cuid())
+  circleId                String
+  type                    LedgerEntryType
+  amount                  Int
+  balanceAfter            Int             // Solde après cette opération
+  description             String
+  relatedTransactionId    String?
+
+  // ── Relations ──
+  circle            Circle        @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  relatedTransaction Transaction? @relation(fields: [relatedTransactionId], references: [id])
+  createdAt         DateTime      @default(now())
+
+  @@index([circleId])
+  @@index([createdAt])
+}
+
+/// Message dans la messagerie d'un cercle
+model ChatMessage {
+  id        String   @id @default(cuid())
+  circleId  String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+
+  // ── Relations ──
+  circle Circle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([circleId])
+  @@index([createdAt])
+}
+
+/// Notification push / in-app
+model AppNotification {
+  id        String           @id @default(cuid())
+  userId    String
+  title     String
+  body      String
+  type      NotificationType
+  actionUrl String?          // Lien de navigation dans l'app
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  // ── Relations ──
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([read])
+  @@index([createdAt])
+}
+
+/// Événement de fiabilité d'un membre dans un cercle
+model ReliabilityEvent {
+  id          String               @id @default(cuid())
+  userId      String
+  circleId    String
+  cycleId     String
+  type        ReliabilityEventType
+  scoreImpact Int                  // Impact sur le score (-1, -3, etc.)
+  description String               // Description lisible
+  createdAt   DateTime             @default(now())
+
+  // ── Relations ──
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  circle Circle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  cycle  Cycle  @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([circleId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+/// État de validation des cotisations pour un tour donné
+model TurnValidation {
+  id                 String   @id @default(cuid())
+  circleId           String
+  cycleId            String
+  turnNumber         Int
+  totalRequired      Int      // Nombre total de membres qui doivent payer
+  totalValidated     Int      @default(0) // Cotisations reçues et validées
+  nextPaymentDone    Boolean  @default(false) // Bénéficiaire a payé le tour suivant ?
+  canRelease         Boolean  @default(false) // Toutes conditions réunies pour le virement
+  poolAmount         Int      @default(0) // Montant total dans le pool
+  managementFeeTotal Int      @default(0) // Commission du président
+  beneficiaryAmount  Int      @default(0) // Montant versé au bénéficiaire
+  releasedAt         DateTime?            // Date du virement effectif
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // ── Relations ──
+  circle Circle @relation(fields: [circleId], references: [id], onDelete: Cascade)
+  cycle  Cycle  @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@unique([circleId, cycleId, turnNumber])
+  @@index([circleId])
+  @@index([canRelease])
+}
+
+/// Administrateur backoffice
+model Admin {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  role         AdminRole @default(ADMIN)
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // ── Audit log ──
+  auditLogs    AuditLog[]
+
+  @@index([email])
+}
+
+/// Journal d'audit des actions administratives
+model AuditLog {
+  id         String   @id @default(cuid())
+  adminId    String
+  action     String   // Description de l'action
+  targetType String   // user, circle, transaction, kyc, solidarity, system
+  targetId   String?  // ID de l'objet concerné
+  details    String?  // Détails supplémentaires (JSON ou texte)
+  type       String   @default("info") // success, warning, danger, info
+  createdAt  DateTime @default(now())
+
+  // ── Relations ──
+  admin Admin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@index([targetType])
+  @@index([createdAt])
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// VUES MATERIALISÉES (optionnel — pour les stats rapides)
+// ══════════════════════════════════════════════════════════════════════════════
+
+// NOTE: Prisma ne supporte pas les vues matérialisées nativement.
+// À créer manuellement en SQL après le premier migrate :
+//
+// CREATE MATERIALIZED VIEW circle_stats AS
+// SELECT
+//   c.id AS circle_id,
+//   c.name AS circle_name,
+//   COUNT(DISTINCT m.user_id) AS member_count,
+//   COALESCE(SUM(CASE WHEN t.status = 'COMPLETED' THEN t.amount ELSE 0 END), 0) AS total_collected,
+//   COALESCE(SUM(CASE WHEN t.type = 'PAYOUT' AND t.status = 'COMPLETED' THEN t.amount ELSE 0 END), 0) AS total_paid_out,
+//   COALESCE(le.balance_after, 0) AS solidarity_fund_balance
+// FROM "Circle" c
+// LEFT JOIN "Membership" m ON m.circle_id = c.id AND m.left_at IS NULL
+// LEFT JOIN "Transaction" t ON t.circle_id = c.id
+// LEFT JOIN (
+//   SELECT circle_id, balance_after
+//   FROM "LedgerEntry"
+//   WHERE id = (SELECT id FROM "LedgerEntry" ORDER BY created_at DESC LIMIT 1)
+// ) le ON le.circle_id = c.id
+// GROUP BY c.id, c.name, le.balance_after;
