@@ -1,24 +1,27 @@
 import { Tabs } from 'expo-router';
 import { Home, Users, Plus, Bell, User } from 'lucide-react-native';
 import { colors } from '@venega/design-tokens';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import React from 'react';
 
 export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarShowLabel: false,
+        tabBarShowLabel: true,
         tabBarActiveTintColor: colors.primary.DEFAULT,
         tabBarInactiveTintColor: colors.textMuted,
+        tabBarLabelStyle: {
+          fontFamily: 'WorkSansMedium',
+          fontSize: 11,
+          marginBottom: 4,
+        },
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
           borderTopWidth: 1,
-          paddingTop: 10,
-          paddingBottom: 10,
-          height: 70,
-          paddingHorizontal: 20,
+          height: 78,
+          paddingTop: 8,
         },
         headerShown: false,
       }}
@@ -28,7 +31,7 @@ export default function TabLayout() {
         options={{
           title: 'Accueil',
           tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
-            <Home size={24} color={color} fill={focused ? color : 'transparent'} />
+            <Home size={23} color={color} fill={focused ? color : 'transparent'} />
           ),
         }}
       />
@@ -37,7 +40,7 @@ export default function TabLayout() {
         options={{
           title: 'Cercles',
           tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
-            <Users size={24} color={color} fill={focused ? color : 'transparent'} />
+            <Users size={23} color={color} fill={focused ? color : 'transparent'} />
           ),
         }}
       />
@@ -45,7 +48,7 @@ export default function TabLayout() {
         name="create"
         options={{
           title: 'Créer',
-          tabBarIcon: ({ color }: { color: string }) => (
+          tabBarIcon: () => (
             <View style={styles.createButton}>
               <Plus size={20} color="#FFFFFF" />
             </View>
@@ -55,10 +58,10 @@ export default function TabLayout() {
       <Tabs.Screen
         name="notifications"
         options={{
-          title: 'Notifications',
+          title: 'Activité',
           tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
             <View>
-              <Bell size={24} color={color} fill={focused ? color : 'transparent'} />
+              <Bell size={23} color={color} fill={focused ? color : 'transparent'} />
               <View style={styles.badge} />
             </View>
           ),
@@ -69,7 +72,7 @@ export default function TabLayout() {
         options={{
           title: 'Profil',
           tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
-            <User size={24} color={color} fill={focused ? color : 'transparent'} />
+            <User size={23} color={color} fill={focused ? color : 'transparent'} />
           ),
         }}
       />
@@ -90,7 +93,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 12,
     elevation: 6,
-    marginBottom: 10,
+    marginBottom: 12,
   },
   badge: {
     position: 'absolute',

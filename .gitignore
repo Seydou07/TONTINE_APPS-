@@ -42,3 +42,8 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+
+# Archives and logs
+*.rar
+expo-server.log
+

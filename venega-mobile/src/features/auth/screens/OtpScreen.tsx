@@ -105,7 +105,9 @@ export default function OtpScreen() {
               {code.map((digit, index) => (
                 <View key={index} style={styles.codeInputContainer}>
                   <TextInput
-                    ref={(ref) => (inputsRef.current[index] = ref)}
+                    ref={(ref) => {
+                      inputsRef.current[index] = ref;
+                    }}
                     style={styles.codeInput}
                     value={digit}
                     onChangeText={(value) => handleCodeChange(index, value)}

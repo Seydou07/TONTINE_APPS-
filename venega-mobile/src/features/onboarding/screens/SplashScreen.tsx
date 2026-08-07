@@ -1,82 +1,140 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
   withSpring,
+  withSequence,
   Easing,
 } from 'react-native-reanimated';
-import { colors } from '@venega/design-tokens';
+import VenegaLogo from '../../../components/VenegaLogo';
+
+const { width } = Dimensions.get('window');
 
 export default function SplashScreen() {
   const router = useRouter();
 
-  const logoScale = useSharedValue(0.3);
+  const logoScale = useSharedValue(0.4);
   const logoOpacity = useSharedValue(0);
+  const logoRotate = useSharedValue(-30);
+  const ringScale = useSharedValue(0);
   const textOpacity = useSharedValue(0);
+  const textTranslate = useSharedValue(24);
 
   useEffect(() => {
-    logoScale.value = withSpring(1, { damping: 15, stiffness: 100 });
-    logoOpacity.value = withTiming(1, { duration: 800, easing: Easing.out(Easing.ease) });
+    ringScale.value = withTiming(1, { duration: 900, easing: Easing.out(Easing.cubic) });
+    logoOpacity.value = withTiming(1, { duration: 700, easing: Easing.out(Easing.cubic) });
+    logoScale.value = withSequence(
+      withSpring(1.15, { damping: 12, stiffness: 140 }),
+      withSpring(1, { damping: 14, stiffness: 160 }),
+    );
+    logoRotate.value = withSpring(0, { damping: 14, stiffness: 90 });
 
-    setTimeout(() => {
-      textOpacity.value = withTiming(1, { duration: 600, easing: Easing.out(Easing.ease) });
-    }, 400);
+    const t = setTimeout(() => {
+      textOpacity.value = withTiming(1, { duration: 600, easing: Easing.out(Easing.cubic) });
+      textTranslate.value = withTiming(0, { duration: 600, easing: Easing.out(Easing.cubic) });
+    }, 500);
 
     const timer = setTimeout(() => {
-      router.replace('/landing');
-    }, 2500);
+      router.replace('/onboarding');
+    }, 2800);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(t);
+      clearTimeout(timer);
+    };
   }, []);
 
-  const logoAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: logoScale.value }],
+  const logoStyle = useAnimatedStyle(() => ({
     opacity: logoOpacity.value,
+    transform: [{ scale: logoScale.value }, { rotate: `${logoRotate.value}deg` }],
   }));
 
-  const textAnimatedStyle = useAnimatedStyle(() => ({
+  const ringStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: ringScale.value }],
+    opacity: ringScale.value,
+  }));
+
+  const textStyle = useAnimatedStyle(() => ({
     opacity: textOpacity.value,
+    transform: [{ translateY: textTranslate.value }],
   }));
 
   return (
-    <View style={styles.container}>
-      <View style={styles.content}>
-        <Animated.View style={[styles.logoContainer, logoAnimatedStyle]}>
-          <View style={styles.logo}>
-            <Text style={styles.logoText}>V</Text>
-          </View>
-        </Animated.View>
+    <LinearGradient
+      colors={['#074B36', '#0B6E4F', '#0F8563']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.container}
+    >
+      <Animated.View pointerEvents="none" style={[styles.blob, styles.blobTop, ringStyle]} />
+      <Animated.View pointerEvents="none" style={[styles.blob, styles.blobBottom, ringStyle]} />
 
-        <Animated.View style={textAnimatedStyle}>
-          <Text style={styles.appName}>Venega</Text>
-          <Text style={styles.tagline}>Ce qui est clair</Text>
+      <View style={styles.center}>
+        <Animated.View style={[styles.glow, ringStyle]} />
+        <Animated.View style={logoStyle}>
+          <VenegaLogo size={120} showWordmark={false} />
         </Animated.View>
       </View>
-    </View>
+
+      <Animated.View style={[styles.bottom, textStyle]}>
+        <Text style={styles.wordmark}>VENEga</Text>
+        <Text style={styles.tagline}>L'épargne qui rassemble</Text>
+      </Animated.View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.bg,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  content: { alignItems: 'center' },
-  logoContainer: { marginBottom: 24 },
-  logo: {
-    width: 100, height: 100, borderRadius: 28,
-    backgroundColor: colors.primary.DEFAULT,
-    justifyContent: 'center', alignItems: 'center',
-    shadowColor: colors.primary.DEFAULT,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3, shadowRadius: 24, elevation: 10,
+  center: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  logoText: { fontSize: 52, fontWeight: '700', color: '#FFFFFF', fontFamily: 'Sora' },
-  appName: { fontSize: 32, fontWeight: '700', color: colors.text, fontFamily: 'Sora', marginBottom: 4 },
-  tagline: { fontSize: 16, color: colors.textMuted, fontFamily: 'WorkSans', textAlign: 'center' },
+  glow: {
+    position: 'absolute',
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: 'rgba(255, 255, 255, 0.10)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 60,
+  },
+  blob: {
+    position: 'absolute',
+    width: width * 0.6,
+    height: width * 0.6,
+    borderRadius: width * 0.3,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  blobTop: { top: -120, right: -90 },
+  blobBottom: { bottom: -140, left: -100 },
+  bottom: {
+    position: 'absolute',
+    bottom: 90,
+    alignItems: 'center',
+  },
+  wordmark: {
+    fontFamily: 'SoraBold',
+    fontSize: 34,
+    color: '#FFFFFF',
+    letterSpacing: 6,
+    textTransform: 'uppercase',
+    marginBottom: 10,
+  },
+  tagline: {
+    fontFamily: 'WorkSans',
+    fontSize: 15,
+    color: 'rgba(255, 255, 255, 0.75)',
+    letterSpacing: 1,
+  },
 });

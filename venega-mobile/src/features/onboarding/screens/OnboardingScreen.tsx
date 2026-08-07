@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+﻿import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,40 +7,48 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useSharedValue,
   useAnimatedScrollHandler,
   useAnimatedStyle,
-  withTiming,
   interpolate,
   interpolateColor,
   Extrapolate,
-  withSpring,
 } from 'react-native-reanimated';
-import { Image } from 'expo-image';
-import { ArrowRight } from 'lucide-react-native';
-import { colors, spacing, radius } from '@venega/design-tokens';
+import { Users, HeartHandshake, Smartphone, ArrowRight } from 'lucide-react-native';
+import { colors, radius } from '@venega/design-tokens';
+import type { SharedValue } from 'react-native-reanimated';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-const ONBOARDING_DATA = [
+const SLIDES = [
   {
     id: 1,
-    title: 'Gérez vos tontines facilement',
-    description: 'Créez et gérez vos cercles de tontine en quelques clics. Transparence totale pour tous les membres.',
-    image: 'https://images.unsplash.com/photo-1563986768494-4dee2763ff3f?w=800&q=80',
+    icon: Users,
+    title: 'CrÃ©ez vos tontines',
+    description:
+      'Formez des cercles d\'Ã©pargne clairs et transparents. Chaque membre sait quand vient son tour.',
+    gradient: ['#0B6E4F', '#0F8563', '#0B6E4F'] as [string, string, string],
+    tint: '#E4F0EB',
   },
   {
     id: 2,
-    title: 'Caisse de solidarité',
-    description: 'Créez des caisses de solidarité pour aider les membres en difficulté. Processus de validation simple et transparent.',
-    image: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=800&q=80',
+    icon: HeartHandshake,
+    title: 'La solidaritÃ© en action',
+    description:
+      'Activez une caisse de solidaritÃ© pour aider un membre en difficultÃ©. Ensemble, on va plus loin.',
+    gradient: ['#D9A441', '#C97B2D', '#B9852A'] as [string, string, string],
+    tint: '#FBF1DD',
   },
   {
     id: 3,
+    icon: Smartphone,
     title: 'Paiements Mobile Money',
-    description: 'Payez et recevez vos cotisations directement via Orange Money ou Moov Money grâce à notre intégration sécurisée.',
-    image: 'https://images.unsplash.com/photo-1609557915526-aec1f7220619?w=800&q=80',
+    description:
+      'Cotisez et recevez vos paiements via Orange Money et Moov Money, en toute sÃ©curitÃ©.',
+    gradient: ['#074B36', '#0B6E4F', '#0F8563'] as [string, string, string],
+    tint: '#E4F0EB',
   },
 ];
 
@@ -50,19 +58,14 @@ export default function OnboardingScreen() {
   const scrollX = useSharedValue(0);
   const scrollViewRef = useRef<Animated.ScrollView>(null);
 
-  const onScroll = useAnimatedScrollHandler({
-    onScroll: (event) => {
-      scrollX.value = event.contentOffset.x;
-    },
+  const onScroll = useAnimatedScrollHandler((event) => {
+    scrollX.value = event.contentOffset.x;
   });
 
   const handleNext = () => {
-    if (currentIndex < ONBOARDING_DATA.length - 1) {
+    if (currentIndex < SLIDES.length - 1) {
       const nextIndex = currentIndex + 1;
-      scrollViewRef.current?.scrollTo({
-        x: nextIndex * SCREEN_WIDTH,
-        animated: true,
-      });
+      scrollViewRef.current?.scrollTo({ x: nextIndex * SCREEN_WIDTH, animated: true });
       setCurrentIndex(nextIndex);
     } else {
       router.replace('/login');
@@ -75,6 +78,10 @@ export default function OnboardingScreen() {
 
   return (
     <View style={styles.container}>
+      <TouchableOpacity style={styles.skipTop} onPress={handleSkip}>
+        <Text style={styles.skipTopText}>Passer</Text>
+      </TouchableOpacity>
+
       <Animated.ScrollView
         ref={scrollViewRef}
         horizontal
@@ -87,94 +94,116 @@ export default function OnboardingScreen() {
           setCurrentIndex(newIndex);
         }}
       >
-        {ONBOARDING_DATA.map((item, index) => (
-          <View key={item.id} style={styles.slide}>
-            <View style={styles.imageContainer}>
-              <Image
-                source={item.image}
-                style={styles.image}
-                contentFit="cover"
-                transition={300}
-              />
-              <View style={styles.imageOverlay} />
-            </View>
-            <View style={styles.content}>
-              <Text style={styles.title}>{item.title}</Text>
-              <Text style={styles.description}>{item.description}</Text>
-            </View>
-          </View>
+        {SLIDES.map((slide, index) => (
+          <Slide key={slide.id} slide={slide} index={index} scrollX={scrollX} />
         ))}
       </Animated.ScrollView>
 
       <View style={styles.footer}>
         <View style={styles.pagination}>
-          {ONBOARDING_DATA.map((_, index) => (
-            <PaginationDot
-              key={index}
-              index={index}
-              currentIndex={currentIndex}
-              scrollX={scrollX}
-            />
+          {SLIDES.map((_, index) => (
+            <PaginationDot key={index} index={index} scrollX={scrollX} />
           ))}
         </View>
 
-        <View style={styles.actions}>
-          {currentIndex < ONBOARDING_DATA.length - 1 ? (
-            <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
-              <Text style={styles.skipText}>Passer</Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.placeholder} />
-          )}
-
-          <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
-            <Text style={styles.nextText}>
-              {currentIndex === ONBOARDING_DATA.length - 1 ? 'Commencer' : 'Suivant'}
-            </Text>
-            <ArrowRight size={20} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={styles.nextButton}
+          activeOpacity={0.85}
+          onPress={handleNext}
+        >
+          <Text style={styles.nextText}>
+            {currentIndex === SLIDES.length - 1 ? 'Commencer' : 'Suivant'}
+          </Text>
+          <ArrowRight size={20} color="#FFFFFF" />
+        </TouchableOpacity>
       </View>
+    </View>
+  );
+}
+
+function Slide({
+  slide,
+  index,
+  scrollX,
+}: {
+  slide: (typeof SLIDES)[number];
+  index: number;
+  scrollX: SharedValue<number>;
+}) {
+  const inputRange = [
+    (index - 1) * SCREEN_WIDTH,
+    index * SCREEN_WIDTH,
+    (index + 1) * SCREEN_WIDTH,
+  ];
+
+  const illustrationStyle = useAnimatedStyle(() => {
+    const scale = interpolate(scrollX.value, inputRange, [0.85, 1, 0.85], Extrapolate.CLAMP);
+    const rotate = interpolate(scrollX.value, inputRange, [8, 0, -8], Extrapolate.CLAMP);
+    return { transform: [{ scale }, { rotate: `${rotate}deg` }] };
+  });
+
+  const textStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(scrollX.value, inputRange, [0, 1, 0], Extrapolate.CLAMP);
+    const translateY = interpolate(scrollX.value, inputRange, [24, 0, -24], Extrapolate.CLAMP);
+    return { opacity, transform: [{ translateY }] };
+  });
+
+  const Icon = slide.icon;
+
+  return (
+    <View style={styles.slide}>
+      <View style={styles.illustrationArea}>
+        <Animated.View style={illustrationStyle}>
+          <LinearGradient
+            colors={slide.gradient}
+            start={{ x: 0.2, y: 0 }}
+            end={{ x: 0.9, y: 1 }}
+            style={styles.illustration}
+          >
+            <View style={styles.illustrationGlow} />
+            <View style={[styles.illustrationRing, { borderColor: 'rgba(255,255,255,0.25)' }]} />
+            <View style={[styles.illustrationRingSmall, { borderColor: 'rgba(255,255,255,0.18)' }]} />
+            <View style={styles.illustrationIcon}>
+              <Icon size={56} color="#FFFFFF" strokeWidth={1.8} />
+            </View>
+          </LinearGradient>
+        </Animated.View>
+      </View>
+
+      <Animated.View style={[styles.content, textStyle]}>
+        <View style={[styles.stepBadge, { backgroundColor: slide.tint }]}>
+          <Text style={styles.stepText}>0{index + 1}</Text>
+        </View>
+        <Text style={styles.title}>{slide.title}</Text>
+        <Text style={styles.description}>{slide.description}</Text>
+      </Animated.View>
     </View>
   );
 }
 
 function PaginationDot({
   index,
-  currentIndex,
   scrollX,
 }: {
   index: number;
-  currentIndex: number;
-  scrollX: Animated.SharedValue<number>;
+  scrollX: SharedValue<number>;
 }) {
-  const animatedStyle = useAnimatedStyle(() => {
+  const style = useAnimatedStyle(() => {
     const inputRange = [
       (index - 1) * SCREEN_WIDTH,
       index * SCREEN_WIDTH,
       (index + 1) * SCREEN_WIDTH,
     ];
-
-    const width = interpolate(
-      scrollX.value,
-      inputRange,
-      [8, 24, 8],
-      Extrapolate.CLAMP
-    );
-
+    const width = interpolate(scrollX.value, inputRange, [10, 30, 10], Extrapolate.CLAMP);
     const backgroundColor = interpolateColor(
       scrollX.value,
       inputRange,
       [colors.border, colors.primary.DEFAULT, colors.border],
     );
-
-    return {
-      width,
-      backgroundColor,
-    };
+    return { width, backgroundColor };
   });
 
-  return <Animated.View style={[styles.dot, animatedStyle]} />;
+  return <Animated.View style={[styles.dot, style]} />;
 }
 
 const styles = StyleSheet.create({
@@ -182,92 +211,141 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bg,
   },
+  skipTop: {
+    position: 'absolute',
+    top: 56,
+    right: 24,
+    zIndex: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+  skipTopText: {
+    fontFamily: 'WorkSansSemiBold',
+    fontSize: 15,
+    color: colors.textMuted,
+  },
   slide: {
     width: SCREEN_WIDTH,
     flex: 1,
   },
-  imageContainer: {
-    height: SCREEN_WIDTH,
-    position: 'relative',
+  illustrationArea: {
+    flex: 1.15,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
   },
-  image: {
-    width: '100%',
-    height: '100%',
+  illustration: {
+    width: SCREEN_WIDTH - 64,
+    height: SCREEN_WIDTH - 100,
+    borderRadius: radius.lg,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.18,
+    shadowRadius: 30,
+    elevation: 10,
   },
-  imageOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(11, 110, 79, 0.15)',
+  illustrationGlow: {
+    position: 'absolute',
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    top: -60,
+    right: -60,
+  },
+  illustrationRing: {
+    position: 'absolute',
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    borderWidth: 1.5,
+  },
+  illustrationRingSmall: {
+    position: 'absolute',
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    borderWidth: 1,
+  },
+  illustrationIcon: {
+    width: 116,
+    height: 116,
+    borderRadius: 58,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)',
   },
   content: {
     flex: 1,
-    paddingHorizontal: spacing[6],
-    paddingTop: spacing[8],
+    paddingHorizontal: 32,
+    paddingTop: 20,
+    alignItems: 'center',
+  },
+  stepBadge: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+    marginBottom: 16,
+  },
+  stepText: {
+    fontFamily: 'SoraBold',
+    fontSize: 13,
+    color: colors.primary.DEFAULT,
+    letterSpacing: 1,
   },
   title: {
+    fontFamily: 'SoraBold',
     fontSize: 28,
-    fontWeight: '700',
+    lineHeight: 36,
     color: colors.text,
-    fontFamily: 'Sora',
-    marginBottom: spacing[4],
-    lineHeight: 34,
+    textAlign: 'center',
+    marginBottom: 12,
   },
   description: {
-    fontSize: 16,
-    color: colors.textMuted,
     fontFamily: 'WorkSans',
-    lineHeight: 24,
+    fontSize: 16,
+    lineHeight: 26,
+    color: colors.textMuted,
+    textAlign: 'center',
   },
   footer: {
-    paddingHorizontal: spacing[6],
-    paddingBottom: spacing[8],
-    paddingTop: spacing[4],
+    paddingHorizontal: 32,
+    paddingBottom: 48,
+    paddingTop: 8,
   },
   pagination: {
     flexDirection: 'row',
-    gap: spacing[2],
-    marginBottom: spacing[6],
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 28,
   },
   dot: {
-    height: 8,
-    borderRadius: 4,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: colors.border,
-  },
-  actions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  skipButton: {
-    paddingVertical: spacing[3],
-    paddingHorizontal: spacing[2],
-  },
-  skipText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.textMuted,
-    fontFamily: 'WorkSans',
   },
   nextButton: {
     backgroundColor: colors.primary.DEFAULT,
-    paddingHorizontal: spacing[6],
-    paddingVertical: spacing[4],
-    borderRadius: radius.md,
+    borderRadius: radius.pill,
+    paddingVertical: 18,
     flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: spacing[2],
+    gap: 10,
     shadowColor: colors.primary.DEFAULT,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.28,
+    shadowRadius: 16,
+    elevation: 6,
   },
   nextText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'WorkSansSemiBold',
+    fontSize: 17,
     color: '#FFFFFF',
-    fontFamily: 'WorkSans',
-  },
-  placeholder: {
-    width: 60,
   },
 });
