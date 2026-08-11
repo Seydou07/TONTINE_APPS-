@@ -1,35 +1,71 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  StatusBar,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, spacing, radius } from '@venega/design-tokens';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, ArrowUpRight, ArrowDownLeft, ChevronDown, ChevronUp, Coins, Clock, Filter, FileText, Check, AlertTriangle, X } from 'lucide-react-native';
+import {
+  ArrowUpRight,
+  ArrowDownLeft,
+  ChevronDown,
+  ChevronUp,
+  FileText,
+  Filter,
+  X,
+  CreditCard,
+  Building2,
+  CheckCircle2,
+} from 'lucide-react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { mockTransactions, mockCircles, mockCycles } from '@venega/types';
 import { TransactionType, TransactionStatus } from '@venega/types';
 
 const formatXOF = (amount: number) =>
-  new Intl.NumberFormat('fr-BF', { style: 'currency', currency: 'XOF', minimumFractionDigits: 0 }).format(amount);
+  new Intl.NumberFormat('fr-FR').format(amount) + ' F CFA';
 
 const formatDateTime = (dateStr: string) => {
   const d = new Date(dateStr);
-  const day = d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+  const day = d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
   const time = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-  return `${day} ${time}`;
+  return `${day} à ${time}`;
 };
 
-const typeLabels: Record<string, string> = {
-  TONTINE_CONTRIBUTION: 'Cotisation tontine',
-  SOLIDARITY_CONTRIBUTION: 'Cotisation solidarité',
-  PAYOUT: 'Virement reçu',
-  ASSISTANCE_DISBURSEMENT: 'Aide solidarité',
-  JOINING_FEE: 'Frais de rachat',
-  DEPOSIT: 'Dépôt de garantie',
-};
-
-const statusLabels: Record<string, string> = {
-  COMPLETED: 'Terminé',
-  PENDING: 'En attente',
-  FAILED: 'Échoué',
+const typeMeta: Record<string, { label: string; icon: any; color: string; bg: string }> = {
+  TONTINE_CONTRIBUTION: {
+    label: 'Cotisation',
+    icon: CreditCard,
+    color: '#059669',
+    bg: 'rgba(16, 185, 129, 0.1)',
+  },
+  SOLIDARITY_CONTRIBUTION: {
+    label: 'Cotisation solidarité',
+    icon: CreditCard,
+    color: '#D97706',
+    bg: 'rgba(217, 119, 6, 0.1)',
+  },
+  PAYOUT: {
+    label: 'Versement',
+    icon: ArrowDownLeft,
+    color: '#074B36',
+    bg: 'rgba(7, 75, 54, 0.1)',
+  },
+  FEE_PAYMENT: {
+    label: 'Frais de gestion',
+    icon: Building2,
+    color: '#6366F1',
+    bg: 'rgba(99, 102, 241, 0.1)',
+  },
+  JOINING_FEE: {
+    label: 'Frais adhésion',
+    icon: CheckCircle2,
+    color: '#8B5CF6',
+    bg: 'rgba(139, 92, 246, 0.1)',
+  },
 };
 
 export default function ActivityScreen() {
@@ -37,284 +73,457 @@ export default function ActivityScreen() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [filterCircle, setFilterCircle] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
 
-  const allTx = mockTransactions;
+  // Transactions synthétiques propres : Cotisation, Versement, Frais
+  const mockExtendedTx = [
+    {
+      id: 'tx-1',
+      circleId: 'c1',
+      cycleId: 'cy1',
+      type: TransactionType.TONTINE_CONTRIBUTION,
+      amount: 10500,
+      status: TransactionStatus.COMPLETED,
+      memberName: 'Aminata Diallo',
+      providerReference: 'PAY-884912',
+      createdAt: '2026-08-11T10:15:00Z',
+    },
+    {
+      id: 'tx-2',
+      circleId: 'c1',
+      cycleId: 'cy1',
+      type: TransactionType.PAYOUT,
+      amount: 60000,
+      status: TransactionStatus.COMPLETED,
+      memberName: 'Seydou Ouattara (Bénéficiaire)',
+      providerReference: 'TX-993810',
+      createdAt: '2026-08-11T09:45:00Z',
+    },
+    {
+      id: 'tx-3',
+      circleId: 'c1',
+      cycleId: 'cy1',
+      type: 'FEE_PAYMENT',
+      amount: 2700,
+      status: TransactionStatus.COMPLETED,
+      memberName: 'Fondateur net (90%)',
+      providerReference: 'FEE-202608',
+      createdAt: '2026-08-11T09:45:00Z',
+    },
+    {
+      id: 'tx-4',
+      circleId: 'c2',
+      cycleId: 'cy2',
+      type: TransactionType.TONTINE_CONTRIBUTION,
+      amount: 25000,
+      status: TransactionStatus.COMPLETED,
+      memberName: 'Ibrahim Sawadogo',
+      providerReference: 'PAY-774102',
+      createdAt: '2026-08-10T16:20:00Z',
+    },
+    {
+      id: 'tx-5',
+      circleId: 'c1',
+      cycleId: 'cy1',
+      type: TransactionType.SOLIDARITY_CONTRIBUTION,
+      amount: 2000,
+      status: TransactionStatus.COMPLETED,
+      memberName: 'Fatou Traoré',
+      providerReference: 'SOL-554201',
+      createdAt: '2026-08-09T14:10:00Z',
+    },
+    ...mockTransactions,
+  ];
 
-  const enriched = allTx.map((tx) => {
+  const enriched = mockExtendedTx.map((tx) => {
     const circle = mockCircles.find((c) => c.id === tx.circleId);
     const cycle = mockCycles.find((c) => c.id === tx.cycleId);
     const month = new Date(tx.createdAt).getMonth();
-    const turnNumber = cycle ? cycle.currentTurn - (6 - month) : null;
-    return { ...tx, circleName: circle?.name ?? 'Cercle inconnu', circleInviteCode: circle?.inviteCode, turnNumber };
+    const turnNumber = cycle ? cycle.currentTurn - Math.abs(6 - month) : 1;
+    return {
+      ...tx,
+      circleName: circle?.name ?? 'Tontine Familiale',
+      circleInviteCode: circle?.inviteCode,
+      turnNumber,
+    };
   });
 
   const filtered = enriched.filter((tx) => {
     if (filterCircle !== 'all' && tx.circleId !== filterCircle) return false;
     if (filterType !== 'all' && tx.type !== filterType) return false;
-    if (filterStatus !== 'all' && tx.status !== filterStatus) return false;
     return true;
   });
 
-  const groupedByCircle = filtered.reduce((acc, tx) => {
-    if (!acc[tx.circleId]) acc[tx.circleId] = { name: tx.circleName, inviteCode: tx.circleInviteCode, transactions: [] };
-    acc[tx.circleId]!.transactions.push(tx);
-    return acc;
-  }, {} as Record<string, { name: string; inviteCode?: string; transactions: typeof enriched }>);
-
-  const totalPaid = filtered.filter((t) => t.status === TransactionStatus.COMPLETED && t.type !== TransactionType.PAYOUT).reduce((s, t) => s + t.amount, 0);
-  const totalReceived = filtered.filter((t) => t.status === TransactionStatus.COMPLETED && t.type === TransactionType.PAYOUT).reduce((s, t) => s + t.amount, 0);
-  const pendingCount = filtered.filter((t) => t.status === TransactionStatus.PENDING).length;
-
-  const activeFilters = (filterCircle !== 'all' ? 1 : 0) + (filterType !== 'all' ? 1 : 0) + (filterStatus !== 'all' ? 1 : 0);
+  const activeFilters = (filterCircle !== 'all' ? 1 : 0) + (filterType !== 'all' ? 1 : 0);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <ArrowLeft size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Mon historique</Text>
-        <TouchableOpacity
-          style={[styles.filterToggle, activeFilters > 0 && styles.filterToggleActive]}
-          onPress={() => setShowFilters(!showFilters)}
-        >
-          <Filter size={18} color={activeFilters > 0 ? '#fff' : colors.text} />
-          {activeFilters > 0 && (
-            <View style={styles.filterBadge}>
-              <Text style={styles.filterBadgeText}>{activeFilters}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Summary Cards */}
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <View style={[styles.statIcon, { backgroundColor: '#ECFDF5' }]}>
-              <ArrowUpRight size={18} color={colors.success} />
-            </View>
-            <Text style={[styles.statValue, { color: colors.success }]}>{formatXOF(totalPaid)}</Text>
-            <Text style={styles.statLabel}>Total versé</Text>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#074B36" />
+      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+        {/* En-tête vert émeraude */}
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.headerTitle}>Historique</Text>
+            <Text style={styles.headerSubtitle}>Toutes vos cotisations et versements</Text>
           </View>
-          <View style={[styles.statCard, { marginLeft: spacing[3] }]}>
-            <View style={[styles.statIcon, { backgroundColor: colors.primary.tint }]}>
-              <ArrowDownLeft size={18} color={colors.primary.DEFAULT} />
-            </View>
-            <Text style={[styles.statValue, { color: colors.primary.DEFAULT }]}>{formatXOF(totalReceived)}</Text>
-            <Text style={styles.statLabel}>Total reçu</Text>
-          </View>
-        </View>
-        <View style={styles.statCardFull}>
-          <View style={[styles.statIcon, { backgroundColor: '#FEF3C7' }]}>
-            <Clock size={18} color="#D97706" />
-          </View>
-          <Text style={[styles.statValue, { color: '#D97706' }]}>{pendingCount}</Text>
-          <Text style={styles.statLabel}>En attente</Text>
-        </View>
-
-        {/* Filters */}
-        {showFilters && (
-          <View style={styles.filtersCard}>
-            <Text style={styles.filtersTitle}>Filtrer</Text>
-            <View style={styles.filterGroup}>
-              <Text style={styles.filterLabel}>Cercle</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterChips}>
-                <TouchableOpacity style={[styles.chip, filterCircle === 'all' && styles.chipActive]} onPress={() => setFilterCircle('all')}>
-                  <Text style={[styles.chipText, filterCircle === 'all' && styles.chipTextActive]}>Tous</Text>
-                </TouchableOpacity>
-                {mockCircles.map((c) => (
-                  <TouchableOpacity key={c.id} style={[styles.chip, filterCircle === c.id && styles.chipActive]} onPress={() => setFilterCircle(c.id)}>
-                    <Text style={[styles.chipText, filterCircle === c.id && styles.chipTextActive]}>{c.name}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-            <View style={styles.filterGroup}>
-              <Text style={styles.filterLabel}>Type</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterChips}>
-                <TouchableOpacity style={[styles.chip, filterType === 'all' && styles.chipActive]} onPress={() => setFilterType('all')}>
-                  <Text style={[styles.chipText, filterType === 'all' && styles.chipTextActive]}>Tous</Text>
-                </TouchableOpacity>
-                {Object.entries(typeLabels).map(([key, label]) => (
-                  <TouchableOpacity key={key} style={[styles.chip, filterType === key && styles.chipActive]} onPress={() => setFilterType(key)}>
-                    <Text style={[styles.chipText, filterType === key && styles.chipTextActive]}>{label}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-            <View style={styles.filterGroup}>
-              <Text style={styles.filterLabel}>Statut</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterChips}>
-                <TouchableOpacity style={[styles.chip, filterStatus === 'all' && styles.chipActive]} onPress={() => setFilterStatus('all')}>
-                  <Text style={[styles.chipText, filterStatus === 'all' && styles.chipTextActive]}>Tous</Text>
-                </TouchableOpacity>
-                {Object.entries(statusLabels).map(([key, label]) => (
-                  <TouchableOpacity key={key} style={[styles.chip, filterStatus === key && styles.chipActive]} onPress={() => setFilterStatus(key)}>
-                    <Text style={[styles.chipText, filterStatus === key && styles.chipTextActive]}>{label}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
+          <TouchableOpacity
+            style={[styles.filterToggle, activeFilters > 0 && styles.filterToggleActive]}
+            onPress={() => setShowFilters(!showFilters)}
+            activeOpacity={0.8}
+          >
+            <Filter size={18} color="#FFFFFF" />
             {activeFilters > 0 && (
-              <TouchableOpacity style={styles.clearFiltersBtn} onPress={() => { setFilterCircle('all'); setFilterType('all'); setFilterStatus('all'); }}>
-                <X size={14} color={colors.danger.DEFAULT} />
-                <Text style={styles.clearFiltersText}>Effacer les filtres</Text>
-              </TouchableOpacity>
+              <View style={styles.filterBadge}>
+                <Text style={styles.filterBadgeText}>{activeFilters}</Text>
+              </View>
             )}
-          </View>
-        )}
+          </TouchableOpacity>
+        </View>
 
-        {/* Grouped by Circle */}
-        {Object.keys(groupedByCircle).length === 0 && (
-          <View style={styles.emptyCard}>
-            <FileText size={24} color={colors.textMuted} />
-            <Text style={styles.emptyText}>Aucune transaction pour ces filtres</Text>
-          </View>
-        )}
+        {/* Corps crème emboîté */}
+        <View style={styles.contentBody}>
+          <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+            {/* Panneau de filtres optionnel */}
+            {showFilters && (
+              <Animated.View entering={FadeInDown.duration(300)} style={styles.filtersCard}>
+                <Text style={styles.filtersTitle}>Filtrer par cercle</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterChipsRow}>
+                  <TouchableOpacity
+                    style={[styles.chip, filterCircle === 'all' && styles.chipActive]}
+                    onPress={() => setFilterCircle('all')}
+                  >
+                    <Text style={[styles.chipText, filterCircle === 'all' && styles.chipTextActive]}>Tous</Text>
+                  </TouchableOpacity>
+                  {mockCircles.map((c) => (
+                    <TouchableOpacity
+                      key={c.id}
+                      style={[styles.chip, filterCircle === c.id && styles.chipActive]}
+                      onPress={() => setFilterCircle(c.id)}
+                    >
+                      <Text style={[styles.chipText, filterCircle === c.id && styles.chipTextActive]}>{c.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </Animated.View>
+            )}
 
-        {Object.entries(groupedByCircle).map(([circleId, group]) => {
-          const circle = mockCircles.find((c) => c.id === circleId);
-          return (
-            <View key={circleId} style={styles.circleGroup}>
-              <TouchableOpacity
-                style={styles.circleGroupHeader}
-                onPress={() => router.push(`/circle/${circleId}`)}
-              >
-                <View style={styles.circleGroupIcon}>
-                  <Coins size={18} color={colors.primary.DEFAULT} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.circleGroupName}>{group.name}</Text>
-                  <Text style={styles.circleGroupMeta}>{group.transactions.length} transaction{group.transactions.length > 1 ? 's' : ''}</Text>
-                </View>
-                <Text style={styles.circleGroupCode}>{group.inviteCode}</Text>
-              </TouchableOpacity>
-
-              {group.transactions
-                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                .map((tx) => {
+            {/* Liste de cartes de transactions séparées */}
+            {filtered.length === 0 ? (
+              <View style={styles.emptyCard}>
+                <FileText size={36} color="#CBD5E1" strokeWidth={1.5} />
+                <Text style={styles.emptyTitle}>Aucune transaction</Text>
+              </View>
+            ) : (
+              <View style={styles.txListContainer}>
+                {filtered.map((tx) => {
                   const isExpanded = expandedId === tx.id;
-                  const isOutgoing = tx.type !== TransactionType.PAYOUT && tx.type !== TransactionType.ASSISTANCE_DISBURSEMENT;
-                  const statusColor = tx.status === TransactionStatus.COMPLETED ? colors.success : tx.status === TransactionStatus.PENDING ? '#D97706' : colors.danger.DEFAULT;
+                  const meta = typeMeta[tx.type] || {
+                    label: tx.type,
+                    icon: CreditCard,
+                    color: '#074B36',
+                    bg: 'rgba(7, 75, 54, 0.08)',
+                  };
+                  const IconComp = meta.icon;
 
                   return (
-                    <View key={tx.id}>
+                    <View key={tx.id} style={styles.txCardItem}>
                       <TouchableOpacity
-                        style={styles.txRow}
+                        style={styles.txRowHeader}
+                        activeOpacity={0.85}
                         onPress={() => setExpandedId(isExpanded ? null : tx.id)}
                       >
-                        <View style={[styles.txIcon, { backgroundColor: isOutgoing ? '#ECFDF5' : colors.primary.tint }]}>
-                          {isOutgoing ? <ArrowUpRight size={16} color={colors.success} /> : <ArrowDownLeft size={16} color={colors.primary.DEFAULT} />}
+                        {/* Petit dot icône */}
+                        <View style={[styles.dotBox, { backgroundColor: meta.bg }]}>
+                          <IconComp size={16} color={meta.color} />
                         </View>
+
+                        {/* Libellé direct : Cotisation, Versement, Frais */}
                         <View style={{ flex: 1 }}>
-                          <Text style={styles.txType}>{typeLabels[tx.type] || tx.type}</Text>
-                          <Text style={styles.txMeta}>{tx.memberName} — Tour {tx.turnNumber ?? '—'}</Text>
+                          <Text style={styles.slimTypeTitle}>{meta.label}</Text>
+                          <Text style={styles.slimDateText}>{formatDateTime(tx.createdAt)}</Text>
                         </View>
-                        <View style={styles.txRight}>
-                          <Text style={[styles.txAmount, { color: isOutgoing ? colors.success : colors.primary.DEFAULT }]}>
-                            {isOutgoing ? '+' : ''}{formatXOF(tx.amount)}
-                          </Text>
-                          <View style={[styles.txStatus, { backgroundColor: statusColor + '18' }]}>
-                            <Text style={[styles.txStatusText, { color: statusColor }]}>{statusLabels[tx.status]}</Text>
-                          </View>
-                        </View>
-                        {isExpanded ? <ChevronUp size={16} color={colors.textMuted} style={{ marginLeft: spacing[2] }} /> : <ChevronDown size={16} color={colors.textMuted} style={{ marginLeft: spacing[2] }} />}
+
+                        {/* Montant */}
+                        <Text style={[styles.slimAmountText, { color: meta.color }]}>
+                          {formatXOF(tx.amount)}
+                        </Text>
+
+                        {/* Chevron dépliant */}
+                        {isExpanded ? (
+                          <ChevronUp size={16} color="#94A3B8" style={{ marginLeft: 6 }} />
+                        ) : (
+                          <ChevronDown size={16} color="#94A3B8" style={{ marginLeft: 6 }} />
+                        )}
                       </TouchableOpacity>
 
+                      {/* Volet de détail déplié uniquement au clic */}
                       {isExpanded && (
-                        <View style={styles.txExpanded}>
-                          <View style={styles.txExpandedRow}>
-                            <View style={styles.txExpandedCol}>
-                              <Text style={styles.txExpandedLabel}>Référence</Text>
-                              <Text style={styles.txExpandedValue}>{tx.providerReference || '—'}</Text>
-                            </View>
-                            <View style={styles.txExpandedCol}>
-                              <Text style={styles.txExpandedLabel}>Tour</Text>
-                              <Text style={styles.txExpandedValue}>{tx.turnNumber ? `Tour ${tx.turnNumber}` : '—'}</Text>
-                            </View>
+                        <Animated.View entering={FadeInDown.duration(200)} style={styles.expandedDetailBox}>
+                          <View style={styles.detailRow}>
+                            <Text style={styles.detailLabel}>Cercle :</Text>
+                            <Text style={styles.detailValBold}>{tx.circleName}</Text>
                           </View>
-                          <View style={styles.txExpandedRow}>
-                            <View style={styles.txExpandedCol}>
-                              <Text style={styles.txExpandedLabel}>Date & heure</Text>
-                              <Text style={styles.txExpandedValue}>{formatDateTime(tx.createdAt)}</Text>
-                            </View>
-                            <View style={styles.txExpandedCol}>
-                              <Text style={styles.txExpandedLabel}>Membre</Text>
-                              <Text style={styles.txExpandedValue}>{tx.memberName}</Text>
-                            </View>
+
+                          <View style={styles.detailRow}>
+                            <Text style={styles.detailLabel}>Tour de rotation :</Text>
+                            <Text style={styles.detailVal}>Tour {tx.turnNumber ?? 1}</Text>
                           </View>
-                          <View style={styles.txExpandedRow}>
-                            <View style={styles.txExpandedCol}>
-                              <Text style={styles.txExpandedLabel}>Type</Text>
-                              <Text style={styles.txExpandedValue}>{typeLabels[tx.type]}</Text>
-                            </View>
-                            <View style={styles.txExpandedCol}>
-                              <Text style={styles.txExpandedLabel}>Montant</Text>
-                              <Text style={[styles.txExpandedValue, { fontWeight: '700' }]}>{formatXOF(tx.amount)}</Text>
-                            </View>
+
+                          <View style={styles.detailRow}>
+                            <Text style={styles.detailLabel}>Membre / Concerne :</Text>
+                            <Text style={styles.detailVal}>{tx.memberName}</Text>
                           </View>
-                        </View>
+
+                          <View style={styles.detailRow}>
+                            <Text style={styles.detailLabel}>Référence :</Text>
+                            <Text style={styles.detailValCode}>{tx.providerReference || 'PAY-2026-X'}</Text>
+                          </View>
+
+                          <TouchableOpacity
+                            style={styles.detailCircleBtn}
+                            onPress={() => router.push(`/circle/${tx.circleId}`)}
+                          >
+                            <Text style={styles.detailCircleBtnText}>Ouvrir le cercle →</Text>
+                          </TouchableOpacity>
+                        </Animated.View>
                       )}
                     </View>
                   );
                 })}
-            </View>
-          );
-        })}
-      </ScrollView>
-    </SafeAreaView>
+              </View>
+            )}
+          </ScrollView>
+        </View>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing[4], paddingVertical: spacing[3] },
-  backBtn: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: colors.text, fontFamily: 'Sora', textAlign: 'center' },
-  filterToggle: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center', borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  filterToggleActive: { backgroundColor: colors.primary.DEFAULT, borderColor: colors.primary.DEFAULT },
-  filterBadge: { position: 'absolute', top: 4, right: 4, width: 16, height: 16, borderRadius: 8, backgroundColor: colors.danger.DEFAULT, justifyContent: 'center', alignItems: 'center' },
-  filterBadgeText: { fontSize: 9, fontWeight: '700', color: '#fff', fontFamily: 'WorkSans' },
-  scroll: { padding: spacing[5], paddingBottom: 40 },
-  statsRow: { flexDirection: 'row', marginBottom: spacing[3] },
-  statCard: { flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 14, padding: spacing[4] },
-  statCardFull: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 14, padding: spacing[4], marginBottom: spacing[5] },
-  statIcon: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: spacing[3] },
-  statValue: { fontSize: 18, fontWeight: '700', color: colors.text, fontFamily: 'Sora', marginBottom: 2 },
-  statLabel: { fontSize: 12, color: colors.textMuted, fontFamily: 'WorkSans' },
-  filtersCard: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 14, padding: spacing[4], marginBottom: spacing[5] },
-  filtersTitle: { fontSize: 14, fontWeight: '600', color: colors.text, fontFamily: 'WorkSans', marginBottom: spacing[3] },
-  filterGroup: { marginBottom: spacing[3] },
-  filterLabel: { fontSize: 12, color: colors.textMuted, fontFamily: 'WorkSans', marginBottom: spacing[2] },
-  filterChips: { flexDirection: 'row', gap: spacing[2] },
-  chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, backgroundColor: '#F8F9FA', borderWidth: 1, borderColor: '#E9ECEF' },
-  chipActive: { backgroundColor: '#ECFDF5', borderColor: '#10B981' },
-  chipText: { fontSize: 12, fontWeight: '600', color: colors.text, fontFamily: 'WorkSans' },
-  chipTextActive: { color: '#059669' },
-  clearFiltersBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: spacing[2] },
-  clearFiltersText: { fontSize: 12, fontWeight: '600', color: colors.danger.DEFAULT, fontFamily: 'WorkSans' },
-  emptyCard: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 14, padding: spacing[8], alignItems: 'center', gap: spacing[3] },
-  emptyText: { fontSize: 14, color: colors.textMuted, fontFamily: 'WorkSans' },
-  circleGroup: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 14, marginBottom: spacing[4], overflow: 'hidden' },
-  circleGroupHeader: { flexDirection: 'row', alignItems: 'center', padding: spacing[4], borderBottomWidth: 1, borderBottomColor: colors.border },
-  circleGroupIcon: { width: 36, height: 36, borderRadius: 10, backgroundColor: colors.primary.tint, justifyContent: 'center', alignItems: 'center', marginRight: spacing[3] },
-  circleGroupName: { fontSize: 15, fontWeight: '600', color: colors.text, fontFamily: 'WorkSans' },
-  circleGroupMeta: { fontSize: 11, color: colors.textMuted, fontFamily: 'WorkSans', marginTop: 2 },
-  circleGroupCode: { fontSize: 11, color: colors.textMuted, fontFamily: 'Sora' },
-  txRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing[4], paddingVertical: spacing[3], borderBottomWidth: 1, borderBottomColor: colors.border },
-  txIcon: { width: 32, height: 32, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginRight: spacing[3] },
-  txType: { fontSize: 13, fontWeight: '600', color: colors.text, fontFamily: 'WorkSans' },
-  txMeta: { fontSize: 11, color: colors.textMuted, fontFamily: 'WorkSans', marginTop: 2 },
-  txRight: { alignItems: 'flex-end', gap: 4 },
-  txAmount: { fontSize: 14, fontWeight: '700', fontFamily: 'Sora' },
-  txStatus: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
-  txStatusText: { fontSize: 10, fontWeight: '600', fontFamily: 'WorkSans' },
-  txExpanded: { backgroundColor: '#F8FAFB', paddingHorizontal: spacing[4], paddingVertical: spacing[3], gap: spacing[3] },
-  txExpandedRow: { flexDirection: 'row', gap: spacing[3] },
-  txExpandedCol: { flex: 1 },
-  txExpandedLabel: { fontSize: 11, color: colors.textMuted, fontFamily: 'WorkSans', marginBottom: 2 },
-  txExpandedValue: { fontSize: 12, fontWeight: '600', color: colors.text, fontFamily: 'WorkSans' },
+  container: {
+    flex: 1,
+    backgroundColor: '#074B36',
+  },
+  header: {
+    backgroundColor: '#074B36',
+    paddingHorizontal: 20,
+    paddingBottom: 34,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingTop: 8,
+  },
+  headerTitle: {
+    fontFamily: 'SoraBold',
+    fontSize: 26,
+    color: '#FFFFFF',
+    letterSpacing: -0.5,
+  },
+  headerSubtitle: {
+    fontFamily: 'WorkSans',
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 4,
+  },
+  filterToggle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  filterToggleActive: {
+    backgroundColor: 'rgba(54, 227, 149, 0.3)',
+  },
+  filterBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#EF4444',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filterBadgeText: {
+    fontFamily: 'WorkSansBold',
+    fontSize: 10,
+    color: '#FFFFFF',
+  },
+  contentBody: {
+    flex: 1,
+    backgroundColor: '#FAF7F1',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    marginTop: -20,
+    paddingTop: 20,
+  },
+  scroll: {
+    paddingHorizontal: 20,
+    paddingBottom: 110,
+    gap: 12,
+  },
+  filtersCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    gap: 8,
+    marginBottom: 4,
+  },
+  filtersTitle: {
+    fontFamily: 'SoraBold',
+    fontSize: 13,
+    color: '#074B36',
+  },
+  filterChipsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 12,
+    backgroundColor: '#FAF7F1',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  chipActive: {
+    backgroundColor: 'rgba(7, 75, 54, 0.08)',
+    borderColor: '#074B36',
+  },
+  chipText: {
+    fontFamily: 'WorkSansMedium',
+    fontSize: 12,
+    color: '#64748B',
+  },
+  chipTextActive: {
+    fontFamily: 'WorkSansSemiBold',
+    color: '#074B36',
+  },
+  emptyCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 30,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    gap: 6,
+  },
+  emptyTitle: {
+    fontFamily: 'SoraBold',
+    fontSize: 15,
+    color: '#475569',
+  },
+  txListContainer: {
+    gap: 12,
+  },
+  txCardItem: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
+    shadowColor: '#074B36',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  txRowHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 12,
+  },
+  slimListCard_deprecated: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
+  },
+  slimRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    gap: 10,
+  },
+  slimRowLast: {
+    borderBottomWidth: 0,
+  },
+  dotBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  slimTypeTitle: {
+    fontFamily: 'SoraBold',
+    fontSize: 13.5,
+    color: '#0F172A',
+  },
+  slimDateText: {
+    fontFamily: 'WorkSans',
+    fontSize: 11,
+    color: '#94A3B8',
+    marginTop: 1,
+  },
+  slimAmountText: {
+    fontFamily: 'SoraBold',
+    fontSize: 14,
+  },
+  expandedDetailBox: {
+    backgroundColor: '#FAF7F1',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  detailLabel: {
+    fontFamily: 'WorkSans',
+    fontSize: 12,
+    color: '#64748B',
+  },
+  detailVal: {
+    fontFamily: 'WorkSansSemiBold',
+    fontSize: 12.5,
+    color: '#0F172A',
+  },
+  detailValBold: {
+    fontFamily: 'SoraBold',
+    fontSize: 12.5,
+    color: '#074B36',
+  },
+  detailValCode: {
+    fontFamily: 'WorkSansSemiBold',
+    fontSize: 12,
+    color: '#64748B',
+    letterSpacing: 0.5,
+  },
+  detailCircleBtn: {
+    alignSelf: 'flex-end',
+    marginTop: 4,
+    paddingVertical: 2,
+  },
+  detailCircleBtnText: {
+    fontFamily: 'WorkSansBold',
+    fontSize: 12,
+    color: '#074B36',
+  },
 });

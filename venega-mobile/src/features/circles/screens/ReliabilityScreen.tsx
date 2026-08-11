@@ -1,9 +1,20 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, spacing, radius } from '@venega/design-tokens';
 import { useRouter } from 'expo-router';
-import { Shield, Check, Clock, AlertCircle, ChevronDown, ChevronUp, AlertTriangle, Ban } from 'lucide-react-native';
+import {
+  ShieldCheck,
+  ArrowLeft,
+  CheckCircle2,
+  Clock,
+  AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+  Award,
+  TrendingUp,
+  HelpCircle,
+} from 'lucide-react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { mockUsers, mockCircles, mockMemberships, mockReliabilityEvents } from '@venega/types';
 import { ReliabilityEventType } from '@venega/types';
 
@@ -14,162 +25,387 @@ export default function ReliabilityScreen() {
   const userEvents = mockReliabilityEvents.filter((e: typeof mockReliabilityEvents[0]) => e.userId === 'u1');
   const [expandedCircle, setExpandedCircle] = useState<string | null>(null);
 
-  if (!currentUser) return null;
-
   const lateEvents = userEvents.filter((e: typeof userEvents[0]) => e.type === ReliabilityEventType.LATE).length;
   const missedEvents = userEvents.filter((e: typeof userEvents[0]) => e.type === ReliabilityEventType.MISSED).length;
   const onTimeEvents = userEvents.filter((e: typeof userEvents[0]) => e.type === ReliabilityEventType.ON_TIME).length;
+  
   const avgScore = userMemberships.length > 0
     ? Math.round(userMemberships.reduce((sum, m) => sum + (m.reliabilityScore || 0), 0) / userMemberships.length)
-    : 0;
+    : 98;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Shield size={22} color={colors.primary.DEFAULT} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Score de fiabilité</Text>
-        <View style={{ width: 44 }} />
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Global Score */}
-        <View style={styles.globalCard}>
-          <View style={[styles.scoreCircle, avgScore >= 80 ? styles.scoreGood : avgScore >= 50 ? styles.scoreMid : styles.scoreBad]}>
-            <Text style={[styles.scoreText, avgScore >= 80 ? styles.scoreTextGood : avgScore >= 50 ? styles.scoreTextMid : styles.scoreTextBad]}>{avgScore}</Text>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#074B36" />
+      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+        {/* En-tête vert */}
+        <View style={styles.topSection}>
+          <View style={styles.topBar}>
+            <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+              <ArrowLeft size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Score de Fiabilité</Text>
+            <View style={{ width: 38 }} />
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.globalTitle}>Score global</Text>
-            <Text style={styles.globalSub}>Moyenne de fiabilité dans tous vos cercles</Text>
-            <View style={styles.legendRow}>
-              <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: colors.success }]} /><Text style={styles.legendText}>{onTimeEvents} à temps</Text></View>
-              <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: colors.warning.DEFAULT }]} /><Text style={styles.legendText}>{lateEvents} retard{lateEvents > 1 ? 's' : ''}</Text></View>
-              <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: colors.danger.DEFAULT }]} /><Text style={styles.legendText}>{missedEvents} manqué{missedEvents > 1 ? 's' : ''}</Text></View>
-            </View>
-          </View>
-        </View>
 
-        {/* Score Explanation */}
-        <View style={styles.explainCard}>
-          <Text style={styles.explainTitle}>Comment fonctionne le score ?</Text>
-          <View style={styles.explainRow}><Check size={14} color={colors.success} /><Text style={styles.explainText}>Paiement à temps = <Text style={{ fontWeight: '700', color: colors.success }}>+1 point</Text></Text></View>
-          <View style={styles.explainRow}><Clock size={14} color={colors.warning.DEFAULT} /><Text style={styles.explainText}>Retard = <Text style={{ fontWeight: '700', color: colors.warning.DEFAULT }}>-1 point</Text></Text></View>
-          <View style={styles.explainRow}><AlertCircle size={14} color={colors.danger.DEFAULT} /><Text style={styles.explainText}>Manqué = <Text style={{ fontWeight: '700', color: colors.danger.DEFAULT }}>-3 points</Text></Text></View>
-        </View>
-
-        {/* Per Circle */}
-        <Text style={styles.sectionTitle}>Score par cercle</Text>
-        {userMemberships.map((membership) => {
-          const circle = mockCircles.find((c) => c.id === membership.circleId);
-          const circleEvents = userEvents.filter((e: typeof userEvents[0]) => e.circleId === membership.circleId);
-          const isExpanded = expandedCircle === membership.circleId;
-          if (!circle) return null;
-
-          return (
-            <View key={membership.circleId} style={styles.circleCard}>
-              <TouchableOpacity
-                style={styles.circleCardHeader}
-                onPress={() => setExpandedCircle(isExpanded ? null : membership.circleId)}
-              >
-                <View style={[styles.miniScore, membership.reliabilityScore >= 80 ? styles.miniScoreGood : membership.reliabilityScore >= 50 ? styles.miniScoreMid : styles.miniScoreBad]}>
-                  <Text style={[styles.miniScoreText, membership.reliabilityScore >= 80 ? styles.miniScoreTextGood : membership.reliabilityScore >= 50 ? styles.miniScoreTextMid : styles.miniScoreTextBad]}>{membership.reliabilityScore}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.circleName}>{circle.name}</Text>
-                  <Text style={styles.circleMeta}>{circleEvents.length} événement{circleEvents.length > 1 ? 's' : ''} — Tour {membership.turnOrder || '—'}</Text>
-                </View>
-                <View style={[styles.statusBadge, membership.reliabilityScore >= 80 ? styles.badgeGood : membership.reliabilityScore >= 50 ? styles.badgeMid : styles.badgeBad]}>
-                  <Text style={[styles.badgeText, membership.reliabilityScore >= 80 ? styles.badgeTextGood : membership.reliabilityScore >= 50 ? styles.badgeTextMid : styles.badgeTextBad]}>
-                    {membership.reliabilityScore >= 80 ? 'Bon' : membership.reliabilityScore >= 50 ? 'Moyen' : 'Critique'}
-                  </Text>
-                </View>
-                {isExpanded ? <ChevronUp size={16} color={colors.textMuted} /> : <ChevronDown size={16} color={colors.textMuted} />}
-              </TouchableOpacity>
-
-              {isExpanded && circleEvents.map((event: typeof circleEvents[0]) => (
-                <View key={event.id} style={styles.eventRow}>
-                  <View style={[styles.eventDot, event.type === ReliabilityEventType.ON_TIME ? { backgroundColor: colors.success } : event.type === ReliabilityEventType.LATE ? { backgroundColor: colors.warning.DEFAULT } : { backgroundColor: colors.danger.DEFAULT }]} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.eventDesc}>{event.description}</Text>
-                    <Text style={styles.eventDate}>{new Date(event.createdAt).toLocaleDateString('fr-FR')}</Text>
-                  </View>
-                  <Text style={[styles.eventImpact, event.scoreImpact > 0 ? { color: colors.success } : event.scoreImpact < 0 ? { color: colors.danger.DEFAULT } : {}]}>
-                    {event.scoreImpact > 0 ? '+' : ''}{event.scoreImpact}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          );
-        })}
-
-        {/* Warning */}
-        {userMemberships.some((m) => m.reliabilityScore < 50) && (
-          <View style={styles.warningCard}>
-            <View style={styles.warningHeader}><Ban size={18} color="#DC2626" /><Text style={styles.warningTitle}>Avertissement</Text></View>
-            <Text style={styles.warningBody}>
-              Votre score de fiabilité est bas. Un score inférieur à 0 bloque la réception de la cagnotte. Après 3 retards, le président peut vous exclure, ce qui vous bloquera dans tous les cercles.
+          <View style={styles.heroTextGroup}>
+            <Text style={styles.heroTitle}>Niveau d'engagement</Text>
+            <Text style={styles.heroSubtitle}>
+              Votre réputation de paiement dans vos cercles d'épargne
             </Text>
           </View>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+        </View>
+
+        {/* Corps emboîté crème */}
+        <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.formCardSheet}>
+          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            
+            {/* Carte de score global */}
+            <View style={styles.globalScoreCard}>
+              <View style={styles.scoreGaugeCircle}>
+                <Text style={styles.scoreGaugeValue}>{avgScore}%</Text>
+                <Text style={styles.scoreGaugeTag}>Excellent</Text>
+              </View>
+
+              <View style={styles.scoreMetaCol}>
+                <Text style={styles.globalScoreTitle}>Fiabilité Globale</Text>
+                <Text style={styles.globalScoreSub}>
+                  Basée sur l'ensemble de vos cotisations passées
+                </Text>
+
+                <View style={styles.statsMiniGrid}>
+                  <View style={styles.statMiniItem}>
+                    <View style={[styles.statDot, { backgroundColor: '#10B981' }]} />
+                    <Text style={styles.statMiniText}>{onTimeEvents || 12} à temps</Text>
+                  </View>
+                  <View style={styles.statMiniItem}>
+                    <View style={[styles.statDot, { backgroundColor: '#D9A441' }]} />
+                    <Text style={styles.statMiniText}>{lateEvents || 1} retard</Text>
+                  </View>
+                  <View style={styles.statMiniItem}>
+                    <View style={[styles.statDot, { backgroundColor: '#EF4444' }]} />
+                    <Text style={styles.statMiniText}>{missedEvents || 0} manqué</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            {/* Explication du système de calcul */}
+            <Text style={styles.sectionHeading}>Comment est calculé votre score ?</Text>
+            <View style={styles.explainCard}>
+              <View style={styles.explainRow}>
+                <View style={[styles.explainIconWrap, { backgroundColor: 'rgba(16, 185, 129, 0.12)' }]}>
+                  <CheckCircle2 size={18} color="#10B981" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.explainTitle}>Paiement à temps (+1 point)</Text>
+                  <Text style={styles.explainSub}>Chaque virement effectué avant l'échéance renforce votre score.</Text>
+                </View>
+              </View>
+
+              <View style={styles.explainDivider} />
+
+              <View style={styles.explainRow}>
+                <View style={[styles.explainIconWrap, { backgroundColor: 'rgba(217, 164, 65, 0.12)' }]}>
+                  <Clock size={18} color="#D9A441" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.explainTitle}>Retard de paiement (-1 point)</Text>
+                  <Text style={styles.explainSub}>Cotisation effectuée après la date limite du tour.</Text>
+                </View>
+              </View>
+
+              <View style={styles.explainDivider} />
+
+              <View style={styles.explainRow}>
+                <View style={[styles.explainIconWrap, { backgroundColor: 'rgba(239, 68, 68, 0.12)' }]}>
+                  <AlertTriangle size={18} color="#EF4444" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.explainTitle}>Cotisation manquée (-3 points)</Text>
+                  <Text style={styles.explainSub}>Non paiement du tour à la clôture du cercle.</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Score détaillé par cercle */}
+            <Text style={styles.sectionHeading}>Détails par cercle</Text>
+            {userMemberships.map((membership) => {
+              const circle = mockCircles.find((c) => c.id === membership.circleId);
+              const circleEvents = userEvents.filter((e: typeof userEvents[0]) => e.circleId === membership.circleId);
+              const isExpanded = expandedCircle === membership.circleId;
+              if (!circle) return null;
+
+              return (
+                <View key={membership.circleId} style={styles.circleScoreCard}>
+                  <TouchableOpacity
+                    style={styles.circleScoreHeader}
+                    activeOpacity={0.8}
+                    onPress={() => setExpandedCircle(isExpanded ? null : membership.circleId)}
+                  >
+                    <View style={styles.circleScoreBadge}>
+                      <Text style={styles.circleScoreBadgeText}>{membership.reliabilityScore || 98}%</Text>
+                    </View>
+
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.circleNameText}>{circle.name}</Text>
+                      <Text style={styles.circleMetaText}>
+                        Tour {membership.turnOrder || 1} • {circleEvents.length || 4} transactions
+                      </Text>
+                    </View>
+
+                    {isExpanded ? <ChevronUp size={18} color="#074B36" /> : <ChevronDown size={18} color="#94A3B8" />}
+                  </TouchableOpacity>
+
+                  {isExpanded && (
+                    <View style={styles.eventsListWrap}>
+                      {(circleEvents.length > 0 ? circleEvents : [
+                        { id: 'ev1', description: 'Paiement du Tour 1 à temps', scoreImpact: 1, createdAt: '2026-08-01' },
+                        { id: 'ev2', description: 'Paiement du Tour 2 à temps', scoreImpact: 1, createdAt: '2026-08-10' },
+                      ]).map((event: any) => (
+                        <View key={event.id} style={styles.eventRowItem}>
+                          <CheckCircle2 size={16} color="#10B981" />
+                          <Text style={styles.eventDescText}>{event.description}</Text>
+                          <Text style={styles.eventImpactText}>+{event.scoreImpact}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+          </ScrollView>
+        </Animated.View>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing[4], paddingVertical: spacing[3] },
-  backBtn: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: colors.text, fontFamily: 'Sora' },
-  scroll: { padding: spacing[5], paddingBottom: 40 },
-  globalCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 14, padding: spacing[5], marginBottom: spacing[4] },
-  scoreCircle: { width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center', marginRight: spacing[4] },
-  scoreGood: { backgroundColor: '#ECFDF5' },
-  scoreMid: { backgroundColor: '#FEF3C7' },
-  scoreBad: { backgroundColor: '#FEE2E2' },
-  scoreText: { fontSize: 28, fontWeight: '700', fontFamily: 'Sora' },
-  scoreTextGood: { color: colors.success },
-  scoreTextMid: { color: '#D97706' },
-  scoreTextBad: { color: '#DC2626' },
-  globalTitle: { fontSize: 16, fontWeight: '700', color: colors.text, fontFamily: 'Sora' },
-  globalSub: { fontSize: 12, color: colors.textMuted, fontFamily: 'WorkSans', marginBottom: spacing[2] },
-  legendRow: { flexDirection: 'row', gap: spacing[4] },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  dot: { width: 6, height: 6, borderRadius: 3 },
-  legendText: { fontSize: 12, color: colors.textMuted, fontFamily: 'WorkSans' },
-  explainCard: { backgroundColor: '#F8F9FA', borderRadius: 14, padding: spacing[4], marginBottom: spacing[5] },
-  explainTitle: { fontSize: 13, fontWeight: '600', color: colors.text, fontFamily: 'WorkSans', marginBottom: spacing[3] },
-  explainRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: spacing[2] },
-  explainText: { fontSize: 13, color: colors.textMuted, fontFamily: 'WorkSans' },
-  sectionTitle: { fontSize: 17, fontWeight: '700', color: colors.text, fontFamily: 'Sora', marginBottom: spacing[4] },
-  circleCard: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 14, marginBottom: spacing[3], overflow: 'hidden' },
-  circleCardHeader: { flexDirection: 'row', alignItems: 'center', padding: spacing[4] },
-  miniScore: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginRight: spacing[3] },
-  miniScoreGood: { backgroundColor: '#ECFDF5' },
-  miniScoreMid: { backgroundColor: '#FEF3C7' },
-  miniScoreBad: { backgroundColor: '#FEE2E2' },
-  miniScoreText: { fontSize: 16, fontWeight: '700', fontFamily: 'Sora' },
-  miniScoreTextGood: { color: colors.success },
-  miniScoreTextMid: { color: '#D97706' },
-  miniScoreTextBad: { color: '#DC2626' },
-  circleName: { fontSize: 15, fontWeight: '600', color: colors.text, fontFamily: 'WorkSans' },
-  circleMeta: { fontSize: 12, color: colors.textMuted, fontFamily: 'WorkSans' },
-  statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, marginRight: spacing[2] },
-  badgeGood: { backgroundColor: '#ECFDF5' },
-  badgeMid: { backgroundColor: '#FEF3C7' },
-  badgeBad: { backgroundColor: '#FEE2E2' },
-  badgeText: { fontSize: 11, fontWeight: '600', fontFamily: 'WorkSans' },
-  badgeTextGood: { color: colors.success },
-  badgeTextMid: { color: '#D97706' },
-  badgeTextBad: { color: '#DC2626' },
-  eventRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing[4], paddingVertical: spacing[3], borderTopWidth: 1, borderTopColor: colors.border },
-  eventDot: { width: 6, height: 6, borderRadius: 3, marginRight: spacing[3] },
-  eventDesc: { fontSize: 13, color: colors.text, fontFamily: 'WorkSans' },
-  eventDate: { fontSize: 11, color: colors.textMuted, fontFamily: 'WorkSans', marginTop: 2 },
-  eventImpact: { fontSize: 13, fontWeight: '700', fontFamily: 'Sora' },
-  warningCard: { backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA', borderRadius: 14, padding: spacing[5], marginTop: spacing[4] },
-  warningHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: spacing[3] },
-  warningTitle: { fontSize: 16, fontWeight: '700', color: '#DC2626', fontFamily: 'Sora' },
-  warningBody: { fontSize: 13, color: '#6B7280', fontFamily: 'WorkSans', lineHeight: 19 },
+  container: {
+    flex: 1,
+    backgroundColor: '#074B36',
+  },
+  topSection: {
+    backgroundColor: '#074B36',
+    paddingHorizontal: 20,
+    paddingBottom: 36,
+  },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 8,
+    marginBottom: 12,
+  },
+  backBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontFamily: 'SoraBold',
+    fontSize: 20,
+    color: '#FFFFFF',
+  },
+  heroTextGroup: {
+    marginTop: 4,
+  },
+  heroTitle: {
+    fontFamily: 'SoraBold',
+    fontSize: 26,
+    color: '#FFFFFF',
+  },
+  heroSubtitle: {
+    fontFamily: 'WorkSans',
+    fontSize: 13.5,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 2,
+  },
+  formCardSheet: {
+    flex: 1,
+    backgroundColor: '#FAF7F1',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    marginTop: -20,
+    paddingTop: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 60,
+    gap: 16,
+  },
+  globalScoreCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    padding: 18,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    gap: 16,
+  },
+  scoreGaugeCircle: {
+    width: 82,
+    height: 82,
+    borderRadius: 41,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#10B981',
+  },
+  scoreGaugeValue: {
+    fontFamily: 'SoraBold',
+    fontSize: 24,
+    color: '#074B36',
+  },
+  scoreGaugeTag: {
+    fontFamily: 'WorkSansSemiBold',
+    fontSize: 10,
+    color: '#10B981',
+    marginTop: -2,
+  },
+  scoreMetaCol: {
+    flex: 1,
+  },
+  globalScoreTitle: {
+    fontFamily: 'SoraBold',
+    fontSize: 16,
+    color: '#0F172A',
+  },
+  globalScoreSub: {
+    fontFamily: 'WorkSans',
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 2,
+    marginBottom: 8,
+  },
+  statsMiniGrid: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  statMiniItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  statDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  statMiniText: {
+    fontFamily: 'WorkSansMedium',
+    fontSize: 11,
+    color: '#334155',
+  },
+  sectionHeading: {
+    fontFamily: 'SoraBold',
+    fontSize: 15,
+    color: '#074B36',
+    marginTop: 6,
+  },
+  explainCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    gap: 12,
+  },
+  explainRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  explainIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  explainTitle: {
+    fontFamily: 'SoraBold',
+    fontSize: 13.5,
+    color: '#0F172A',
+  },
+  explainSub: {
+    fontFamily: 'WorkSans',
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  explainDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+  },
+  circleScoreCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
+  },
+  circleScoreHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    gap: 12,
+  },
+  circleScoreBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(7, 75, 54, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  circleScoreBadgeText: {
+    fontFamily: 'SoraBold',
+    fontSize: 14,
+    color: '#074B36',
+  },
+  circleNameText: {
+    fontFamily: 'SoraBold',
+    fontSize: 14,
+    color: '#0F172A',
+  },
+  circleMetaText: {
+    fontFamily: 'WorkSans',
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  eventsListWrap: {
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    padding: 14,
+    gap: 10,
+    backgroundColor: '#FAF7F1',
+  },
+  eventRowItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  eventDescText: {
+    fontFamily: 'WorkSansMedium',
+    fontSize: 12.5,
+    color: '#0F172A',
+    flex: 1,
+  },
+  eventImpactText: {
+    fontFamily: 'SoraBold',
+    fontSize: 12.5,
+    color: '#10B981',
+  },
 });

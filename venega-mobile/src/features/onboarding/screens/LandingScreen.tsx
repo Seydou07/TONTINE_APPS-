@@ -1,117 +1,242 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
-import { router } from 'expo-router';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Image } from 'expo-image';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
-import { Users, TrendingUp, Shield, ArrowRight } from 'lucide-react-native';
-import { colors, spacing, radius } from '@venega/design-tokens';
+import { ArrowRight, ShieldCheck, Sparkles, Users } from 'lucide-react-native';
 
-const { width } = Dimensions.get('window');
+const logoImg = require('../../../../assets/venega-logo.png');
+const slide4Img = require('../../../../assets/images/onboarding/slide4.jpg');
 
 export default function LandingScreen() {
-  const features = [
-    { icon: <Users size={28} color={colors.primary.DEFAULT} />, title: 'Tontine & Solidarité', description: 'Gérez vos groupes facilement, avec transparence.' },
-    { icon: <TrendingUp size={28} color={colors.primary.DEFAULT} />, title: 'Paiements Rapides', description: 'Intégré à Orange Money et Moov Money.' },
-    { icon: <Shield size={28} color={colors.primary.DEFAULT} />, title: 'Sécurité & Confiance', description: 'Vos données sont protégées, vos fonds sécurisés.' },
-  ];
+  const router = useRouter();
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <Text style={styles.logo}>Venega</Text>
-        </View>
+      <StatusBar barStyle="dark-content" backgroundColor="#FAF7F1" />
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          {/* Logo Officiel Venega */}
+          <Animated.View entering={FadeInDown.duration(700)} style={styles.header}>
+            <Image source={logoImg} style={styles.logoImage} contentFit="contain" />
+          </Animated.View>
 
-        <View style={styles.hero}>
-          <Animated.View entering={FadeInDown.duration(1000)} style={styles.heroImageContainer}>
-            <View style={styles.heroImage} />
-            <View style={styles.badge}>
-              <Users size={16} color={colors.primary.DEFAULT} />
-              <Text style={styles.badgeText}>+2 400 membres actifs</Text>
+          {/* Hero Poster Section avec slide4.jpg */}
+          <Animated.View entering={FadeInUp.delay(150).duration(800)} style={styles.hero}>
+            <View style={styles.posterCard}>
+              <Image
+                source={slide4Img}
+                style={styles.posterImg}
+                contentFit="cover"
+                transition={300}
+              />
             </View>
           </Animated.View>
 
-          <Animated.Text entering={FadeInUp.delay(200).duration(1000)} style={styles.title}>
-            Gérer votre épargne{'\n'}en communauté{' '}
-            <Text style={{ color: colors.primary.DEFAULT }}>simplement</Text>
-          </Animated.Text>
+          {/* Accroche Principale */}
+          <Animated.View entering={FadeInUp.delay(300).duration(800)} style={styles.content}>
+            <Text style={styles.mainTitle}>
+              Prêt à commencer ?{'\n'}Rejoignez <Text style={styles.accentText}>Venega</Text> dès aujourd'hui !
+            </Text>
+            <Text style={styles.subTitle}>
+              Accédez à des cercles d'épargne transparents, gérez vos cotisations en toute sérénité et développez la solidarité de votre communauté.
+            </Text>
+          </Animated.View>
 
-          <Animated.Text entering={FadeInUp.delay(400).duration(1000)} style={styles.subtitle}>
-            Digitalisez vos tontines et votre caisse de solidarité, avec une interface claire et moderne.
-          </Animated.Text>
-        </View>
+          {/* Avantages Clés Premium */}
+          <Animated.View entering={FadeInUp.delay(450).duration(800)} style={styles.benefitsGroup}>
+            <View style={styles.benefitRow}>
+              <View style={styles.benefitIconWrap}>
+                <ShieldCheck size={20} color="#074B36" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.benefitTitle}>Transparence absolue</Text>
+                <Text style={styles.benefitDesc}>Chaque versement et tour de rotation est traçable à tout moment.</Text>
+              </View>
+            </View>
 
-        <View style={styles.features}>
-          {features.map((feature, index) => (
-            <Animated.View key={index} entering={FadeInUp.delay(600 + index * 150).duration(1000)} style={styles.featureCard}>
-              <View style={styles.featureIcon}>{feature.icon}</View>
-              <Text style={styles.featureTitle}>{feature.title}</Text>
-              <Text style={styles.featureDesc}>{feature.description}</Text>
-            </Animated.View>
-          ))}
-        </View>
+            <View style={styles.benefitRow}>
+              <View style={styles.benefitIconWrap}>
+                <Users size={20} color="#074B36" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.benefitTitle}>Fondateurs vérifiés</Text>
+                <Text style={styles.benefitDesc}>Un suivi rigoureux des rôles et des cotisations du groupe.</Text>
+              </View>
+            </View>
 
-        <View style={{ height: 80 }} />
-      </ScrollView>
+            <View style={styles.benefitRow}>
+              <View style={styles.benefitIconWrap}>
+                <Sparkles size={20} color="#074B36" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.benefitTitle}>Paiements instantanés</Text>
+                <Text style={styles.benefitDesc}>Intégration directe avec vos comptes Mobile Money habituels.</Text>
+              </View>
+            </View>
+          </Animated.View>
 
-      <View style={styles.bottom}>
-        <TouchableOpacity style={styles.btnPrimary} onPress={() => router.replace('/register')}>
-          <Text style={styles.btnPrimaryText}>Créer un compte</Text>
-          <ArrowRight size={20} color="#fff" />
-        </TouchableOpacity>
+          {/* Boutons d'Action CTAs */}
+          <Animated.View entering={FadeInUp.delay(600).duration(800)} style={styles.ctaGroup}>
+            <TouchableOpacity
+              style={styles.primaryBtn}
+              activeOpacity={0.88}
+              onPress={() => router.replace('/register')}
+            >
+              <Text style={styles.primaryBtnText}>Créer un compte</Text>
+              <ArrowRight size={18} color="#FFFFFF" />
+            </TouchableOpacity>
 
-        <TouchableOpacity style={styles.btnOutline} onPress={() => router.replace('/login')}>
-          <Text style={styles.btnOutlineText}>J'ai déjà un compte</Text>
-        </TouchableOpacity>
-      </View>
+            <TouchableOpacity
+              style={styles.secondaryBtn}
+              activeOpacity={0.75}
+              onPress={() => router.replace('/login')}
+            >
+              <Text style={styles.secondaryBtnText}>J'ai déjà un compte</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </ScrollView>
+      </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  scrollContent: { flexGrow: 1, paddingHorizontal: spacing[6] },
-  header: { paddingVertical: spacing[6] },
-  logo: { fontFamily: 'Sora', fontSize: 32, color: colors.primary.DEFAULT, fontWeight: '800' },
-  hero: { marginTop: spacing[6] },
-  heroImageContainer: { position: 'relative', marginBottom: spacing[8] },
-  heroImage: { width: '100%', height: 240, borderRadius: radius.lg, backgroundColor: colors.primary.tint },
-  badge: {
-    position: 'absolute', bottom: -16, right: spacing[6],
-    backgroundColor: colors.surface, paddingHorizontal: spacing[4], paddingVertical: spacing[2],
-    borderRadius: radius.pill, flexDirection: 'row', alignItems: 'center', gap: spacing[1],
-    shadowColor: colors.primary.DEFAULT, shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1, shadowRadius: 12, elevation: 4,
+  container: {
+    flex: 1,
+    backgroundColor: '#FAF7F1',
   },
-  badgeText: { fontFamily: 'WorkSans', fontSize: 13, color: colors.text, fontWeight: '600' },
-  title: { fontFamily: 'Sora', fontSize: 32, lineHeight: 38, color: colors.text, fontWeight: '800', marginBottom: spacing[4] },
-  subtitle: { fontFamily: 'WorkSans', fontSize: 16, color: colors.textMuted, lineHeight: 26 },
-  features: { marginTop: spacing[8], gap: spacing[6] },
-  featureCard: {
-    backgroundColor: colors.surface, padding: spacing[6], borderRadius: radius.lg,
-    borderWidth: 1, borderColor: colors.border,
+  scroll: {
+    flex: 1,
   },
-  featureIcon: {
-    width: 52, height: 52, backgroundColor: colors.primary.tint,
-    borderRadius: radius.md, justifyContent: 'center', alignItems: 'center', marginBottom: spacing[4],
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingBottom: 32,
   },
-  featureTitle: { fontFamily: 'Sora', fontSize: 18, color: colors.text, fontWeight: '700', marginBottom: spacing[1] },
-  featureDesc: { fontFamily: 'WorkSans', fontSize: 14, color: colors.textMuted, lineHeight: 22 },
-  bottom: {
-    position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: colors.surface,
-    paddingHorizontal: spacing[6], paddingVertical: spacing[8],
-    borderTopWidth: 1, borderColor: colors.border, shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.05, shadowRadius: 10,
-    elevation: 4, gap: spacing[4],
+  header: {
+    alignItems: 'center',
+    paddingTop: 12,
+    paddingBottom: 8,
   },
-  btnPrimary: {
-    backgroundColor: colors.primary.DEFAULT, paddingVertical: spacing[6],
-    borderRadius: radius.lg, flexDirection: 'row', justifyContent: 'center',
-    alignItems: 'center', gap: spacing[2],
+  logoImage: {
+    width: 150,
+    height: 48,
   },
-  btnPrimaryText: { fontFamily: 'WorkSans', fontSize: 16, color: '#fff', fontWeight: '600' },
-  btnOutline: {
-    paddingVertical: spacing[6], borderRadius: radius.lg, justifyContent: 'center',
-    alignItems: 'center', borderWidth: 1, borderColor: colors.border,
+  hero: {
+    marginTop: 10,
   },
-  btnOutlineText: { fontFamily: 'WorkSans', fontSize: 16, color: colors.text, fontWeight: '600' },
+  posterCard: {
+    position: 'relative',
+    borderRadius: 24,
+    overflow: 'hidden',
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    shadowColor: '#074B36',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    elevation: 6,
+    height: 240,
+  },
+  posterImg: {
+    width: '100%',
+    height: '100%',
+  },
+  content: {
+    marginTop: 22,
+  },
+  mainTitle: {
+    fontFamily: 'SoraBold',
+    fontSize: 25,
+    lineHeight: 33,
+    color: '#0F172A',
+    marginBottom: 8,
+  },
+  accentText: {
+    color: '#074B36',
+  },
+  subTitle: {
+    fontFamily: 'WorkSans',
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#64748B',
+  },
+  benefitsGroup: {
+    marginTop: 20,
+    gap: 12,
+  },
+  benefitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+  },
+  benefitIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    backgroundColor: 'rgba(7, 75, 54, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  benefitTitle: {
+    fontFamily: 'WorkSansSemiBold',
+    fontSize: 14,
+    color: '#0F172A',
+  },
+  benefitDesc: {
+    fontFamily: 'WorkSans',
+    fontSize: 12,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  ctaGroup: {
+    marginTop: 28,
+    gap: 10,
+  },
+  primaryBtn: {
+    height: 52,
+    backgroundColor: '#074B36',
+    borderRadius: 26,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    shadowColor: '#074B36',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  primaryBtnText: {
+    fontFamily: 'SoraBold',
+    fontSize: 15.5,
+    color: '#FFFFFF',
+  },
+  secondaryBtn: {
+    height: 50,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+  },
+  secondaryBtnText: {
+    fontFamily: 'SoraBold',
+    fontSize: 15,
+    color: '#0F172A',
+  },
 });
+

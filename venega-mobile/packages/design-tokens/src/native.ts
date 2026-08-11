@@ -24,7 +24,11 @@ export const colors = {
   surface: '#FFFFFF',
   text: '#22271F',
   textMuted: '#6E7568',
-  border: '#D8D2C2',
+  border: '#E9E4D8',
+  button: {
+    start: '#0C7A57',
+    end: '#074B36',
+  },
   success: '#0B6E4F',
   danger: {
     DEFAULT: '#C1443A',

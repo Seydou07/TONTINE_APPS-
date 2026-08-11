@@ -1,89 +1,88 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
-  withSpring,
-  withSequence,
+  withDelay,
   Easing,
+  interpolate,
+  Extrapolate,
 } from 'react-native-reanimated';
-import VenegaLogo from '../../../components/VenegaLogo';
 
-const { width } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const logoImg = require('../../../../assets/venega-logo.png');
 
 export default function SplashScreen() {
   const router = useRouter();
 
-  const logoScale = useSharedValue(0.4);
+  const logoScale = useSharedValue(0.5);
   const logoOpacity = useSharedValue(0);
-  const logoRotate = useSharedValue(-30);
-  const ringScale = useSharedValue(0);
-  const textOpacity = useSharedValue(0);
-  const textTranslate = useSharedValue(24);
+  const sloganOpacity = useSharedValue(0);
+  const sloganTranslate = useSharedValue(14);
+  const progress = useSharedValue(0);
 
   useEffect(() => {
-    ringScale.value = withTiming(1, { duration: 900, easing: Easing.out(Easing.cubic) });
-    logoOpacity.value = withTiming(1, { duration: 700, easing: Easing.out(Easing.cubic) });
-    logoScale.value = withSequence(
-      withSpring(1.15, { damping: 12, stiffness: 140 }),
-      withSpring(1, { damping: 14, stiffness: 160 }),
-    );
-    logoRotate.value = withSpring(0, { damping: 14, stiffness: 90 });
+    logoScale.value = withTiming(1, {
+      duration: 700,
+      easing: Easing.bezier(0.2, 1.4, 0.4, 1),
+    });
+    logoOpacity.value = withTiming(1, { duration: 600 });
 
-    const t = setTimeout(() => {
-      textOpacity.value = withTiming(1, { duration: 600, easing: Easing.out(Easing.cubic) });
-      textTranslate.value = withTiming(0, { duration: 600, easing: Easing.out(Easing.cubic) });
-    }, 500);
+    sloganOpacity.value = withDelay(600, withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) }));
+    sloganTranslate.value = withDelay(600, withTiming(0, { duration: 500, easing: Easing.out(Easing.cubic) }));
+
+    progress.value = withDelay(300, withTiming(0.85, { duration: 1800, easing: Easing.inOut(Easing.cubic) }));
 
     const timer = setTimeout(() => {
       router.replace('/onboarding');
-    }, 2800);
+    }, 2500);
 
-    return () => {
-      clearTimeout(t);
-      clearTimeout(timer);
-    };
+    return () => clearTimeout(timer);
   }, []);
 
   const logoStyle = useAnimatedStyle(() => ({
     opacity: logoOpacity.value,
-    transform: [{ scale: logoScale.value }, { rotate: `${logoRotate.value}deg` }],
+    transform: [{ scale: logoScale.value }],
   }));
 
-  const ringStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: ringScale.value }],
-    opacity: ringScale.value,
+  const sloganStyle = useAnimatedStyle(() => ({
+    opacity: sloganOpacity.value,
+    transform: [{ translateY: sloganTranslate.value }],
   }));
 
-  const textStyle = useAnimatedStyle(() => ({
-    opacity: textOpacity.value,
-    transform: [{ translateY: textTranslate.value }],
+  const barStyle = useAnimatedStyle(() => ({
+    width: interpolate(progress.value, [0, 1], [0, 140], Extrapolate.CLAMP),
   }));
 
   return (
     <LinearGradient
-      colors={['#074B36', '#0B6E4F', '#0F8563']}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
+      colors={['#0F8563', '#0B6E4F', '#074B36']}
+      locations={[0, 0.45, 1]}
+      start={{ x: 0.5, y: 0 }}
+      end={{ x: 0.5, y: 1 }}
       style={styles.container}
     >
-      <Animated.View pointerEvents="none" style={[styles.blob, styles.blobTop, ringStyle]} />
-      <Animated.View pointerEvents="none" style={[styles.blob, styles.blobBottom, ringStyle]} />
+      <View style={styles.halo} />
 
       <View style={styles.center}>
-        <Animated.View style={[styles.glow, ringStyle]} />
-        <Animated.View style={logoStyle}>
-          <VenegaLogo size={120} showWordmark={false} />
+        <Animated.View style={[styles.logoCard, logoStyle]}>
+          <Image source={logoImg} style={styles.logoImage} contentFit="contain" />
         </Animated.View>
       </View>
 
-      <Animated.View style={[styles.bottom, textStyle]}>
-        <Text style={styles.wordmark}>VENEga</Text>
-        <Text style={styles.tagline}>L'épargne qui rassemble</Text>
-      </Animated.View>
+      <View style={styles.bottom}>
+        <Animated.Text style={[styles.tagline, sloganStyle]}>
+          L'épargne et la solidarité{'\n'}en toute clarté
+        </Animated.Text>
+
+        <View style={styles.progressTrack}>
+          <Animated.View style={[styles.progressFill, barStyle]} />
+        </View>
+      </View>
     </LinearGradient>
   );
 }
@@ -94,47 +93,60 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  halo: {
+    position: 'absolute',
+    top: -120,
+    right: -140,
+    width: 400,
+    height: 400,
+    borderRadius: 200,
+    backgroundColor: 'rgba(217, 164, 65, 0.12)',
+  },
   center: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  glow: {
-    position: 'absolute',
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: 'rgba(255, 255, 255, 0.10)',
+  logoCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    paddingHorizontal: 32,
+    paddingVertical: 24,
+    borderRadius: 32,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 60,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.2,
+    shadowRadius: 24,
+    elevation: 10,
   },
-  blob: {
-    position: 'absolute',
-    width: width * 0.6,
-    height: width * 0.6,
-    borderRadius: width * 0.3,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+  logoImage: {
+    width: 220,
+    height: 80,
   },
-  blobTop: { top: -120, right: -90 },
-  blobBottom: { bottom: -140, left: -100 },
   bottom: {
     position: 'absolute',
-    bottom: 90,
+    bottom: 80,
     alignItems: 'center',
-  },
-  wordmark: {
-    fontFamily: 'SoraBold',
-    fontSize: 34,
-    color: '#FFFFFF',
-    letterSpacing: 6,
-    textTransform: 'uppercase',
-    marginBottom: 10,
+    width: SCREEN_WIDTH,
+    paddingHorizontal: 32,
   },
   tagline: {
-    fontFamily: 'WorkSans',
-    fontSize: 15,
-    color: 'rgba(255, 255, 255, 0.75)',
-    letterSpacing: 1,
+    fontFamily: 'WorkSansMedium',
+    fontSize: 17,
+    lineHeight: 25,
+    color: 'rgba(255, 255, 255, 0.9)',
+    textAlign: 'center',
+    marginBottom: 32,
+  },
+  progressTrack: {
+    width: 180,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FFFFFF',
   },
 });
+

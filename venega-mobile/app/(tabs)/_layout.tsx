@@ -1,37 +1,23 @@
 import { Tabs } from 'expo-router';
-import { Home, Users, Plus, Bell, User } from 'lucide-react-native';
-import { colors } from '@venega/design-tokens';
-import { View, StyleSheet } from 'react-native';
+import { Home, Users, History, User, Plus } from 'lucide-react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useRouter } from 'expo-router';
 import React from 'react';
 
 export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarShowLabel: true,
-        tabBarActiveTintColor: colors.primary.DEFAULT,
-        tabBarInactiveTintColor: colors.textMuted,
-        tabBarLabelStyle: {
-          fontFamily: 'WorkSansMedium',
-          fontSize: 11,
-          marginBottom: 4,
-        },
-        tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.border,
-          borderTopWidth: 1,
-          height: 78,
-          paddingTop: 8,
-        },
         headerShown: false,
       }}
+      tabBar={(props) => <CustomTabBar {...props} />}
     >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Accueil',
           tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
-            <Home size={23} color={color} fill={focused ? color : 'transparent'} />
+            <Home size={22} color={color} fill={focused ? color : 'transparent'} strokeWidth={focused ? 2.2 : 1.8} />
           ),
         }}
       />
@@ -40,30 +26,16 @@ export default function TabLayout() {
         options={{
           title: 'Cercles',
           tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
-            <Users size={23} color={color} fill={focused ? color : 'transparent'} />
+            <Users size={22} color={color} strokeWidth={focused ? 2.2 : 1.8} />
           ),
         }}
       />
       <Tabs.Screen
-        name="create"
+        name="messages"
         options={{
-          title: 'Créer',
-          tabBarIcon: () => (
-            <View style={styles.createButton}>
-              <Plus size={20} color="#FFFFFF" />
-            </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="notifications"
-        options={{
-          title: 'Activité',
+          title: 'Historique',
           tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
-            <View>
-              <Bell size={23} color={color} fill={focused ? color : 'transparent'} />
-              <View style={styles.badge} />
-            </View>
+            <History size={22} color={color} strokeWidth={focused ? 2.2 : 1.8} />
           ),
         }}
       />
@@ -72,36 +44,140 @@ export default function TabLayout() {
         options={{
           title: 'Profil',
           tabBarIcon: ({ color, focused }: { color: string; focused: boolean }) => (
-            <User size={23} color={color} fill={focused ? color : 'transparent'} />
+            <User size={22} color={color} strokeWidth={focused ? 2.2 : 1.8} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="create"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="notifications"
+        options={{
+          href: null,
         }}
       />
     </Tabs>
   );
 }
 
+function CustomTabBar({ state, descriptors, navigation }: any) {
+  const router = useRouter();
+  const routes = state.routes.filter((route: any) => !['create', 'notifications'].includes(route.name));
+
+  const onPressTab = (route: any) => {
+    const event = navigation.emit({
+      type: 'tabPress',
+      target: route.key,
+      canPreventDefault: true,
+    });
+    if (!event.defaultPrevented) {
+      navigation.navigate(route.name);
+    }
+  };
+
+  const renderTab = (route: any) => {
+    const { options } = descriptors[route.key];
+    const label = options.title ?? route.name;
+    const isFocused = state.index === state.routes.indexOf(route);
+    const color = isFocused ? '#36E395' : 'rgba(255, 255, 255, 0.55)';
+
+    return (
+      <TouchableOpacity
+        key={route.key}
+        style={styles.tabItem}
+        onPress={() => onPressTab(route)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.iconWrap}>
+          {options.tabBarIcon
+            ? options.tabBarIcon({ color, focused: isFocused, size: 22 })
+            : null}
+        </View>
+        <Text style={[styles.tabLabel, { color }]} numberOfLines={1} adjustsFontSizeToFit>
+          {label}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
+  return (
+    <View style={styles.floatingContainer}>
+      <View style={styles.tabBar}>
+        {routes.slice(0, 2).map((route: any) => renderTab(route))}
+
+        <TouchableOpacity
+          style={styles.fabContainer}
+          activeOpacity={0.88}
+          onPress={() => router.push('/circles/create')}
+        >
+          <View style={styles.fabCircle}>
+            <Plus size={26} color="#074B36" strokeWidth={2.6} />
+          </View>
+        </TouchableOpacity>
+
+        {routes.slice(2).map((route: any) => renderTab(route))}
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  createButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: colors.primary.DEFAULT,
+  floatingContainer: {
+    position: 'absolute',
+    bottom: 16,
+    left: 16,
+    right: 16,
+    alignItems: 'center',
+  },
+  tabBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#07473E',
+    borderRadius: 32,
+    height: 68,
+    paddingHorizontal: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 10,
+    width: '100%',
+  },
+  tabItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+  },
+  iconWrap: {
+    padding: 2,
+  },
+  tabLabel: {
+    fontFamily: 'WorkSansMedium',
+    fontSize: 10.5,
+    letterSpacing: -0.2,
+  },
+  fabContainer: {
+    width: 62,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fabCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#36E395',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: colors.primary.DEFAULT,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowColor: '#36E395',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.45,
     shadowRadius: 12,
-    elevation: 6,
-    marginBottom: 12,
-  },
-  badge: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.accent.DEFAULT,
+    elevation: 8,
+    marginTop: -28,
   },
 });
