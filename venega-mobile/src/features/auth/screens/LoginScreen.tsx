@@ -135,10 +135,18 @@ export default function LoginScreen() {
                 <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
                   <ArrowLeft size={20} color="#FFFFFF" />
                 </TouchableOpacity>
-                <View style={styles.headerLogoCard}>
+                {/* Logo VISIBLE DIRECTEMENT, SANS carte blanche ni fond */}
+                <View style={styles.headerLogoWrap}>
                   <Image source={logoImg} style={styles.headerLogoImg} contentFit="contain" />
                 </View>
+                <View style={{ width: 38 }} />
               </View>
+
+              {/* Logo GRAND en pleine vue, bien visible */}
+              <View style={styles.bigLogoWrap}>
+                <Image source={logoImg} style={styles.bigLogoImg} contentFit="contain" />
+              </View>
+
               <View style={styles.heroTextGroup}>
                 <Text style={styles.heroTitle}>Hello !</Text>
                 <Text style={styles.heroSubtitle}>Bienvenue sur Venega</Text>
@@ -274,22 +282,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingTop: 10,
-    marginBottom: 20,
+    marginBottom: 10,
   },
-  headerLogoCard: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+  headerLogoWrap: {
+    backgroundColor: 'transparent',
+    shadowColor: 'transparent',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+    borderRadius: 0,
+    borderWidth: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
   },
   headerLogoImg: {
-    width: 90,
-    height: 28,
+    width: 120,
+    height: 38,
+    tintColor: '#FFFFFF',
+  },
+  bigLogoWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    marginBottom: 18,
+    backgroundColor: 'transparent',
+  },
+  bigLogoImg: {
+    width: 200,
+    height: 64,
+    tintColor: '#FFFFFF',
   },
   backBtn: {
     width: 38,
@@ -300,17 +322,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   heroTextGroup: {
-    marginTop: 8,
+    marginTop: 4,
   },
   heroTitle: {
     fontFamily: 'SoraBold',
-    fontSize: 34,
+    fontSize: 30,
     color: '#FFFFFF',
     letterSpacing: -0.5,
   },
   heroSubtitle: {
     fontFamily: 'WorkSans',
-    fontSize: 16,
+    fontSize: 15,
     color: 'rgba(255, 255, 255, 0.85)',
     marginTop: 4,
   },

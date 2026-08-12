@@ -19,7 +19,7 @@ const logoImg = require('../../../../assets/venega-logo.png');
 export default function SplashScreen() {
   const router = useRouter();
 
-  const logoScale = useSharedValue(0.5);
+  const logoScale = useSharedValue(0.6);
   const logoOpacity = useSharedValue(0);
   const sloganOpacity = useSharedValue(0);
   const sloganTranslate = useSharedValue(14);
@@ -32,14 +32,14 @@ export default function SplashScreen() {
     });
     logoOpacity.value = withTiming(1, { duration: 600 });
 
-    sloganOpacity.value = withDelay(600, withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) }));
-    sloganTranslate.value = withDelay(600, withTiming(0, { duration: 500, easing: Easing.out(Easing.cubic) }));
+    sloganOpacity.value = withDelay(500, withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) }));
+    sloganTranslate.value = withDelay(500, withTiming(0, { duration: 500, easing: Easing.out(Easing.cubic) }));
 
-    progress.value = withDelay(300, withTiming(0.85, { duration: 1800, easing: Easing.inOut(Easing.cubic) }));
+    progress.value = withDelay(300, withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.cubic) }));
 
     const timer = setTimeout(() => {
       router.replace('/onboarding');
-    }, 2500);
+    }, 2400);
 
     return () => clearTimeout(timer);
   }, []);
@@ -55,26 +55,22 @@ export default function SplashScreen() {
   }));
 
   const barStyle = useAnimatedStyle(() => ({
-    width: interpolate(progress.value, [0, 1], [0, 140], Extrapolate.CLAMP),
+    width: interpolate(progress.value, [0, 1], [0, 160], Extrapolate.CLAMP),
   }));
 
   return (
-    <LinearGradient
-      colors={['#0F8563', '#0B6E4F', '#074B36']}
-      locations={[0, 0.45, 1]}
-      start={{ x: 0.5, y: 0 }}
-      end={{ x: 0.5, y: 1 }}
-      style={styles.container}
-    >
-      <View style={styles.halo} />
+    <View style={styles.container}>
+      {/* Background Soft Aura Halos */}
+      <View style={styles.haloTop} />
+      <View style={styles.haloBottom} />
 
-      <View style={styles.center}>
-        <Animated.View style={[styles.logoCard, logoStyle]}>
+      <View style={styles.centerContent}>
+        <Animated.View style={[styles.logoWrapper, logoStyle]}>
           <Image source={logoImg} style={styles.logoImage} contentFit="contain" />
         </Animated.View>
       </View>
 
-      <View style={styles.bottom}>
+      <View style={styles.bottomContent}>
         <Animated.Text style={[styles.tagline, sloganStyle]}>
           L'épargne et la solidarité{'\n'}en toute clarté
         </Animated.Text>
@@ -83,70 +79,83 @@ export default function SplashScreen() {
           <Animated.View style={[styles.progressFill, barStyle]} />
         </View>
       </View>
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  halo: {
+  haloTop: {
     position: 'absolute',
     top: -120,
-    right: -140,
-    width: 400,
-    height: 400,
-    borderRadius: 200,
-    backgroundColor: 'rgba(217, 164, 65, 0.12)',
+    right: -100,
+    width: 340,
+    height: 340,
+    borderRadius: 170,
+    backgroundColor: 'rgba(15, 133, 99, 0.06)',
   },
-  center: {
+  haloBottom: {
+    position: 'absolute',
+    bottom: -100,
+    left: -80,
+    width: 320,
+    height: 320,
+    borderRadius: 160,
+    backgroundColor: 'rgba(217, 164, 65, 0.08)',
+  },
+  centerContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+  },
+  logoWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  logoCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    paddingHorizontal: 32,
-    paddingVertical: 24,
-    borderRadius: 32,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.2,
-    shadowRadius: 24,
-    elevation: 10,
+    backgroundColor: 'transparent',
+    shadowColor: 'transparent',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+    borderRadius: 0,
+    borderWidth: 0,
   },
   logoImage: {
-    width: 220,
-    height: 80,
+    width: 300,
+    height: 120,
   },
-  bottom: {
+  bottomContent: {
     position: 'absolute',
-    bottom: 80,
+    bottom: 60,
     alignItems: 'center',
     width: SCREEN_WIDTH,
     paddingHorizontal: 32,
   },
   tagline: {
-    fontFamily: 'WorkSansMedium',
+    fontFamily: 'WorkSansSemiBold',
     fontSize: 17,
     lineHeight: 25,
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: '#074B36',
     textAlign: 'center',
-    marginBottom: 32,
+    marginBottom: 28,
   },
   progressTrack: {
-    width: 180,
-    height: 6,
+    width: 160,
+    height: 5,
     borderRadius: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: '#E2E8F0',
     overflow: 'hidden',
   },
   progressFill: {
-    height: 6,
+    height: 5,
     borderRadius: 3,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#074B36',
   },
 });
 

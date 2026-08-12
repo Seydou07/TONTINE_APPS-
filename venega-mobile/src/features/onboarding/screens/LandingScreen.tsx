@@ -7,7 +7,7 @@ import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { ArrowRight, ShieldCheck, Sparkles, Users } from 'lucide-react-native';
 
 const logoImg = require('../../../../assets/venega-logo.png');
-const slide4Img = require('../../../../assets/images/onboarding/slide4.jpg');
+const slide4Img = require('../../../../assets/images/onboarding/slide4.png');
 
 export default function LandingScreen() {
   const router = useRouter();
@@ -122,32 +122,36 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
+    justifyContent: 'center',
     paddingTop: 12,
-    paddingBottom: 8,
+    paddingBottom: 12,
+    backgroundColor: 'transparent',
   },
   logoImage: {
-    width: 150,
-    height: 48,
+    width: 200,
+    height: 64,
   },
   hero: {
     marginTop: 10,
   },
   posterCard: {
     position: 'relative',
-    borderRadius: 24,
+    borderRadius: 28,
     overflow: 'hidden',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    shadowColor: '#074B36',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.12,
-    shadowRadius: 20,
-    elevation: 6,
-    height: 240,
+    borderWidth: 0,
+    borderColor: 'transparent',
+    shadowColor: 'transparent',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+    height: 250,
+    backgroundColor: 'transparent',
   },
   posterImg: {
     width: '100%',
     height: '100%',
+    borderRadius: 28,
   },
   content: {
     marginTop: 22,

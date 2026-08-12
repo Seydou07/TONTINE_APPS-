@@ -126,10 +126,13 @@ export default function OtpScreen() {
                 <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
                   <ArrowLeft size={20} color="#FFFFFF" />
                 </TouchableOpacity>
-                <View style={styles.headerLogoCard}>
+                {/* Logo VISIBLE, SANS carte blanche, SANS fond */}
+                <View style={styles.headerLogoWrap}>
                   <Image source={logoImg} style={styles.headerLogoImg} contentFit="contain" />
                 </View>
+                <View style={{ width: 38 }} />
               </View>
+
               <View style={styles.heroTextGroup}>
                 <Text style={styles.heroTitle}>Vérification</Text>
                 <Text style={styles.heroSubtitle}>
@@ -242,22 +245,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingTop: 10,
-    marginBottom: 20,
+    marginBottom: 16,
   },
-  headerLogoCard: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+  headerLogoWrap: {
+    backgroundColor: 'transparent',
+    shadowColor: 'transparent',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+    borderRadius: 0,
+    borderWidth: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
   },
   headerLogoImg: {
-    width: 90,
-    height: 28,
+    width: 120,
+    height: 38,
+    tintColor: '#FFFFFF',
   },
   backBtn: {
     width: 38,
@@ -267,18 +272,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  heroTextGroup: { marginTop: 8 },
+  heroTextGroup: { marginTop: 6 },
   heroTitle: {
     fontFamily: 'SoraBold',
-    fontSize: 34,
+    fontSize: 30,
     color: '#FFFFFF',
     letterSpacing: -0.5,
   },
   heroSubtitle: {
     fontFamily: 'WorkSans',
-    fontSize: 15,
+    fontSize: 14.5,
     color: 'rgba(255,255,255,0.8)',
-    marginTop: 6,
+    marginTop: 5,
   },
   heroPhoneHighlight: {
     fontFamily: 'SoraBold',

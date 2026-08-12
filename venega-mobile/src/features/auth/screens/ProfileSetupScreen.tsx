@@ -57,7 +57,7 @@ export default function ProfileSetupScreen() {
               <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
                 <ArrowLeft size={20} color="#FFFFFF" />
               </TouchableOpacity>
-              <View style={styles.headerLogoCard}>
+              <View style={styles.headerLogoWrap}>
                 <Image source={logoImg} style={styles.headerLogoImg} contentFit="contain" />
               </View>
               <View style={{ width: 38 }} />
@@ -191,20 +191,22 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     marginBottom: 12,
   },
-  headerLogoCard: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+  headerLogoWrap: {
+    backgroundColor: 'transparent',
+    shadowColor: 'transparent',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+    borderRadius: 0,
+    borderWidth: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
   },
   headerLogoImg: {
-    width: 90,
-    height: 28,
+    width: 120,
+    height: 38,
+    tintColor: '#FFFFFF',
   },
   backBtn: {
     width: 38,
@@ -224,12 +226,12 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     fontFamily: 'SoraBold',
-    fontSize: 26,
+    fontSize: 24,
     color: '#FFFFFF',
   },
   heroSubtitle: {
     fontFamily: 'WorkSans',
-    fontSize: 13.5,
+    fontSize: 13,
     color: 'rgba(255, 255, 255, 0.8)',
     marginTop: 2,
   },

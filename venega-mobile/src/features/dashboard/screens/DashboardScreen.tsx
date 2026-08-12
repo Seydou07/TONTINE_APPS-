@@ -82,6 +82,7 @@ function HeroHeaderSection() {
       <SafeAreaView edges={['top']} style={styles.heroContainer}>
 
         <View style={styles.headerRow}>
+          {/* ── GAUCHE : Info profil */}
           <View style={styles.profileInfo}>
             <View style={styles.avatarBorder}>
               <Image
@@ -99,10 +100,17 @@ function HeroHeaderSection() {
             </View>
           </View>
 
+          {/* ── CENTRE : Logo Venega BIEN VISIBLE, SANS fond, SANS conteneur */}
+          <View style={styles.headerCenterLogoWrap}>
+            <Image
+              source={logoImg}
+              style={styles.headerCenterLogoImage}
+              contentFit="contain"
+            />
+          </View>
+
+          {/* ── DROITE : Cloche notifications */}
           <View style={styles.headerRightGroup}>
-            <View style={styles.headerLogoPill}>
-              <Image source={logoImg} style={styles.headerLogoImage} contentFit="contain" />
-            </View>
             <TouchableOpacity
               style={styles.bellButton}
               activeOpacity={0.8}
@@ -346,19 +354,20 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 18,
+    gap: 8,
   },
   profileInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
+    flex: 1.1,
   },
   avatarBorder: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 2,
     borderColor: '#36E395',
     justifyContent: 'center',
@@ -366,45 +375,45 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
   },
   greetingText: {
     fontFamily: 'WorkSans',
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.78)',
   },
   userName: {
     fontFamily: 'SoraBold',
-    fontSize: 17,
+    fontSize: 14.5,
     color: '#FFFFFF',
     marginTop: 1,
+  },
+  headerCenterLogoWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+    shadowColor: 'transparent',
+    elevation: 0,
+  },
+  headerCenterLogoImage: {
+    width: 110,
+    height: 36,
+    tintColor: '#FFFFFF',
   },
   headerRightGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-  },
-  headerLogoPill: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  headerLogoImage: {
-    width: 72,
-    height: 24,
+    justifyContent: 'flex-end',
+    flex: 1.1,
+    gap: 0,
   },
   bellButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: 'rgba(255, 255, 255, 0.14)',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.22)',
@@ -413,12 +422,12 @@ const styles = StyleSheet.create({
   },
   bellBadge: {
     position: 'absolute',
-    top: 10,
-    right: 11,
+    top: 9,
+    right: 10,
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#36E395',
+    backgroundColor: '#D9A441',
   },
   balanceSection: {
     alignItems: 'center',
