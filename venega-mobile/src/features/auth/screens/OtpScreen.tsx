@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
   StatusBar,
 } from 'react-native';
 import { Image } from 'expo-image';
@@ -109,45 +108,43 @@ export default function OtpScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#074B36" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       <KeyboardAvoidingView
         style={styles.keyboardAvoid}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* En-tête vert */}
-          <View style={styles.topSection}>
-            <SafeAreaView edges={['top']}>
+        <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+          <View style={styles.content}>
+            {/* ── Section logo (hero) moderne ── */}
+            <View style={styles.heroSection}>
               <View style={styles.topBar}>
-                <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-                  <ArrowLeft size={20} color="#FFFFFF" />
+                <TouchableOpacity style={styles.backBtn} onPress={() => router.replace('/register')}>
+                  <ArrowLeft size={20} color="#074B36" />
                 </TouchableOpacity>
-                {/* Logo VISIBLE, SANS carte blanche, SANS fond */}
-                <View style={styles.headerLogoWrap}>
-                  <Image source={logoImg} style={styles.headerLogoImg} contentFit="contain" />
-                </View>
                 <View style={{ width: 38 }} />
+              </View>
+
+              {/* Logo réel, bien visible */}
+              <View style={styles.bigLogoWrap}>
+                <Image source={logoImg} style={styles.bigLogoImg} contentFit="contain" />
               </View>
 
               <View style={styles.heroTextGroup}>
                 <Text style={styles.heroTitle}>Vérification</Text>
-                <Text style={styles.heroSubtitle}>
+                <Text
+                  style={styles.heroSubtitle}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
+                >
                   Code envoyé au{' '}
                   <Text style={styles.heroPhoneHighlight}>+226 70 12 34 56</Text>
                 </Text>
               </View>
-            </SafeAreaView>
-            {/* Décorations */}
-            <View style={styles.decorativeLeaf} />
-            <View style={styles.decorativeCircle} />
-          </View>
+            </View>
 
-          {/* Carte emboîtée */}
-          <Animated.View entering={FadeInDown.delay(100).duration(600)} style={styles.formCardSheet}>
+            {/* ── Formulaire statique ── */}
+            <Animated.View entering={FadeInDown.delay(100).duration(600)} style={styles.formCardSheet}>
 
             {/* Icône centrale */}
             <View style={styles.iconCircle}>
@@ -218,125 +215,108 @@ export default function OtpScreen() {
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.changeNumberBtn} onPress={() => router.back()}>
+            <TouchableOpacity style={styles.changeNumberBtn} onPress={() => router.replace('/register')}>
               <Text style={styles.changeNumberText}>Modifier le numéro</Text>
             </TouchableOpacity>
           </Animated.View>
-        </ScrollView>
+          </View>
+        </SafeAreaView>
       </KeyboardAvoidingView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#074B36' },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
   keyboardAvoid: { flex: 1 },
-  scrollContent: { flexGrow: 1 },
+  safe: { flex: 1 },
+  content: { flex: 1, paddingHorizontal: 24, paddingTop: 10 },
 
-  topSection: {
-    backgroundColor: '#074B36',
-    paddingHorizontal: 24,
-    paddingBottom: 50,
-    position: 'relative',
-    overflow: 'hidden',
+  heroSection: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 16,
+    alignItems: 'center',
   },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 10,
-    marginBottom: 16,
+    width: '100%',
   },
-  headerLogoWrap: {
-    backgroundColor: 'transparent',
-    shadowColor: 'transparent',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    elevation: 0,
-    borderRadius: 0,
-    borderWidth: 0,
-    paddingHorizontal: 0,
-    paddingVertical: 0,
+  bigLogoWrap: {
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 8,
   },
-  headerLogoImg: {
-    width: 120,
-    height: 38,
-    tintColor: '#FFFFFF',
+  bigLogoImg: {
+    width: 150,
+    height: 100,
   },
   backBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(7, 75, 54, 0.08)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  heroTextGroup: { marginTop: 6 },
+  heroTextGroup: {
+    alignItems: 'center',
+  },
   heroTitle: {
     fontFamily: 'SoraBold',
-    fontSize: 30,
-    color: '#FFFFFF',
+    fontSize: 26,
+    color: '#0F172A',
     letterSpacing: -0.5,
+    textAlign: 'center',
   },
   heroSubtitle: {
     fontFamily: 'WorkSans',
     fontSize: 14.5,
-    color: 'rgba(255,255,255,0.8)',
-    marginTop: 5,
+    color: '#64748B',
+    marginTop: 3,
+    textAlign: 'center',
   },
   heroPhoneHighlight: {
     fontFamily: 'SoraBold',
-    color: '#36E395',
-  },
-  decorativeLeaf: {
-    position: 'absolute', top: -30, left: -20,
-    width: 130, height: 130, borderRadius: 65,
-    backgroundColor: 'rgba(54,227,149,0.15)',
-  },
-  decorativeCircle: {
-    position: 'absolute', top: 40, right: -40,
-    width: 160, height: 160, borderRadius: 80,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    color: '#0B6E4F',
   },
 
   formCardSheet: {
     flex: 1,
-    backgroundColor: '#FAF7F1',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    marginTop: -28,
-    paddingHorizontal: 24,
-    paddingTop: 32,
-    paddingBottom: 40,
+    marginTop: 10,
+    paddingTop: 14,
+    paddingBottom: 24,
     alignItems: 'center',
   },
 
   iconCircle: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: 'rgba(7,75,54,0.08)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 14,
     borderWidth: 1.5,
     borderColor: 'rgba(7,75,54,0.12)',
   },
   formTitle: {
     fontFamily: 'SoraBold',
-    fontSize: 24,
+    fontSize: 22,
     color: '#074B36',
-    marginBottom: 8,
+    marginBottom: 6,
     textAlign: 'center',
   },
   formSubtitle: {
     fontFamily: 'WorkSans',
-    fontSize: 14,
+    fontSize: 13.5,
     color: '#64748B',
     textAlign: 'center',
-    marginBottom: 32,
-    lineHeight: 20,
+    marginBottom: 22,
+    lineHeight: 19,
   },
 
   codeRow: {
@@ -344,33 +324,26 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
     width: '100%',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   codeBox: {
     flex: 1,
-    height: 56,
+    height: 52,
     borderRadius: 16,
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
     backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
   },
   codeBoxFocused: {
     borderColor: '#074B36',
     borderWidth: 2,
   },
   codeBoxFilled: {
-    backgroundColor: 'rgba(7,75,54,0.06)',
-    borderColor: '#0B6E4F',
+    borderColor: '#CBD5E1',
   },
   codeBoxError: {
-    backgroundColor: 'rgba(239,68,68,0.06)',
     borderColor: '#EF4444',
   },
   codeInput: {
@@ -378,14 +351,14 @@ const styles = StyleSheet.create({
     height: '100%',
     fontSize: 24,
     fontFamily: 'SoraBold',
-    color: '#074B36',
+    color: '#0F172A',
     textAlign: 'center',
   },
   errorText: {
     fontFamily: 'WorkSans',
     fontSize: 12.5,
     color: '#EF4444',
-    marginBottom: 16,
+    marginBottom: 12,
     textAlign: 'center',
   },
 
@@ -394,7 +367,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     flexWrap: 'wrap',
-    marginBottom: 28,
+    marginBottom: 16,
   },
   resendText: {
     fontFamily: 'WorkSans',
@@ -415,14 +388,14 @@ const styles = StyleSheet.create({
   primaryPillBtn: {
     height: 52,
     backgroundColor: '#074B36',
-    borderRadius: 26,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
     width: '100%',
     shadowColor: '#074B36',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.22,
+    shadowRadius: 20,
     elevation: 5,
   },
   primaryPillBtnText: {
@@ -431,7 +404,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   changeNumberBtn: {
-    marginTop: 16,
+    marginTop: 10,
     paddingVertical: 8,
   },
   changeNumberText: {

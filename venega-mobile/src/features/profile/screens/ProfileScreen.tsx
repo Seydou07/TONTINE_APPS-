@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   View,
   Text,
@@ -6,7 +7,6 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
-  Switch,
   TextInput,
   Modal,
 } from 'react-native';
@@ -16,24 +16,29 @@ import { useRouter } from 'expo-router';
 import {
   ShieldCheck,
   BadgeCheck,
-  Bell,
+  User,
   Lock,
   HelpCircle,
   LogOut,
   ChevronRight,
-  Sparkles,
   Smartphone,
-  Wallet,
-  Award,
-  SquarePen,
   ChevronDown,
   ChevronUp,
   PhoneCall,
   Mail,
   X,
   Check,
+  Camera,
 } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { getProfile } from '../profileStore';
+
+function getInitials(fullName: string): string {
+  const parts = fullName.trim().split(/\s+/);
+  const first = parts[0]?.[0] ?? '';
+  const last = parts.length > 1 ? parts[parts.length - 1]?.[0] ?? '' : '';
+  return (first + last).toUpperCase();
+}
 
 const FAQ_ITEMS = [
   {
@@ -56,19 +61,14 @@ const FAQ_ITEMS = [
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [biometricsEnabled, setBiometricsEnabled] = useState(true);
 
   // User state
   const [user, setUser] = useState({
     name: 'Aminata Ouédraogo',
     phone: '70 12 34 56',
     email: 'aminata.ouedraogo@example.com',
-    avatarUrl: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=400&h=400&fit=crop&crop=face',
+    avatarUrl: '',
     isVerified: true,
-    reliabilityScore: 98,
-    activeCircles: 3,
-    totalSaved: 450000,
   });
 
   // Modal States
@@ -80,7 +80,13 @@ export default function ProfileScreen() {
 
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-  const formatXOF = (n: number) => new Intl.NumberFormat('fr-FR').format(n) + ' F CFA';
+  useFocusEffect(
+    useCallback(() => {
+      const { avatarUrl } = getProfile();
+      setUser((prev) => (prev.avatarUrl === avatarUrl ? prev : { ...prev, avatarUrl }));
+    }, [])
+  );
+
 
   const handleSavePhone = () => {
     if (!newPhone.trim()) return;
@@ -97,26 +103,21 @@ export default function ProfileScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#074B36" />
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        {/* En-tête vert premium */}
+        {/* En-tête vert premium, centré */}
         <View style={styles.topSection}>
-          <View style={styles.headerTitleRow}>
-            <Text style={styles.headerTitle}>Mon Profil</Text>
-            {/* Icône d'édition stylée */}
-            <TouchableOpacity style={styles.editIconBtn} onPress={() => router.push('/profile-setup')}>
-              <SquarePen size={18} color="#FFFFFF" />
-            </TouchableOpacity>
-          </View>
-
-          {/* Profil Carte Header */}
           <View style={styles.userCardHeader}>
-            <View style={styles.avatarWrap}>
-              <Image source={{ uri: user.avatarUrl }} style={styles.avatarImg} contentFit="cover" />
-              {user.isVerified && (
-                <View style={styles.verifiedBadgeCircle}>
-                  <BadgeCheck size={18} color="#FFFFFF" />
+            <TouchableOpacity style={styles.avatarWrap} activeOpacity={0.85} onPress={() => router.push('/profile-photo' as any)}>
+              {user.avatarUrl ? (
+                <Image source={{ uri: user.avatarUrl }} style={styles.avatarImg} contentFit="cover" />
+              ) : (
+                <View style={styles.avatarInitials}>
+                  <Text style={styles.avatarInitialsText}>{getInitials(user.name)}</Text>
                 </View>
               )}
-            </View>
+              <View style={styles.cameraBadge}>
+                <Camera size={12} color="#074B36" />
+              </View>
+            </TouchableOpacity>
             <View style={styles.userInfoCol}>
               <Text style={styles.userName}>{user.name}</Text>
               <Text style={styles.userPhone}>+226 {user.phone}</Text>
@@ -131,145 +132,76 @@ export default function ProfileScreen() {
         {/* Corps crème emboîté */}
         <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.formCardSheet}>
           <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-            {/* Statistiques rapide */}
-            <View style={styles.statsCardRow}>
-              <View style={styles.statBox}>
-                <View style={styles.statIconWrap}>
-                  <Award size={18} color="#074B36" />
-                </View>
-                <Text style={styles.statValue}>{user.reliabilityScore}%</Text>
-                <Text style={styles.statLabel}>Fiabilité</Text>
-              </View>
-
-              <View style={styles.statDivider} />
-
-              <View style={styles.statBox}>
-                <View style={styles.statIconWrap}>
-                  <Wallet size={18} color="#074B36" />
-                </View>
-                <Text style={styles.statValue}>{user.activeCircles}</Text>
-                <Text style={styles.statLabel}>Cercles actifs</Text>
-              </View>
-
-              <View style={styles.statDivider} />
-
-              <View style={styles.statBox}>
-                <View style={styles.statIconWrap}>
-                  <Sparkles size={18} color="#074B36" />
-                </View>
-                <Text style={styles.statValue}>{formatXOF(user.totalSaved)}</Text>
-                <Text style={styles.statLabel}>Épargné</Text>
-              </View>
-            </View>
-
-            {/* Section 1: Mon Compte */}
+            {/* Section 1: Compte & Sécurité */}
             <Text style={styles.sectionTitle}>Compte & Sécurité</Text>
             <View style={styles.menuGroupCard}>
+              <TouchableOpacity style={styles.menuRow} onPress={() => router.push('/profile-setup')}>
+                <View style={styles.menuIconWrap}>
+                  <User size={18} color="#64748B" />
+                </View>
+                <Text style={styles.menuTextTitle}>Informations personnelles</Text>
+                <ChevronRight size={18} color="#94A3B8" />
+              </TouchableOpacity>
+
+              <View style={styles.menuDivider} />
+
               <TouchableOpacity style={styles.menuRow} onPress={() => router.push('/kyc-upload')}>
                 <View style={styles.menuIconWrap}>
-                  <BadgeCheck size={18} color="#074B36" />
+                  <BadgeCheck size={18} color="#64748B" />
                 </View>
-                <View style={styles.menuTextCol}>
-                  <Text style={styles.menuTextTitle}>Vérification d'identité</Text>
-                  <Text style={styles.menuTextSub}>CNIB & Selfie validés</Text>
-                </View>
+                <Text style={styles.menuTextTitle}>Pièce d'identité (CNIB)</Text>
                 <ChevronRight size={18} color="#94A3B8" />
               </TouchableOpacity>
 
               <View style={styles.menuDivider} />
 
-              <TouchableOpacity style={styles.menuRow} onPress={() => router.push('/reliability')}>
+              <TouchableOpacity style={styles.menuRow}>
                 <View style={styles.menuIconWrap}>
-                  <ShieldCheck size={18} color="#074B36" />
+                  <Lock size={18} color="#64748B" />
                 </View>
-                <View style={styles.menuTextCol}>
-                  <Text style={styles.menuTextTitle}>Score de fiabilité</Text>
-                  <Text style={styles.menuTextSub}>Consulter mon niveau d'engagement</Text>
-                </View>
+                <Text style={styles.menuTextTitle}>Mot de passe</Text>
                 <ChevronRight size={18} color="#94A3B8" />
               </TouchableOpacity>
-
-              <View style={styles.menuDivider} />
-
-              <View style={styles.menuRowToggle}>
-                <View style={styles.menuIconWrap}>
-                  <Lock size={18} color="#074B36" />
-                </View>
-                <View style={styles.menuTextCol}>
-                  <Text style={styles.menuTextTitle}>Biométrie & Sécurité</Text>
-                  <Text style={styles.menuTextSub}>Face ID / Empreinte digitale</Text>
-                </View>
-                <Switch
-                  value={biometricsEnabled}
-                  onValueChange={setBiometricsEnabled}
-                  trackColor={{ true: '#074B36' }}
-                />
-              </View>
             </View>
 
-            {/* Section 2: Préférences */}
-            <Text style={styles.sectionTitle}>Préférences & Mobile Money</Text>
+            {/* Section 2: Mobile Money */}
+            <Text style={styles.sectionTitle}>Mobile Money</Text>
             <View style={styles.menuGroupCard}>
               <TouchableOpacity style={styles.menuRow} onPress={() => { setNewPhone(user.phone); setShowEditPhoneModal(true); }}>
                 <View style={styles.menuIconWrap}>
-                  <Smartphone size={18} color="#074B36" />
+                  <Smartphone size={18} color="#64748B" />
                 </View>
-                <View style={styles.menuTextCol}>
-                  <Text style={styles.menuTextTitle}>Numéro Mobile Money</Text>
-                  <Text style={styles.menuTextSub}>+226 {user.phone} (Cliquer pour modifier)</Text>
-                </View>
-                <SquarePen size={16} color="#074B36" />
+                <Text style={styles.menuTextTitle}>Numéro pour recevoir les cagnottes</Text>
+                <ChevronRight size={18} color="#94A3B8" />
               </TouchableOpacity>
-
-              <View style={styles.menuDivider} />
-
-              <View style={styles.menuRowToggle}>
-                <View style={styles.menuIconWrap}>
-                  <Bell size={18} color="#074B36" />
-                </View>
-                <View style={styles.menuTextCol}>
-                  <Text style={styles.menuTextTitle}>Notifications Push</Text>
-                  <Text style={styles.menuTextSub}>Alertes de tours et versements</Text>
-                </View>
-                <Switch
-                  value={notificationsEnabled}
-                  onValueChange={setNotificationsEnabled}
-                  trackColor={{ true: '#074B36' }}
-                />
-              </View>
             </View>
 
-            {/* Section 3: Aide & Déconnexion */}
-            <Text style={styles.sectionTitle}>Assistance & Application</Text>
+            {/* Section 3: Assistance */}
+            <Text style={styles.sectionTitle}>Assistance</Text>
             <View style={styles.menuGroupCard}>
               <TouchableOpacity style={styles.menuRow} onPress={() => setShowFaqModal(true)}>
                 <View style={styles.menuIconWrap}>
-                  <HelpCircle size={18} color="#074B36" />
+                  <HelpCircle size={18} color="#64748B" />
                 </View>
-                <View style={styles.menuTextCol}>
-                  <Text style={styles.menuTextTitle}>Centre d'aide & FAQ</Text>
-                  <Text style={styles.menuTextSub}>Questions fréquentes & Assistance</Text>
-                </View>
+                <Text style={styles.menuTextTitle}>Centre d'aide</Text>
                 <ChevronRight size={18} color="#94A3B8" />
               </TouchableOpacity>
 
               <View style={styles.menuDivider} />
 
-              <TouchableOpacity style={styles.menuRow} onPress={() => setShowLogoutModal(true)}>
-                <View style={[styles.menuIconWrap, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
-                  <LogOut size={18} color="#EF4444" />
+              <TouchableOpacity style={styles.menuRow}>
+                <View style={styles.menuIconWrap}>
+                  <BadgeCheck size={18} color="#64748B" />
                 </View>
-                <View style={styles.menuTextCol}>
-                  <Text style={[styles.menuTextTitle, { color: '#EF4444' }]}>Se déconnecter</Text>
-                  <Text style={styles.menuTextSub}>Fermer la session en cours</Text>
-                </View>
-                <ChevronRight size={18} color="#EF4444" />
+                <Text style={styles.menuTextTitle}>Conditions d'utilisation</Text>
+                <ChevronRight size={18} color="#94A3B8" />
               </TouchableOpacity>
             </View>
 
-            <View style={styles.appVersionWrap}>
-              <Text style={styles.appVersionText}>Venega v2.4.0 — Épargne & Tontine Sécurisée</Text>
-            </View>
+            <TouchableOpacity style={styles.logoutBtn} onPress={() => setShowLogoutModal(true)}>
+              <LogOut size={16} color="#E53E3E" />
+              <Text style={styles.logoutBtnText}>Se déconnecter</Text>
+            </TouchableOpacity>
           </ScrollView>
         </Animated.View>
 
@@ -398,59 +330,55 @@ const styles = StyleSheet.create({
   topSection: {
     backgroundColor: '#074B36',
     paddingHorizontal: 20,
+    paddingTop: 18,
     paddingBottom: 36,
   },
-  headerTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 8,
-    marginBottom: 16,
-  },
-  headerTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 24,
-    color: '#FFFFFF',
-  },
-  editIconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   userCardHeader: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 8,
   },
   avatarWrap: {
     position: 'relative',
+    marginBottom: 4,
   },
   avatarImg: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    borderWidth: 2,
-    borderColor: '#36E395',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.35)',
   },
-  verifiedBadgeCircle: {
+  avatarInitials: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#D9A441',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.35)',
+  },
+  avatarInitialsText: {
+    fontFamily: 'SoraBold',
+    fontSize: 26,
+    color: '#FFFFFF',
+  },
+  cameraBadge: {
     position: 'absolute',
     bottom: -2,
     right: -2,
-    backgroundColor: '#10B981',
-    borderRadius: 12,
-    width: 24,
-    height: 24,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 13,
+    width: 26,
+    height: 26,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#074B36',
   },
   userInfoCol: {
-    flex: 1,
-    gap: 2,
+    alignItems: 'center',
+    gap: 3,
   },
   userName: {
     fontFamily: 'SoraBold',
@@ -467,6 +395,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     marginTop: 4,
+    backgroundColor: 'rgba(54, 227, 149, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
   },
   kycStatusText: {
     fontFamily: 'WorkSansSemiBold',
@@ -475,7 +407,7 @@ const styles = StyleSheet.create({
   },
   formCardSheet: {
     flex: 1,
-    backgroundColor: '#FAF7F1',
+    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     marginTop: -20,
@@ -491,49 +423,12 @@ const styles = StyleSheet.create({
     paddingBottom: 60,
     gap: 18,
   },
-  statsCardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    paddingVertical: 14,
-    paddingHorizontal: 10,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-  },
-  statBox: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: 'rgba(7, 75, 54, 0.08)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  statValue: {
-    fontFamily: 'SoraBold',
-    fontSize: 14,
-    color: '#074B36',
-  },
-  statLabel: {
-    fontFamily: 'WorkSans',
-    fontSize: 11,
-    color: '#64748B',
-    marginTop: 1,
-  },
-  statDivider: {
-    width: 1,
-    height: 36,
-    backgroundColor: '#F1F5F9',
-  },
   sectionTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 15,
-    color: '#074B36',
+    fontFamily: 'WorkSansSemiBold',
+    fontSize: 12,
+    color: '#94A3B8',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
     marginTop: 4,
   },
   menuGroupCard: {
@@ -549,47 +444,35 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 12,
   },
-  menuRowToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-    gap: 12,
-  },
   menuIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 14,
-    backgroundColor: 'rgba(7, 75, 54, 0.08)',
-    justifyContent: 'center',
+    width: 22,
     alignItems: 'center',
-  },
-  menuTextCol: {
-    flex: 1,
   },
   menuTextTitle: {
-    fontFamily: 'SoraBold',
+    flex: 1,
+    fontFamily: 'WorkSansSemiBold',
     fontSize: 13.5,
-    color: '#0F172A',
+    color: '#1A202C',
   },
-  menuTextSub: {
-    fontFamily: 'WorkSans',
-    fontSize: 11.5,
-    color: '#64748B',
-    marginTop: 1,
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 50,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#FFECEC',
+    marginTop: 4,
+  },
+  logoutBtnText: {
+    fontFamily: 'WorkSansSemiBold',
+    fontSize: 13.5,
+    color: '#E53E3E',
   },
   menuDivider: {
     height: 1,
     backgroundColor: '#F1F5F9',
-  },
-  appVersionWrap: {
-    alignItems: 'center',
-    marginTop: 10,
-    marginBottom: 20,
-  },
-  appVersionText: {
-    fontFamily: 'WorkSans',
-    fontSize: 12,
-    color: '#94A3B8',
   },
   modalOverlay: {
     flex: 1,
@@ -599,7 +482,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   modalCard: {
-    backgroundColor: '#FAF7F1',
+    backgroundColor: '#FFFFFF',
     borderRadius: 28,
     padding: 22,
     width: '100%',
@@ -679,7 +562,7 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   faqModalCard: {
-    backgroundColor: '#FAF7F1',
+    backgroundColor: '#FFFFFF',
     borderRadius: 28,
     padding: 22,
     width: '100%',
@@ -745,7 +628,7 @@ const styles = StyleSheet.create({
     color: '#074B36',
   },
   logoutModalCard: {
-    backgroundColor: '#FAF7F1',
+    backgroundColor: '#FFFFFF',
     borderRadius: 28,
     padding: 24,
     alignItems: 'center',

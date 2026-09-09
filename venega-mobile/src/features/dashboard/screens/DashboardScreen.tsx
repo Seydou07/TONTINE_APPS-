@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -14,21 +14,16 @@ import {
   Bell,
   Plus,
   UserPlus,
-  Wallet,
   Users,
-  CalendarClock,
-  ArrowRight,
-  Clock,
-  TrendingUp,
-  Landmark,
+  Activity as ActivityIcon,
+  Gift,
+  HeartHandshake,
 } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
-import { mockCurrentUser } from '@venega/types';
+import { mockCurrentUser, mockCircles, CircleType } from '@venega/types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
-const logoImg = require('../../../../assets/venega-logo.png');
 
 const formatXOF = (amount: number) => {
   return new Intl.NumberFormat('fr-FR').format(amount) + ' F CFA';
@@ -45,7 +40,6 @@ export default function DashboardScreen() {
         <HeroHeaderSection />
         <View style={styles.contentBody}>
           <QuickActionsCard />
-          <NextPaymentCard />
           <TontineCirclesListCard />
         </View>
       </ScrollView>
@@ -55,27 +49,6 @@ export default function DashboardScreen() {
 
 function HeroHeaderSection() {
   const router = useRouter();
-
-  const reputationScore = mockCurrentUser.reputationScore;
-  const nextCircleName = 'Tontine Famille Ouédraogo';
-  const nextAmount = 10000;
-  const nextDueDate = '1er sept. 2026';
-  const daysLeft = 21;
-
-  const getScoreColor = (score: number) => {
-    if (score >= 85) return '#36E395';
-    if (score >= 60) return '#F59E0B';
-    return '#EF4444';
-  };
-
-  const getScoreLabel = (score: number) => {
-    if (score >= 90) return 'Excellent';
-    if (score >= 75) return 'Fiable';
-    if (score >= 60) return 'Correct';
-    return 'À améliorer';
-  };
-
-  const scoreColor = getScoreColor(reputationScore);
 
   return (
     <Animated.View entering={FadeInDown.delay(0).duration(600)} style={styles.heroWrapper}>
@@ -100,15 +73,6 @@ function HeroHeaderSection() {
             </View>
           </View>
 
-          {/* ── CENTRE : Logo Venega BIEN VISIBLE, SANS fond, SANS conteneur */}
-          <View style={styles.headerCenterLogoWrap}>
-            <Image
-              source={logoImg}
-              style={styles.headerCenterLogoImage}
-              contentFit="contain"
-            />
-          </View>
-
           {/* ── DROITE : Cloche notifications */}
           <View style={styles.headerRightGroup}>
             <TouchableOpacity
@@ -121,68 +85,11 @@ function HeroHeaderSection() {
             </TouchableOpacity>
           </View>
         </View>
-
-        <View style={styles.reliabilitySection}>
-          <View style={styles.reliabilityLabelRow}>
-            <TrendingUp size={14} color={scoreColor} strokeWidth={2.2} />
-            <Text style={styles.reliabilityLabel}>Score de fiabilité</Text>
-            <Text style={[styles.reliabilityLevelBadge, { color: scoreColor }]}>{getScoreLabel(reputationScore)}</Text>
-          </View>
-          <View style={styles.reliabilityTrack}>
-            <View
-              style={[
-                styles.reliabilityFill,
-                { width: `${reputationScore}%` as any, backgroundColor: scoreColor },
-              ]}
-            />
-          </View>
-          <View style={styles.reliabilityScoreRow}>
-            <Text style={styles.reliabilityScoreValue}>
-              <Text style={{ color: scoreColor, fontFamily: 'SoraBold', fontSize: 20 }}>{reputationScore}</Text>
-              <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}> / 100</Text>
-            </Text>
-            <Text style={styles.reliabilityScoreHint}>Basé sur votre historique de paiements</Text>
-          </View>
-        </View>
-
       </SafeAreaView>
     </Animated.View>
   );
 }
 
-function NextPaymentCard() {
-  const router = useRouter();
-
-  return (
-    <Animated.View entering={FadeInDown.delay(200).duration(600)} style={styles.nextPayCardClean}>
-      <View style={styles.nextPayHeaderRow}>
-        <View style={styles.nextPayIconWrap}>
-          <CalendarClock size={20} color="#074B36" strokeWidth={2.2} />
-        </View>
-        <View style={styles.nextPayTextGroup}>
-          <Text style={styles.nextPaySubtitle}>PROCHAINE COTISATION</Text>
-          <Text style={styles.nextPayCircleTitle} numberOfLines={1}>Tontine de la famille</Text>
-        </View>
-        <View style={styles.nextPayDateTag}>
-          <Clock size={11} color="#074B36" />
-          <Text style={styles.nextPayDateValue} numberOfLines={1}>15 Août 2026</Text>
-        </View>
-      </View>
-
-      <View style={styles.nextPayBottomRow}>
-        <Text style={styles.nextPayAmountDisplay}>{formatXOF(10000)}</Text>
-        <TouchableOpacity
-          style={styles.payNowCleanBtn}
-          activeOpacity={0.88}
-          onPress={() => router.push('/(tabs)/circles')}
-        >
-          <Wallet size={15} color="#FFFFFF" strokeWidth={2} />
-          <Text style={styles.payNowCleanBtnText}>Payer</Text>
-        </TouchableOpacity>
-      </View>
-    </Animated.View>
-  );
-}
 
 function QuickActionsCard() {
   const router = useRouter();
@@ -192,33 +99,33 @@ function QuickActionsCard() {
       id: 'create',
       label: 'Créer',
       icon: Plus,
-      borderColor: '#06B6D4',
-      iconColor: '#06B6D4',
+      borderColor: '#0B6E4F',
+      iconColor: '#0B6E4F',
       route: '/circles/create',
     },
     {
       id: 'join',
       label: 'Rejoindre',
       icon: UserPlus,
-      borderColor: '#EF4444',
-      iconColor: '#EF4444',
+      borderColor: '#B9852A',
+      iconColor: '#B9852A',
       route: '/circles/join',
-    },
-    {
-      id: 'pay',
-      label: 'Cotiser',
-      icon: Wallet,
-      borderColor: '#6366F1',
-      iconColor: '#6366F1',
-      route: '/(tabs)/circles',
     },
     {
       id: 'circles',
       label: 'Cercles',
       icon: Users,
-      borderColor: '#0B6E4F',
-      iconColor: '#0B6E4F',
+      borderColor: '#7A4E9C',
+      iconColor: '#7A4E9C',
       route: '/(tabs)/circles',
+    },
+    {
+      id: 'activity',
+      label: 'Activité',
+      icon: ActivityIcon,
+      borderColor: '#3182CE',
+      iconColor: '#3182CE',
+      route: '/activity',
     },
   ];
 
@@ -248,42 +155,53 @@ function QuickActionsCard() {
 
 function TontineCirclesListCard() {
   const router = useRouter();
+  const [visibleCount, setVisibleCount] = useState(5);
 
-  const circlesData = [
-    {
-      id: '1',
-      title: 'Tontine de la Famille',
-      subtitle: 'Cotisation mensuelle • 8/10 membres',
-      amount: '10 000 F CFA',
-      status: 'À jour',
-      statusColor: '#10B981',
-      icon: Users,
-      iconBg: '#0B6E4F',
-    },
-    {
-      id: '2',
-      title: 'Cercle Commerce Abidjan',
-      subtitle: 'Cotisation hebdomadaire • Tour n°4',
-      amount: '25 000 F CFA',
-      status: '15 Août',
-      statusColor: '#F59E0B',
-      icon: TrendingUp,
-      iconBg: '#2B7FB0',
-    },
-    {
-      id: '3',
-      title: 'Tontine des Amis d\'Enfance',
-      subtitle: 'Caisse d\'entraide & de secours',
-      amount: '5 000 F CFA',
-      status: 'À jour',
-      statusColor: '#10B981',
-      icon: Landmark,
-      iconBg: '#7A4E9C',
-    },
-  ];
+  const getIconMeta = (circle: (typeof mockCircles)[number]) => {
+    if (circle.type === CircleType.NATURE) return { icon: Gift, iconBg: '#E4F0EB', iconColor: '#0B6E4F' };
+    if (circle.type === CircleType.SOLIDARITY_ONLY || circle.type === CircleType.HYBRID || circle.type === CircleType.AID_APPEAL) {
+      return { icon: HeartHandshake, iconBg: '#E4F0EB', iconColor: '#0B6E4F' };
+    }
+    return { icon: Users, iconBg: '#E4F0EB', iconColor: '#0B6E4F' };
+  };
+
+  const circlesData = mockCircles.map((c) => {
+    const meta = getIconMeta(c);
+    return {
+      id: c.id,
+      title: c.name,
+      subtitle:
+        c.type === CircleType.AID_APPEAL
+          ? `Collecte publique · ${formatXOF(c.rules.goalAmount ?? 0)}`
+          : c.type === CircleType.NATURE
+          ? `${c.memberCount} membres · ${c.rules.goalItem ?? 'En nature'}`
+          : c.type === CircleType.HYBRID
+          ? `${c.memberCount} membres · Hybride`
+          : c.type === CircleType.SOLIDARITY_ONLY
+          ? `${c.memberCount} membres · Solidarité`
+          : `${c.memberCount} membres · Tour ${c.activeCycle?.currentTurn ?? 1} sur ${c.memberCount}`,
+      isActive: !!c.activatedAt,
+      icon: meta.icon,
+      iconBg: meta.iconBg,
+      iconColor: meta.iconColor,
+      type: c.type,
+    };
+  });
+
+  const openCircle = (circle: (typeof circlesData)[number]) => {
+    if (circle.type === CircleType.AID_APPEAL) {
+      router.push(`/aid/${circle.id}` as any);
+    } else if (circle.type === CircleType.SOLIDARITY_ONLY) {
+      router.push(`/circle/${circle.id}/solidarity` as any);
+    } else if (circle.type === CircleType.TONTINE_ONLY) {
+      router.push(`/circle/${circle.id}/tontine` as any);
+    } else {
+      router.push(`/circle/${circle.id}` as any);
+    }
+  };
 
   return (
-    <Animated.View entering={FadeInDown.delay(300).duration(600)} style={styles.tontineListCard}>
+    <Animated.View entering={FadeInDown.delay(300).duration(600)}>
       <View style={styles.cardHeaderRow}>
         <Text style={styles.cardHeaderTitle} numberOfLines={1}>Mes Cercles</Text>
         <TouchableOpacity
@@ -292,22 +210,21 @@ function TontineCirclesListCard() {
           onPress={() => router.push('/(tabs)/circles')}
         >
           <Text style={styles.seeAllText}>Voir tout</Text>
-          <ArrowRight size={15} color="#0B6E4F" />
         </TouchableOpacity>
       </View>
 
       <View style={styles.tontineItemsList}>
-        {circlesData.map((circle) => {
+        {circlesData.slice(0, visibleCount).map((circle) => {
           const IconComp = circle.icon;
           return (
             <TouchableOpacity
               key={circle.id}
-              style={styles.tontineRowItem}
+              style={styles.circleListCard}
               activeOpacity={0.8}
-              onPress={() => router.push('/(tabs)/circles')}
+              onPress={() => openCircle(circle)}
             >
               <View style={[styles.circleBadgeIcon, { backgroundColor: circle.iconBg }]}>
-                <IconComp size={20} color="#FFFFFF" strokeWidth={2} />
+                <IconComp size={19} color={circle.iconColor} strokeWidth={1.8} />
               </View>
               <View style={styles.tontineDetailsCol}>
                 <Text style={styles.tontineItemTitle} numberOfLines={1}>{circle.title}</Text>
@@ -315,18 +232,21 @@ function TontineCirclesListCard() {
                   {circle.subtitle}
                 </Text>
               </View>
-              <View style={styles.tontineRightCol}>
-                <Text style={styles.tontineItemAmount}>{circle.amount}</Text>
-                <View style={styles.statusBadgeWrap}>
-                  <Text style={[styles.statusBadgeText, { color: circle.statusColor }]}>
-                    {circle.status}
-                  </Text>
-                </View>
-              </View>
+              <View style={[styles.statusDot, { backgroundColor: circle.isActive ? '#10B981' : '#CBD5E1' }]} />
             </TouchableOpacity>
           );
         })}
       </View>
+
+      {circlesData.length > visibleCount && (
+        <TouchableOpacity
+          style={styles.seeMoreBtn}
+          activeOpacity={0.75}
+          onPress={() => setVisibleCount((n) => n + 5)}
+        >
+          <Text style={styles.seeMoreBtnText}>Voir plus</Text>
+        </TouchableOpacity>
+      )}
     </Animated.View>
   );
 }
@@ -338,16 +258,16 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    backgroundColor: '#FAF7F1',
+    backgroundColor: '#FFFFFF',
   },
   scrollContent: {
     paddingBottom: 110,
-    backgroundColor: '#FAF7F1',
+    backgroundColor: '#FFFFFF',
   },
   heroWrapper: {
     backgroundColor: '#074B36',
     paddingHorizontal: 20,
-    paddingBottom: 42,
+    paddingBottom: 100,
   },
   heroContainer: {
     paddingTop: 8,
@@ -390,19 +310,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginTop: 1,
   },
-  headerCenterLogoWrap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
-    shadowColor: 'transparent',
-    elevation: 0,
-  },
-  headerCenterLogoImage: {
-    width: 110,
-    height: 36,
-    tintColor: '#FFFFFF',
-  },
   headerRightGroup: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -429,182 +336,13 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: '#D9A441',
   },
-  balanceSection: {
-    alignItems: 'center',
-    marginVertical: 4,
-  },
-  balanceLabel: {
-    fontFamily: 'WorkSansMedium',
-    fontSize: 13.5,
-    color: '#36E395',
-    marginBottom: 6,
-  },
-  balanceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 18,
-  },
-  balanceAmount: {
-    fontFamily: 'SoraBold',
-    fontSize: 32,
-    color: '#FFFFFF',
-    letterSpacing: -0.5,
-  },
-  eyeToggle: {
-    padding: 4,
-  },
-  heroButtonsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 14,
-    width: '100%',
-    paddingHorizontal: 12,
-    marginBottom: 16,
-  },
-  fundButton: {
-    flex: 1,
-    height: 46,
-    backgroundColor: '#36E395',
-    borderRadius: 23,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-    shadowColor: '#36E395',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  fundButtonText: {
-    fontFamily: 'SoraBold',
-    fontSize: 15,
-    color: '#074B36',
-  },
-  sendButton: {
-    flex: 1,
-    height: 46,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(54, 227, 149, 0.45)',
-    borderRadius: 23,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 6,
-  },
-  sendButtonText: {
-    fontFamily: 'SoraBold',
-    fontSize: 15,
-    color: '#36E395',
-  },
-  yourWalletCard: {
-    backgroundColor: '#043425',
-    borderRadius: 20,
-    padding: 16,
-    marginTop: 8,
-  },
-  yourWalletTitle: {
-    fontFamily: 'WorkSansMedium',
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginBottom: 12,
-  },
-  walletPillsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  walletPill: {
-    paddingHorizontal: 18,
-    paddingVertical: 8,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  walletPillActive: {
-    backgroundColor: '#36E395',
-  },
-  walletPillText: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 13,
-    color: '#FFFFFF',
-  },
-  walletPillTextActive: {
-    color: '#074B36',
-  },
-  addWalletPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.22)',
-  },
-  addWalletText: {
-    fontFamily: 'WorkSansMedium',
-    fontSize: 13,
-    color: '#FFFFFF',
-  },
-  reliabilitySection: {
-    marginBottom: 6,
-  },
-  reliabilityLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 8,
-  },
-  reliabilityLabel: {
-    fontFamily: 'WorkSansMedium',
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.75)',
-    flex: 1,
-  },
-  reliabilityLevelBadge: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 12,
-  },
-  reliabilityTrack: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    overflow: 'hidden',
-    marginBottom: 6,
-  },
-  reliabilityFill: {
-    height: 6,
-    borderRadius: 3,
-  },
-  reliabilityScoreRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  reliabilityScoreValue: {
-    fontFamily: 'WorkSans',
-  },
-  reliabilityScoreHint: {
-    fontFamily: 'WorkSans',
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.45)',
-  },
   contentBody: {
     paddingHorizontal: 18,
-    marginTop: -28,
-    backgroundColor: '#FAF7F1',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    paddingTop: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -6 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 6,
+    marginTop: -22,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    paddingTop: 22,
   },
   quickActionsCard: {
     backgroundColor: '#FFFFFF',
@@ -646,154 +384,45 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     color: '#22271F',
   },
-  nextPayCardClean: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 14,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#074B36',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  nextPayHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 10,
-  },
-  nextPayIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: 'rgba(7, 75, 54, 0.08)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  nextPayTextGroup: {
-    flex: 1,
-  },
-  nextPaySubtitle: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 10.5,
-    letterSpacing: 0.6,
-    color: '#074B36',
-  },
-  nextPayCircleTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 14,
-    color: '#0F172A',
-    marginTop: 2,
-  },
-  nextPayBodyRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 16,
-  },
-  nextPayAmountDisplay: {
-    fontFamily: 'SoraBold',
-    fontSize: 24,
-    color: '#0F172A',
-  },
-  nextPayFrequency: {
-    fontFamily: 'WorkSans',
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 2,
-  },
-  nextPayDateTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(7, 75, 54, 0.08)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 10,
-    flexShrink: 1,
-  },
-  nextPayDateValue: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 11.5,
-    color: '#074B36',
-  },
-  nextPayBottomRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-    marginTop: 2,
-  },
-  payNowCleanBtn: {
-    backgroundColor: '#074B36',
-    borderRadius: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    shadowColor: '#074B36',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.18,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  payNowCleanBtnText: {
-    fontFamily: 'SoraBold',
-    fontSize: 13,
-    color: '#FFFFFF',
-  },
-  tontineListCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 20,
-    marginBottom: 18,
-    shadowColor: '#074B36',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 14,
-    elevation: 3,
-  },
   cardHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   cardHeaderTitle: {
     fontFamily: 'SoraBold',
-    fontSize: 16.5,
-    color: '#22271F',
+    fontSize: 15,
+    color: '#1A202C',
     flexShrink: 1,
   },
   seeAllBtnWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
     flexShrink: 0,
   },
   seeAllText: {
     fontFamily: 'WorkSansSemiBold',
-    fontSize: 13,
+    fontSize: 12.5,
     color: '#0B6E4F',
   },
+  seeMoreBtn: { alignSelf: 'center', paddingVertical: 12, marginTop: 2 },
+  seeMoreBtnText: { fontFamily: 'WorkSansSemiBold', fontSize: 12.5, color: '#0B6E4F' },
   tontineItemsList: {
-    gap: 16,
+    gap: 10,
   },
-  tontineRowItem: {
+  circleListCard: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#E7EAEE',
+    borderRadius: 16,
+    padding: 13,
   },
   circleBadgeIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -804,32 +433,18 @@ const styles = StyleSheet.create({
   },
   tontineItemTitle: {
     fontFamily: 'SoraBold',
-    fontSize: 14,
-    color: '#22271F',
+    fontSize: 13.5,
+    color: '#1A202C',
     marginBottom: 2,
   },
   tontineItemSub: {
     fontFamily: 'WorkSans',
     fontSize: 11.5,
-    color: '#6E7568',
+    color: '#94A3B8',
   },
-  tontineRightCol: {
-    alignItems: 'flex-end',
-  },
-  tontineItemAmount: {
-    fontFamily: 'SoraBold',
-    fontSize: 14,
-    color: '#22271F',
-    marginBottom: 3,
-  },
-  statusBadgeWrap: {
-    backgroundColor: 'rgba(0, 0, 0, 0.04)',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  statusBadgeText: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 11,
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
   },
 });

@@ -9,6 +9,7 @@ import {
   StatusBar,
   KeyboardAvoidingView,
   Platform,
+  Modal,
   Alert,
 } from 'react-native';
 import { Image } from 'expo-image';
@@ -28,126 +29,97 @@ const logoImg = require('../../../../assets/venega-logo.png');
 
 export default function ProfileSetupScreen() {
   const router = useRouter();
-  const [firstName, setFirstName] = useState('Aminata');
-  const [lastName, setLastName] = useState('Ouédraogo');
-  const [phone, setPhone] = useState('70 12 34 56');
-  const [email, setEmail] = useState('aminata.ouedraogo@example.com');
+  const [fullName, setFullName] = useState('Aminata Ouédraogo');
+  const phone = '70 12 34 56';
+  const [email, setEmail] = useState('');
+  const [mobileMoneyNumber, setMobileMoneyNumber] = useState('70 12 34 56');
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  const nameParts = fullName.trim().split(/\s+/);
+  const initials = ((nameParts[0]?.[0] ?? '') + (nameParts[1]?.[0] ?? '')).toUpperCase() || 'A';
 
   const handleSave = () => {
-    if (!firstName.trim() || !lastName.trim()) {
-      Alert.alert('Erreur', 'Veuillez remplir votre prénom et votre nom.');
+    if (!fullName.trim()) {
+      Alert.alert('Erreur', 'Veuillez indiquer votre nom complet.');
       return;
     }
-    Alert.alert('Succès', 'Profil mis à jour avec succès !');
-    router.back();
+    setShowSuccess(true);
   };
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#074B36" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-          {/* En-tête vert */}
-          <View style={styles.topSection}>
-            <View style={styles.topBar}>
-              <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-                <ArrowLeft size={20} color="#FFFFFF" />
-              </TouchableOpacity>
-              <View style={styles.headerLogoWrap}>
-                <Image source={logoImg} style={styles.headerLogoImg} contentFit="contain" />
+        <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+          <View style={styles.content}>
+            {/* ── Section logo (hero) moderne ── */}
+            <View style={styles.heroSection}>
+              <View style={styles.topBar}>
+                <TouchableOpacity style={styles.backBtn} onPress={() => router.replace('/otp')}>
+                  <ArrowLeft size={20} color="#074B36" />
+                </TouchableOpacity>
+                <View style={{ width: 38 }} />
               </View>
-              <View style={{ width: 38 }} />
+
+              {/* Logo réel, bien visible */}
+              <View style={styles.bigLogoWrap}>
+                <Image source={logoImg} style={styles.bigLogoImg} contentFit="contain" />
+              </View>
+
+              <View style={styles.heroTextGroup}>
+                <Text style={styles.heroTitle}>Informations</Text>
+                <Text style={styles.heroSubtitle}>
+                  Mettez à jour vos coordonnées personnelles
+                </Text>
+              </View>
             </View>
 
-            <View style={styles.heroTextGroup}>
-              <Text style={styles.heroTitle}>Informations</Text>
-              <Text style={styles.heroSubtitle}>
-                Mettez à jour vos coordonnées personnelles
-              </Text>
-            </View>
-          </View>
-
-          {/* Corps emboîté crème ("Calebasse") */}
-          <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.formCardSheet}>
-            <ScrollView
-              contentContainerStyle={styles.scrollContent}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-            >
+            {/* ── Formulaire (statique, le clavier le soulève si besoin) ── */}
+            <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.formCardSheet}>
+              <ScrollView
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                automaticallyAdjustKeyboardInsets
+              >
               {/* Avatar avec bouton photo */}
               <View style={styles.avatarWrapContainer}>
                 <View style={styles.avatarCircle}>
-                  <Text style={styles.avatarInitials}>
-                    {firstName[0]?.toUpperCase() || 'A'}
-                    {lastName[0]?.toUpperCase() || 'O'}
-                  </Text>
+                  <Text style={styles.avatarInitials}>{initials}</Text>
                 </View>
                 <TouchableOpacity
                   style={styles.cameraBadgeBtn}
                   onPress={() => Alert.alert('Photo de profil', 'Changement de photo simulé avec succès.')}
                   activeOpacity={0.85}
                 >
-                  <Camera size={18} color="#FFFFFF" />
+                  <Camera size={15} color="#074B36" />
                 </TouchableOpacity>
               </View>
 
               {/* Formulaire des champs pilules */}
               <View style={styles.formGroup}>
-                <Text style={styles.fieldLabel}>Prénom *</Text>
-                <View style={[styles.pillInputWrapper, focusedField === 'firstName' && styles.pillInputFocused]}>
-                  <User size={18} color={focusedField === 'firstName' ? '#074B36' : '#94A3B8'} />
+                <View style={[styles.pillInputWrapper, focusedField === 'fullName' && styles.pillInputFocused]}>
+                  <User size={18} color={focusedField === 'fullName' ? '#074B36' : '#94A3B8'} />
                   <TextInput
-                    style={styles.pillInput}
-                    placeholder="Prénom"
+                    style={[styles.pillInput, styles.pillInputBold]}
+                    placeholder="Nom complet"
                     placeholderTextColor="#94A3B8"
-                    value={firstName}
-                    onChangeText={setFirstName}
-                    onFocus={() => setFocusedField('firstName')}
+                    value={fullName}
+                    onChangeText={setFullName}
+                    onFocus={() => setFocusedField('fullName')}
                     onBlur={() => setFocusedField(null)}
                   />
                 </View>
 
-                <Text style={styles.fieldLabel}>Nom de famille *</Text>
-                <View style={[styles.pillInputWrapper, focusedField === 'lastName' && styles.pillInputFocused]}>
-                  <User size={18} color={focusedField === 'lastName' ? '#074B36' : '#94A3B8'} />
-                  <TextInput
-                    style={styles.pillInput}
-                    placeholder="Nom de famille"
-                    placeholderTextColor="#94A3B8"
-                    value={lastName}
-                    onChangeText={setLastName}
-                    onFocus={() => setFocusedField('lastName')}
-                    onBlur={() => setFocusedField(null)}
-                  />
-                </View>
-
-                <Text style={styles.fieldLabel}>Numéro Mobile Money *</Text>
-                <View style={[styles.pillInputWrapper, focusedField === 'phone' && styles.pillInputFocused]}>
-                  <Smartphone size={18} color={focusedField === 'phone' ? '#074B36' : '#94A3B8'} />
-                  <Text style={styles.prefixText}>+226</Text>
-                  <View style={styles.prefixDivider} />
-                  <TextInput
-                    style={styles.pillInput}
-                    placeholder="70 12 34 56"
-                    placeholderTextColor="#94A3B8"
-                    value={phone}
-                    onChangeText={setPhone}
-                    keyboardType="phone-pad"
-                    onFocus={() => setFocusedField('phone')}
-                    onBlur={() => setFocusedField(null)}
-                  />
-                </View>
-
-                <Text style={styles.fieldLabel}>Adresse e-mail</Text>
                 <View style={[styles.pillInputWrapper, focusedField === 'email' && styles.pillInputFocused]}>
                   <Mail size={18} color={focusedField === 'email' ? '#074B36' : '#94A3B8'} />
                   <TextInput
                     style={styles.pillInput}
-                    placeholder="votre.email@example.com"
+                    placeholder="Adresse e-mail (facultatif)"
                     placeholderTextColor="#94A3B8"
                     value={email}
                     onChangeText={setEmail}
@@ -157,19 +129,69 @@ export default function ProfileSetupScreen() {
                   />
                 </View>
 
+                <View style={[styles.pillInputWrapper, styles.pillInputDisabled]}>
+                  <Smartphone size={18} color="#94A3B8" />
+                  <Text style={styles.disabledPhoneText}>+226 {phone}</Text>
+                </View>
+
+                <Text style={styles.fieldLabel}>Numéro Mobile Money *</Text>
+                <View style={[styles.pillInputWrapper, focusedField === 'mobileMoney' && styles.pillInputFocused]}>
+                  <Smartphone size={18} color={focusedField === 'mobileMoney' ? '#074B36' : '#94A3B8'} />
+                  <Text style={styles.prefixText}>+226</Text>
+                  <View style={styles.prefixDivider} />
+                  <TextInput
+                    style={styles.pillInput}
+                    placeholder="70 12 34 56"
+                    placeholderTextColor="#94A3B8"
+                    value={mobileMoneyNumber}
+                    onChangeText={setMobileMoneyNumber}
+                    keyboardType="phone-pad"
+                    onFocus={() => setFocusedField('mobileMoney')}
+                    onBlur={() => setFocusedField(null)}
+                  />
+                </View>
+
                 <TouchableOpacity
                   style={styles.primaryPillBtn}
                   activeOpacity={0.88}
                   onPress={handleSave}
                 >
-                  <Check size={18} color="#FFFFFF" />
-                  <Text style={styles.primaryPillBtnText}>Enregistrer le profil</Text>
+                  <Text style={styles.primaryPillBtnText}>Terminer</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
           </Animated.View>
+          </View>
         </SafeAreaView>
       </KeyboardAvoidingView>
+
+      {/* ── Modal de confirmation — même gabarit que partout ailleurs dans l'app ── */}
+      <Modal
+        visible={showSuccess}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => router.replace('/login')}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalSuccessIcon}>
+              <Check size={24} color="#FFFFFF" strokeWidth={3} />
+            </View>
+            <Text style={styles.modalTitle}>Compte créé avec succès</Text>
+            <Text style={styles.modalText}>
+              Bienvenue dans Venega. Votre tontine digitale est prête.
+            </Text>
+            <TouchableOpacity
+              style={styles.modalConfirmBtn}
+              activeOpacity={0.85}
+              onPress={() => router.replace('/login')}
+            >
+              <Text style={styles.modalConfirmBtnText}>Se connecter</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -177,42 +199,44 @@ export default function ProfileSetupScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#074B36',
+    backgroundColor: '#FFFFFF',
   },
-  topSection: {
-    backgroundColor: '#074B36',
+  safe: {
+    flex: 1,
+  },
+  content: {
+    flex: 1,
     paddingHorizontal: 20,
-    paddingBottom: 36,
+    paddingTop: 10,
+  },
+  heroSection: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 16,
+    alignItems: 'center',
   },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 8,
-    marginBottom: 12,
+    width: '100%',
   },
-  headerLogoWrap: {
-    backgroundColor: 'transparent',
-    shadowColor: 'transparent',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    elevation: 0,
-    borderRadius: 0,
-    borderWidth: 0,
-    paddingHorizontal: 0,
-    paddingVertical: 0,
+  bigLogoWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    marginBottom: 8,
   },
-  headerLogoImg: {
-    width: 120,
-    height: 38,
-    tintColor: '#FFFFFF',
+  bigLogoImg: {
+    width: 150,
+    height: 100,
   },
   backBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: 'rgba(7, 75, 54, 0.08)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -222,77 +246,68 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   heroTextGroup: {
-    marginTop: 4,
+    alignItems: 'center',
   },
   heroTitle: {
     fontFamily: 'SoraBold',
-    fontSize: 24,
-    color: '#FFFFFF',
+    fontSize: 26,
+    color: '#0F172A',
+    textAlign: 'center',
   },
   heroSubtitle: {
     fontFamily: 'WorkSans',
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginTop: 2,
+    fontSize: 14,
+    color: '#64748B',
+    marginTop: 3,
+    textAlign: 'center',
   },
   formCardSheet: {
     flex: 1,
-    backgroundColor: '#FAF7F1',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    marginTop: -20,
-    paddingTop: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -6 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 6,
+    marginTop: 10,
+    paddingTop: 14,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 50,
+    paddingBottom: 20,
   },
   avatarWrapContainer: {
     alignSelf: 'center',
-    marginBottom: 24,
+    marginBottom: 14,
     position: 'relative',
   },
   avatarCircle: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: 'rgba(7, 75, 54, 0.1)',
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: '#D9A441',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 3,
-    borderColor: '#074B36',
   },
   avatarInitials: {
     fontFamily: 'SoraBold',
-    fontSize: 32,
-    color: '#074B36',
+    fontSize: 28,
+    color: '#FFFFFF',
   },
   cameraBadgeBtn: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#074B36',
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#FAF7F1',
+    borderWidth: 1.5,
+    borderColor: '#074B36',
   },
   formGroup: {
-    gap: 12,
+    gap: 10,
   },
   fieldLabel: {
     fontFamily: 'WorkSansSemiBold',
     fontSize: 13,
     color: '#334155',
-    marginTop: 4,
+    marginTop: 2,
   },
   pillInputWrapper: {
     flexDirection: 'row',
@@ -300,13 +315,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
-    borderRadius: 25,
-    paddingHorizontal: 18,
+    borderRadius: 14,
+    paddingHorizontal: 16,
     height: 52,
     gap: 10,
-  },
-  pillInputFocused: {
-    borderColor: '#074B36',
   },
   prefixText: {
     fontFamily: 'WorkSansSemiBold',
@@ -318,30 +330,90 @@ const styles = StyleSheet.create({
     height: 18,
     backgroundColor: '#CBD5E1',
   },
+  pillInputFocused: {
+    borderColor: '#074B36',
+  },
+  pillInputDisabled: {
+    backgroundColor: '#F8FAFC',
+  },
   pillInput: {
     flex: 1,
     fontFamily: 'WorkSans',
     fontSize: 14.5,
     color: '#0F172A',
   },
+  pillInputBold: {
+    fontFamily: 'WorkSansSemiBold',
+  },
+  disabledPhoneText: {
+    fontFamily: 'WorkSans',
+    fontSize: 14.5,
+    color: '#94A3B8',
+  },
   primaryPillBtn: {
     height: 52,
     backgroundColor: '#074B36',
-    borderRadius: 26,
+    borderRadius: 14,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
-    marginTop: 18,
+    marginTop: 14,
     shadowColor: '#074B36',
-    shadowOffset: { width: 0, height: 6 },
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.22,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowRadius: 20,
+    elevation: 5,
   },
   primaryPillBtnText: {
     fontFamily: 'SoraBold',
     fontSize: 15.5,
+    color: '#FFFFFF',
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  modalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    padding: 22,
+    width: '100%',
+    gap: 14,
+  },
+  modalSuccessIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#0B6E4F',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontFamily: 'SoraBold',
+    fontSize: 16,
+    color: '#1A202C',
+  },
+  modalText: {
+    fontFamily: 'WorkSans',
+    fontSize: 13.5,
+    lineHeight: 19,
+    color: '#334155',
+  },
+  modalConfirmBtn: {
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#074B36',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalConfirmBtnText: {
+    fontFamily: 'WorkSansSemiBold',
+    fontSize: 13.5,
     color: '#FFFFFF',
   },
 });

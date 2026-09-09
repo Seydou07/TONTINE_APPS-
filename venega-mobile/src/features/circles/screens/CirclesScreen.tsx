@@ -21,9 +21,15 @@ import {
   Gift,
   Crown,
   UserCheck,
+  Smartphone,
 } from 'lucide-react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { mockCircles } from '@venega/types';
+import { CircleType } from '@venega/types';
+import {
+  getCircles,
+  getFounderCircleIds,
+  CIRCLE_CREATION_FEE,
+} from '../circleStore';
 
 const formatXOF = (amount: number) => {
   return new Intl.NumberFormat('fr-FR').format(amount) + ' F CFA';
@@ -36,10 +42,17 @@ export default function CirclesScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('ALL');
 
-  // c1 est créé par l'utilisateur (Fondateur)
-  const createdCircleIds = ['c1'];
+  const openActivation = (id: string, _name: string) => {
+    router.push(`/payment?circleId=${id}&type=ACTIVATION` as any);
+  };
 
-  const filteredCircles = mockCircles.filter((circle) => {
+  const circles = getCircles();
+  // c1 est créé par l'utilisateur (Fondateur) + tout cercle créé en session
+  const createdCircleIds = getFounderCircleIds();
+  const activeCount = circles.filter((c) => !!c.activatedAt).length;
+  const pendingCount = circles.length - activeCount;
+
+  const filteredCircles = circles.filter((circle) => {
     const matchesSearch = circle.name.toLowerCase().includes(searchQuery.toLowerCase());
     const isOwner = createdCircleIds.includes(circle.id);
 
@@ -52,15 +65,17 @@ export default function CirclesScreen() {
   const getCircleBadge = (type: string) => {
     switch (type) {
       case 'HYBRID':
-        return { label: 'Hybride', bg: 'rgba(7, 75, 54, 0.08)', color: '#074B36', icon: Layers };
+        return { label: 'Hybride', bg: '#EFE6F4', color: '#7A4E9C', icon: Layers };
       case 'TONTINE_ONLY':
-        return { label: 'Tontine', bg: 'rgba(99, 102, 241, 0.08)', color: '#6366F1', icon: Users };
+        return { label: 'Tontine', bg: '#E4F0EB', color: '#0B6E4F', icon: Users };
       case 'SOLIDARITY_ONLY':
-        return { label: 'Solidarité', bg: 'rgba(217, 164, 65, 0.12)', color: '#B47818', icon: HeartHandshake };
+        return { label: 'Solidarité', bg: '#EBF8FF', color: '#3182CE', icon: HeartHandshake };
       case 'NATURE':
-        return { label: 'Nature / Box 🎁', bg: 'rgba(236, 72, 153, 0.12)', color: '#DB2777', icon: Gift };
+        return { label: 'En nature', bg: '#FBF1DD', color: '#B9852A', icon: Gift };
+      case 'AID_APPEAL':
+        return { label: "Appel à l'aide", bg: '#FFECEC', color: '#E53E3E', icon: HeartHandshake };
       default:
-        return { label: 'Cercle', bg: 'rgba(0,0,0,0.05)', color: '#64748B', icon: Users };
+        return { label: 'Cercle', bg: '#F1F3F6', color: '#64748B', icon: Users };
     }
   };
 
@@ -83,7 +98,8 @@ export default function CirclesScreen() {
             <View>
               <Text style={styles.headerTitle}>Mes Cercles</Text>
               <Text style={styles.headerSubtitle}>
-                Consultez vos tontines créées et vos participations
+                {activeCount} cercle{activeCount > 1 ? 's' : ''} actif{activeCount > 1 ? 's' : ''}
+                {pendingCount > 0 ? ` · ${pendingCount} en attente` : ''}
               </Text>
             </View>
           </View>
@@ -110,7 +126,7 @@ export default function CirclesScreen() {
               onPress={() => setRoleFilter('ALL')}
             >
               <Text style={[styles.filterPillText, roleFilter === 'ALL' && styles.filterPillTextActive]}>
-                Tous ({mockCircles.length})
+                Tous ({circles.length})
               </Text>
             </TouchableOpacity>
 
@@ -147,8 +163,12 @@ export default function CirclesScreen() {
               filteredCircles.map((circle, index) => {
                 const badge = getCircleBadge(circle.type);
                 const BadgeIcon = badge.icon;
+                const isAidAppeal = circle.type === CircleType.AID_APPEAL;
+                const isSolidarityOnly = circle.type === CircleType.SOLIDARITY_ONLY;
+                const isTontineOnly = circle.type === CircleType.TONTINE_ONLY;
                 const totalAmount = (circle.tontineAmount || 0) + (circle.solidarityAmount || 0);
                 const isFounder = createdCircleIds.includes(circle.id);
+                const needsActivation = !circle.activatedAt;
 
                 return (
                   <Animated.View
@@ -156,22 +176,32 @@ export default function CirclesScreen() {
                     entering={FadeInDown.delay(index * 70).duration(500)}
                   >
                     <TouchableOpacity
-                      style={[styles.circleCard, isFounder && styles.circleCardFounder]}
+                      style={[
+                        styles.circleCard,
+                        isFounder && styles.circleCardFounder,
+                        needsActivation && styles.circleCardInactive,
+                      ]}
                       activeOpacity={0.88}
-                      onPress={() => router.push(`/circle/${circle.id}`)}
+                      onPress={() => {
+                        if (needsActivation) { openActivation(circle.id, circle.name); return; }
+                        if (isAidAppeal) { router.push(`/aid/${circle.id}` as any); return; }
+                        if (isSolidarityOnly) { router.push(`/circle/${circle.id}/solidarity` as any); return; }
+                        if (isTontineOnly) { router.push(`/circle/${circle.id}/tontine` as any); return; }
+                        router.push(`/circle/${circle.id}` as any);
+                      }}
                     >
                       {/* Ligne haute de la carte avec Tag Rôle */}
                       <View style={styles.cardHeaderRow}>
                         <View style={styles.cardTitleGroup}>
                           <View style={styles.tagsContainer}>
-                            <View style={[styles.badgeTag, { backgroundColor: badge.bg }]}>
+                            <View style={styles.badgeTag}>
                               <BadgeIcon size={12} color={badge.color} strokeWidth={2.2} />
                               <Text style={[styles.badgeTagText, { color: badge.color }]}>{badge.label}</Text>
                             </View>
 
                             {/* Badge Rôle du Membre */}
-                            <View style={[styles.roleBadge, isFounder ? styles.roleFounder : styles.roleMember]}>
-                              {isFounder ? <Crown size={11} color="#074B36" /> : <UserCheck size={11} color="#475569" />}
+                            <View style={styles.roleBadge}>
+                              {isFounder ? <Crown size={11} color="#B9852A" /> : <UserCheck size={11} color="#475569" />}
                               <Text style={[styles.roleBadgeText, isFounder ? styles.roleFounderText : styles.roleMemberText]}>
                                 {isFounder ? 'Fondateur' : 'Membre'}
                               </Text>
@@ -189,7 +219,9 @@ export default function CirclesScreen() {
                       <View style={styles.cardDetailsRow}>
                         <View style={styles.metricItem}>
                           <Users size={14} color="#64748B" />
-                          <Text style={styles.metricText}>{circle.memberCount} membres</Text>
+                          <Text style={styles.metricText}>
+                            {isAidAppeal ? '42+ contributeurs' : `${circle.memberCount} membres`}
+                          </Text>
                         </View>
 
                         <View style={styles.dotDivider} />
@@ -203,15 +235,39 @@ export default function CirclesScreen() {
                       {/* Ligne basse : Montant et statut */}
                       <View style={styles.cardFooterRow}>
                         <View>
-                          <Text style={styles.amountLabel}>Cotisation par tour</Text>
-                          <Text style={styles.amountValue}>{formatXOF(totalAmount)}</Text>
+                          <Text style={styles.amountLabel}>
+                            {isAidAppeal ? 'Objectif de la collecte' : 'Cotisation par tour'}
+                          </Text>
+                          <Text style={styles.amountValue}>
+                            {isAidAppeal
+                              ? formatXOF(circle.rules?.goalAmount ?? 0)
+                              : formatXOF(totalAmount)}
+                          </Text>
                         </View>
 
-                        <View style={styles.activeTag}>
-                          <CircleDot size={10} color="#10B981" />
-                          <Text style={styles.activeTagText}>Actif</Text>
-                        </View>
+                        {needsActivation ? (
+                          <View style={styles.pendingTag}>
+                            <Clock size={16} color="#B47818" />
+                          </View>
+                        ) : (
+                          <View style={styles.activeTag}>
+                            <CircleDot size={16} color="#10B981" />
+                          </View>
+                        )}
                       </View>
+
+                      {needsActivation && (
+                        <TouchableOpacity
+                          style={styles.activateCta}
+                          activeOpacity={0.88}
+                          onPress={() => openActivation(circle.id, circle.name)}
+                        >
+                          <Smartphone size={15} color="#FFFFFF" />
+                          <Text style={styles.activateCtaText}>
+                            Activer ({formatXOF(CIRCLE_CREATION_FEE)})
+                          </Text>
+                        </TouchableOpacity>
+                      )}
                     </TouchableOpacity>
                   </Animated.View>
                 );
@@ -219,6 +275,8 @@ export default function CirclesScreen() {
             )}
           </ScrollView>
         </View>
+
+        {/* MODALE ACTIVATION — frais de création 2 000 F par USSD */}
       </SafeAreaView>
     </View>
   );
@@ -269,7 +327,7 @@ const styles = StyleSheet.create({
   },
   contentBody: {
     flex: 1,
-    backgroundColor: '#FAF7F1',
+    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     marginTop: -20,
@@ -313,34 +371,62 @@ const styles = StyleSheet.create({
   scrollList: {
     paddingHorizontal: 20,
     paddingBottom: 110,
-    gap: 14,
+    gap: 10,
   },
   circleCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    padding: 16,
+    borderRadius: 18,
+    padding: 13,
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
-    shadowColor: '#074B36',
+    shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.04,
     shadowRadius: 10,
     elevation: 2,
   },
   circleCardFounder: {
-    borderColor: 'rgba(7, 75, 54, 0.3)',
     backgroundColor: '#FFFFFF',
+  },
+  circleCardInactive: {
+    opacity: 0.82,
+    borderStyle: 'dashed',
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
+  },
+  pendingTag: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(217, 164, 65, 0.14)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  activateCta: {
+    marginTop: 12,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#074B36',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  activateCtaText: {
+    fontFamily: 'SoraBold',
+    fontSize: 13.5,
+    color: '#FFFFFF',
   },
   cardHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 6,
   },
   cardTitleGroup: {
     flex: 1,
     marginRight: 10,
-    gap: 6,
+    gap: 4,
   },
   tagsContainer: {
     flexDirection: 'row',
@@ -351,10 +437,7 @@ const styles = StyleSheet.create({
   badgeTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 10,
+    gap: 4,
   },
   badgeTagText: {
     fontFamily: 'WorkSansSemiBold',
@@ -364,22 +447,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 10,
-  },
-  roleFounder: {
-    backgroundColor: 'rgba(7, 75, 54, 0.1)',
-  },
-  roleMember: {
-    backgroundColor: '#F1F5F9',
   },
   roleBadgeText: {
     fontFamily: 'WorkSansSemiBold',
     fontSize: 11,
   },
   roleFounderText: {
-    color: '#074B36',
+    color: '#B9852A',
   },
   roleMemberText: {
     color: '#475569',
@@ -392,7 +466,7 @@ const styles = StyleSheet.create({
   cardDetailsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 8,
     gap: 8,
   },
   metricItem: {
@@ -415,7 +489,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
-    paddingTop: 12,
+    paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
   },
@@ -427,22 +501,16 @@ const styles = StyleSheet.create({
   },
   amountValue: {
     fontFamily: 'SoraBold',
-    fontSize: 17,
-    color: '#074B36',
+    fontSize: 16,
+    color: '#1A202C',
   },
   activeTag: {
-    flexDirection: 'row',
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(16, 185, 129, 0.08)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 10,
-  },
-  activeTagText: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 11.5,
-    color: '#059669',
   },
   emptyState: {
     alignItems: 'center',

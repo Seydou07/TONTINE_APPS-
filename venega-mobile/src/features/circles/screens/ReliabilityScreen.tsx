@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
   },
   formCardSheet: {
     flex: 1,
-    backgroundColor: '#FAF7F1',
+    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     marginTop: -20,
@@ -390,7 +390,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#F1F5F9',
     padding: 14,
     gap: 10,
-    backgroundColor: '#FAF7F1',
+    backgroundColor: '#FFFFFF',
   },
   eventRowItem: {
     flexDirection: 'row',

@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
   },
   formCardSheet: {
     flex: 1,
-    backgroundColor: '#FAF7F1',
+    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     marginTop: -20,
@@ -477,7 +477,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   pickerModalCard: {
-    backgroundColor: '#FAF7F1',
+    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     padding: 24,

@@ -7,11 +7,6 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "scheme": "venega",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#FAF7F1"
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -24,7 +19,8 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FAF7F1"
       },
-      "package": "com.aniss.venega"
+      "package": "com.aniss.venega",
+      "softwareKeyboardLayoutMode": "resize"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -32,10 +28,17 @@
     "plugins": [
       "expo-router",
       "expo-font",
-      "expo-asset"
-    ],
-    "experiments": {
-      "typedRoutes": true
-    }
+      "expo-asset",
+      "expo-image",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#FAF7F1"
+        }
+      ],
+      "expo-status-bar"
+    ]
   }
 }

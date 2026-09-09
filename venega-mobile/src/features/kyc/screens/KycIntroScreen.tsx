@@ -3,37 +3,29 @@ import { View, Text, StyleSheet, TouchableOpacity, StatusBar } from 'react-nativ
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ShieldCheck, ArrowLeft, ArrowRight, FileText, Camera } from 'lucide-react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
 
 export default function KYCIntroScreen() {
   const router = useRouter();
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#074B36" />
-      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        {/* En-tête vert */}
-        <View style={styles.topSection}>
-          <View style={styles.topBar}>
-            <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-              <ArrowLeft size={20} color="#FFFFFF" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Vérification d'Identité</Text>
-            <View style={{ width: 38 }} />
-          </View>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }} edges={['top', 'bottom']}>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backBtn} activeOpacity={0.7} onPress={() => router.back()}>
+            <ArrowLeft size={20} color="#0F172A" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Vérification d'identité</Text>
         </View>
 
-        {/* Corps emboîté crème */}
-        <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.formCardSheet}>
-          <View style={styles.illustrationContainer}>
-            <View style={styles.illustrationWrap}>
-              <ShieldCheck size={52} color="#074B36" />
-            </View>
+        <View style={styles.body}>
+          <View style={styles.illustrationWrap}>
+            <ShieldCheck size={44} color="#074B36" />
           </View>
 
-          <Text style={styles.title}>Identification conforme (KYC)</Text>
+          <Text style={styles.title}>Identification conforme</Text>
           <Text style={styles.subtitle}>
-            Afin de sécuriser les cotisations et d'assurer la confiance de votre cercle, veuillez vérifier votre identité.
+            Pour sécuriser les cotisations et la confiance de votre cercle, votre identité doit être vérifiée.
           </Text>
 
           <View style={styles.infoBox}>
@@ -41,130 +33,105 @@ export default function KYCIntroScreen() {
               <View style={styles.infoIcon}>
                 <FileText size={18} color="#074B36" />
               </View>
-              <Text style={styles.infoText}>Pièce d'identité (CNIB ou Passeport)</Text>
+              <Text style={styles.infoText}>Pièce d'identité (CNIB ou passeport)</Text>
             </View>
+
+            <View style={styles.infoDivider} />
 
             <View style={styles.infoRow}>
               <View style={styles.infoIcon}>
                 <Camera size={18} color="#074B36" />
               </View>
-              <Text style={styles.infoText}>Selfie d'identification directe</Text>
+              <Text style={styles.infoText}>Selfie de vérification</Text>
             </View>
           </View>
 
           <View style={{ flex: 1 }} />
 
           <TouchableOpacity
-            style={styles.primaryPillBtn}
+            style={styles.primaryBtn}
             activeOpacity={0.88}
             onPress={() => router.replace('/kyc-upload')}
           >
-            <Text style={styles.primaryPillBtnText}>Commencer la vérification</Text>
+            <Text style={styles.primaryBtnText}>Commencer la vérification</Text>
             <ArrowRight size={18} color="#FFFFFF" />
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.skipBtn} onPress={() => router.replace('/(tabs)')}>
             <Text style={styles.skipBtnText}>Ignorer pour le moment</Text>
           </TouchableOpacity>
-        </Animated.View>
+        </View>
       </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#074B36' },
-  topSection: {
-    backgroundColor: '#074B36',
-    paddingHorizontal: 20,
-    paddingBottom: 30,
-  },
-  topBar: {
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 12,
+    paddingHorizontal: 20,
     paddingTop: 8,
+    paddingBottom: 18,
   },
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 18,
-    color: '#FFFFFF',
-  },
-  formCardSheet: {
-    flex: 1,
-    backgroundColor: '#FAF7F1',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    marginTop: -20,
-    paddingHorizontal: 24,
-    paddingTop: 32,
-    paddingBottom: 40,
-  },
-  illustrationContainer: { alignItems: 'center', marginBottom: 20 },
+  backBtn: { width: 24, height: 24, justifyContent: 'center', alignItems: 'center' },
+  headerTitle: { fontFamily: 'SoraBold', fontSize: 18, color: '#0F172A' },
+  body: { flex: 1, paddingHorizontal: 24, paddingBottom: 24 },
   illustrationWrap: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    backgroundColor: 'rgba(7, 75, 54, 0.08)',
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: '#E4F0EB',
     justifyContent: 'center',
     alignItems: 'center',
+    alignSelf: 'center',
+    marginBottom: 20,
   },
   title: {
     fontFamily: 'SoraBold',
-    fontSize: 22,
-    color: '#074B36',
-    marginBottom: 10,
+    fontSize: 21,
+    color: '#0F172A',
+    marginBottom: 8,
     textAlign: 'center',
   },
   subtitle: {
     fontFamily: 'WorkSans',
-    fontSize: 14,
-    lineHeight: 22,
+    fontSize: 13.5,
+    lineHeight: 20,
     color: '#64748B',
     textAlign: 'center',
     marginBottom: 24,
   },
   infoBox: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: 18,
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
-    padding: 16,
-    gap: 14,
+    paddingHorizontal: 16,
   },
-  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
+  infoDivider: { height: 1, backgroundColor: '#F1F3F6' },
   infoIcon: {
     width: 38,
     height: 38,
-    borderRadius: 14,
-    backgroundColor: 'rgba(7, 75, 54, 0.08)',
+    borderRadius: 12,
+    backgroundColor: '#E4F0EB',
     justifyContent: 'center',
     alignItems: 'center',
   },
   infoText: { fontFamily: 'WorkSansMedium', fontSize: 13.5, color: '#0F172A' },
-  primaryPillBtn: {
+  primaryBtn: {
     height: 52,
     backgroundColor: '#074B36',
-    borderRadius: 26,
+    borderRadius: 14,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
-    shadowColor: '#074B36',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.22,
-    shadowRadius: 12,
-    elevation: 4,
   },
-  primaryPillBtnText: { fontFamily: 'SoraBold', fontSize: 15.5, color: '#FFFFFF' },
-  skipBtn: { paddingVertical: 12, alignItems: 'center', marginTop: 6 },
+  primaryBtnText: { fontFamily: 'SoraBold', fontSize: 15.5, color: '#FFFFFF' },
+  skipBtn: { paddingVertical: 14, alignItems: 'center' },
   skipBtnText: { fontFamily: 'WorkSansMedium', fontSize: 13.5, color: '#64748B' },
 });

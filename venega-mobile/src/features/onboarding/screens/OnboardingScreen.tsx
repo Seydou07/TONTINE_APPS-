@@ -1,7 +1,6 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, Dimensions, TouchableOpacity, StatusBar } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { View, Text, StyleSheet, Dimensions, TouchableOpacity, StatusBar, Image } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue,
@@ -10,86 +9,92 @@ import Animated, {
   interpolate,
   interpolateColor,
   Extrapolate,
-  FadeInUp,
+  FadeInDown,
+  FadeIn,
 } from 'react-native-reanimated';
-import { ArrowRight, ChevronRight } from 'lucide-react-native';
 import type { SharedValue } from 'react-native-reanimated';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const logoImg = require('../../../../assets/venega-logo.png');
-const slide2Img = require('../../../../assets/images/onboarding/slide2.png');
-const slide3Img = require('../../../../assets/images/onboarding/slide3.png');
-const slide4Img = require('../../../../assets/images/onboarding/slide4.png');
 
-// Nouvel ordre : Slide 4 → Slide 2 → Slide 3
+// ─────────────────────────────────────────────────────────────────────────
+// Chaque élément (logo, titre, image, description) est positionné en
+// absolu, à sa propre position fixe, indépendamment des autres. Toucher au
+// réglage d'un élément (sa position ou sa taille) ne déplace jamais les
+// autres — chaque bloc de constantes ci-dessous ne concerne qu'un élément.
+// ─────────────────────────────────────────────────────────────────────────
+
+// ── Logo ──
+const LOGO_TOP = 12;
+const LOGO_WIDTH = 150;
+const LOGO_HEIGHT = 100;
+
+// ── Titre (vert) ──
+const TITLE_TOP = 112;
+const TITLE_HEIGHT = 54;
+
+// ── Image ──
+const IMAGE_TOP = 150;
+const IMAGE_HORIZONTAL_PADDING = 28;
+const IMAGE_MAX_WIDTH = SCREEN_WIDTH - IMAGE_HORIZONTAL_PADDING * 2;
+const IMAGE_MAX_HEIGHT = 730;
+const IMAGE_NATURAL_WIDTH = 1024;
+const IMAGE_NATURAL_HEIGHT = 1536;
+/** Taille d'affichage en pixels exacts qui fait tenir l'image entière dans
+ * l'espace disponible, sans la recadrer — commune aux 3 slides. */
+const IMAGE_SIZE = (() => {
+  const scale = Math.min(IMAGE_MAX_WIDTH / IMAGE_NATURAL_WIDTH, IMAGE_MAX_HEIGHT / IMAGE_NATURAL_HEIGHT);
+  return { width: IMAGE_NATURAL_WIDTH * scale, height: IMAGE_NATURAL_HEIGHT * scale };
+})();
+
+// ── Description (texte noir du bas) ──
+const DESCRIPTION_BOTTOM = 100;
+const DESCRIPTION_HORIZONTAL_PADDING = 28;
+
 const SLIDES = [
   {
     id: 1,
-    image: slide4Img,
-    eyebrow: 'Cotisation simple',
-    title: 'Cotisez en un clic',
-    description:
-      'Gérez vos cotisations directement depuis votre téléphone. Plus de paperasse, plus d\'attente — vous suivez tout en temps réel.',
-    tag: 'Mobile Money',
+    image: require('../../../../assets/images/onboarding/on1.png'),
+    title: 'Tontine simple et sécurisée',
+    description: 'Épargnez en toute confiance et atteignez vos objectifs.',
   },
   {
     id: 2,
-    image: slide2Img,
-    eyebrow: 'Transparence totale',
-    title: 'Chaque franc, visible',
-    description:
-      'Historique complet, roue de rotation en direct, statut des paiements. Vous voyez exactement ce qui se passe avec votre argent.',
-    tag: 'Confiance',
+    image: require('../../../../assets/images/onboarding/on2.png'),
+    title: 'Solidarité et transparence',
+    description: 'Ensemble, nous sommes plus forts. La transparence renforce la confiance.',
   },
   {
     id: 3,
-    image: slide3Img,
-    eyebrow: 'Communauté solidaire',
-    title: 'Prêts à commencer ?',
-    description: 'Rejoignez Venega aujourd\'hui !',
-    tag: 'Démarrer',
-    isLast: true,
+    image: require('../../../../assets/images/onboarding/on3.png'),
+    title: 'Suivez tout, simplement en temps réel',
+    description: "Gardez le contrôle de vos cotisations, de vos paiements et l'évolution de votre cercle en un coup d'œil.",
   },
 ];
 
 export default function OnboardingScreen() {
   const router = useRouter();
-  const [currentIndex, setCurrentIndex] = useState(0);
   const scrollX = useSharedValue(0);
   const scrollViewRef = useRef<Animated.ScrollView>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
 
   const onScroll = useAnimatedScrollHandler((event) => {
     scrollX.value = event.contentOffset.x;
   });
 
-  const handleNext = () => {
-    if (currentIndex < SLIDES.length - 1) {
-      const nextIndex = currentIndex + 1;
-      scrollViewRef.current?.scrollTo({ x: nextIndex * SCREEN_WIDTH, animated: true });
-      setCurrentIndex(nextIndex);
-    } else {
-      router.replace('/landing');
-    }
+  const handleSkip = () => {
+    router.replace('/landing');
   };
 
-  const handleSkip = () => {
+  const handleStart = () => {
     router.replace('/landing');
   };
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FAF7F1" />
+      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-        {/* ── En-tête minimaliste : logo centré ── */}
-        <View style={styles.topHeader}>
-          <Image source={logoImg} style={styles.headerLogo} contentFit="contain" />
-          <TouchableOpacity style={styles.skipBtn} onPress={handleSkip} activeOpacity={0.7}>
-            <Text style={styles.skipBtnText}>Passer</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* ── Carousel ── */}
         <Animated.ScrollView
           ref={scrollViewRef}
           horizontal
@@ -107,28 +112,24 @@ export default function OnboardingScreen() {
           ))}
         </Animated.ScrollView>
 
-        {/* ── Footer ── */}
-        <View style={styles.footer}>
-          <View style={styles.pagination}>
+        <View style={styles.overlay} pointerEvents="box-none">
+          <TouchableOpacity style={styles.skipBtn} onPress={handleSkip} activeOpacity={0.7}>
+            <Text style={styles.skipBtnText}>Passer</Text>
+          </TouchableOpacity>
+
+          <View style={styles.pagination} pointerEvents="none">
             {SLIDES.map((_, index) => (
               <PaginationDot key={index} index={index} scrollX={scrollX} />
             ))}
           </View>
 
-          <TouchableOpacity
-            style={styles.nextPillBtn}
-            activeOpacity={0.88}
-            onPress={handleNext}
-          >
-            <Text style={styles.nextPillBtnText}>
-              {currentIndex === SLIDES.length - 1 ? 'Commencer' : 'Suivant'}
-            </Text>
-            {currentIndex === SLIDES.length - 1 ? (
-              <ChevronRight size={18} color="#FFFFFF" />
-            ) : (
-              <ArrowRight size={18} color="#FFFFFF" />
-            )}
-          </TouchableOpacity>
+          {currentIndex === SLIDES.length - 1 && (
+            <Animated.View entering={FadeIn.duration(250)} style={styles.startBtnWrap}>
+              <TouchableOpacity style={styles.startBtn} onPress={handleStart} activeOpacity={0.7}>
+                <Text style={styles.startBtnText}>Commencer</Text>
+              </TouchableOpacity>
+            </Animated.View>
+          )}
         </View>
       </SafeAreaView>
     </View>
@@ -150,95 +151,70 @@ function Slide({
     (index + 1) * SCREEN_WIDTH,
   ];
 
-  const photoStyle = useAnimatedStyle(() => {
-    const scale = interpolate(scrollX.value, inputRange, [0.92, 1, 0.92], Extrapolate.CLAMP);
-    const opacity = interpolate(scrollX.value, inputRange, [0.5, 1, 0.5], Extrapolate.CLAMP);
-    const kenBurns = interpolate(scrollX.value, inputRange, [0.92, 1.08, 0.92], Extrapolate.CLAMP);
-    return { opacity, transform: [{ scale }], kenBurns };
+  // Chaque élément anime son entrée en fonction de sa distance au centre de
+  // l'écran pendant le glissement — fondu + léger mouvement, pour que tout
+  // "arrive" avec un effet vivant quand on passe sur cette page.
+  const logoStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(scrollX.value, inputRange, [0, 1, 0], Extrapolate.CLAMP);
+    const scale = interpolate(scrollX.value, inputRange, [0.8, 1, 0.8], Extrapolate.CLAMP);
+    return { opacity, transform: [{ scale }] };
   });
 
-  const textStyle = useAnimatedStyle(() => {
+  const titleStyle = useAnimatedStyle(() => {
     const opacity = interpolate(scrollX.value, inputRange, [0, 1, 0], Extrapolate.CLAMP);
-    const translateY = interpolate(scrollX.value, inputRange, [24, 0, -24], Extrapolate.CLAMP);
+    const translateY = interpolate(scrollX.value, inputRange, [26, 0, -26], Extrapolate.CLAMP);
     return { opacity, transform: [{ translateY }] };
   });
 
-  if (slide.isLast) {
-    // ── DERNIÈRE PAGE : style premium avec image en bas ──
-    return (
-      <View style={styles.slide}>
-        <Animated.View entering={FadeInUp.duration(700)} style={styles.lastPageContent}>
-          {/* ── Titres premium ── */}
-          <View style={styles.lastTitlesWrap}>
-            <View style={styles.tagRow}>
-              <View style={styles.accentDot} />
-              <Text style={styles.lastEyebrow}>DERNIÈRE ÉTAPE</Text>
-            </View>
+  const photoStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(scrollX.value, inputRange, [0.3, 1, 0.3], Extrapolate.CLAMP);
+    const scale = interpolate(scrollX.value, inputRange, [0.9, 1, 0.9], Extrapolate.CLAMP);
+    return { opacity, transform: [{ scale }] };
+  });
 
-            <Text style={styles.lastTitle}>
-              PRÊT À COMMENCER ?
-            </Text>
+  const descriptionStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(scrollX.value, inputRange, [0, 1, 0], Extrapolate.CLAMP);
+    const translateY = interpolate(scrollX.value, inputRange, [18, 0, -18], Extrapolate.CLAMP);
+    return { opacity, transform: [{ translateY }] };
+  });
 
-            <View style={styles.dividerLine} />
-
-            <Text style={styles.lastSubtitle}>
-              REJOIGNEZ VENEGA AUJOURD'HUI !
-            </Text>
-
-            <Text style={styles.lastDesc}>
-              Créez votre premier cercle, invitez vos proches et commencez à épargner ensemble en toute transparence.
-            </Text>
-          </View>
-
-          {/* ── Image en bas, style premium sans bord/ombre ── */}
-          <Animated.View style={[styles.lastImageWrap, photoStyle]}>
-            <Image
-              source={slide.image}
-              style={styles.lastImage}
-              contentFit="cover"
-              transition={400}
-            />
-            {/* Overlay gradient subtil pour la profondeur */}
-            <View style={styles.lastImageOverlay} />
-          </Animated.View>
-        </Animated.View>
-      </View>
-    );
-  }
-
-  // ── SLIDES 1 & 2 : style Pinterest (image clean, texte ordonné) ──
   return (
     <View style={styles.slide}>
-      {/* Image sans carte, sans bord, sans ombre - style Pinterest */}
-      <View style={styles.illustrationWrap}>
-        <Animated.View style={[styles.posterWrap, photoStyle]}>
-          <Image
-            source={slide.image}
-            style={styles.posterImage}
-            contentFit="cover"
-            transition={350}
-          />
-        </Animated.View>
-      </View>
-
-      <Animated.View style={[styles.textWrap, textStyle]}>
-        {/* Eyebrow + Tag */}
-        <View style={styles.eyebrowRow}>
-          <Text style={styles.eyebrow}>{slide.eyebrow.toUpperCase()}</Text>
-          <View style={styles.tagPill}>
-            <Text style={styles.tagPillText}>{slide.tag}</Text>
-          </View>
-        </View>
-
-        {/* Titre */}
-        <Text style={styles.title}>{slide.title}</Text>
-
-        {/* Séparateur décoratif */}
-        <View style={styles.titleUnderline} />
-
-        {/* Description */}
-        <Text style={styles.description}>{slide.description}</Text>
+      <Animated.View
+        entering={FadeIn.delay(20).duration(280)}
+        style={[styles.logoWrap, logoStyle]}
+        pointerEvents="none"
+      >
+        <Image source={logoImg} style={styles.slideLogo} resizeMode="contain" />
       </Animated.View>
+
+      <Animated.Text
+        entering={FadeInDown.delay(60).duration(300)}
+        style={[styles.slideTitle, titleStyle]}
+        numberOfLines={3}
+      >
+        {slide.title}
+      </Animated.Text>
+
+      <Animated.View
+        entering={FadeInDown.delay(100).duration(340)}
+        style={[styles.imageWrap, photoStyle]}
+        pointerEvents="none"
+      >
+        <Image
+          source={slide.image}
+          style={{ width: IMAGE_SIZE.width, height: IMAGE_SIZE.height }}
+          resizeMode="contain"
+        />
+      </Animated.View>
+
+      <Animated.Text
+        entering={FadeInDown.delay(140).duration(300)}
+        style={[styles.slideDescription, descriptionStyle]}
+        numberOfLines={4}
+      >
+        {slide.description}
+      </Animated.Text>
     </View>
   );
 }
@@ -271,237 +247,111 @@ function PaginationDot({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAF7F1',
-  },
-  topHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-  },
-  headerLogo: {
-    width: 148,
-    height: 48,
-  },
-  skipBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 999,
-    backgroundColor: 'rgba(7, 75, 54, 0.06)',
-  },
-  skipBtnText: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 13.5,
-    color: '#074B36',
+    backgroundColor: '#FFFFFF',
   },
   slide: {
     width: SCREEN_WIDTH,
-    flex: 1,
-    paddingHorizontal: 24,
+    height: SCREEN_HEIGHT,
+    backgroundColor: '#FFFFFF',
   },
 
-  /* ─── Illustration (slides 1-2) style Pinterest sans card ─── */
-  illustrationWrap: {
-    flex: 1.35,
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: '100%',
-    paddingTop: 4,
-  },
-  posterWrap: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 28,
-    overflow: 'hidden',
-    // PAS de fond, PAS de bord, PAS d'ombre — style Pinterest
-    backgroundColor: 'transparent',
-    borderWidth: 0,
-    shadowColor: 'transparent',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    elevation: 0,
-  },
-  posterImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 28,
-  },
-
-  /* ─── Textes slides 1-2 ─── */
-  textWrap: {
-    flex: 0.85,
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-    paddingTop: 12,
-  },
-  eyebrowRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 12,
-  },
-  eyebrow: {
-    fontFamily: 'SoraBold',
-    fontSize: 12,
-    letterSpacing: 1.2,
-    color: '#074B36',
-  },
-  tagPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-    backgroundColor: 'rgba(7, 75, 54, 0.08)',
-  },
-  tagPillText: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 11,
-    color: '#074B36',
-    letterSpacing: 0.3,
-  },
-  title: {
-    fontFamily: 'SoraBold',
-    fontSize: 27,
-    lineHeight: 34,
-    color: '#0F172A',
-    letterSpacing: -0.6,
-    marginBottom: 10,
-  },
-  titleUnderline: {
-    width: 48,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: '#074B36',
-    marginBottom: 14,
-  },
-  description: {
-    fontFamily: 'WorkSans',
-    fontSize: 14.5,
-    lineHeight: 23.5,
-    color: '#64748B',
-  },
-
-  /* ─── Dernière page ─── */
-  lastPageContent: {
-    flex: 1,
-    justifyContent: 'space-between',
-    paddingTop: 12,
-    paddingBottom: 16,
-    gap: 20,
-  },
-  lastTitlesWrap: {
-    alignItems: 'center',
-    paddingHorizontal: 8,
-  },
-  tagRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 18,
-  },
-  accentDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#D9A441',
-  },
-  lastEyebrow: {
-    fontFamily: 'SoraBold',
-    fontSize: 11,
-    letterSpacing: 2.4,
-    color: '#64748B',
-  },
-  lastTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 31,
-    lineHeight: 38,
-    color: '#074B36',
-    textAlign: 'center',
-    letterSpacing: -0.5,
-    marginBottom: 14,
-  },
-  dividerLine: {
-    width: 80,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: '#D9A441',
-    marginBottom: 14,
-  },
-  lastSubtitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 18,
-    color: '#0F172A',
-    textAlign: 'center',
-    letterSpacing: -0.2,
-    marginBottom: 12,
-  },
-  lastDesc: {
-    fontFamily: 'WorkSans',
-    fontSize: 13.5,
-    lineHeight: 22,
-    color: '#64748B',
-    textAlign: 'center',
-    paddingHorizontal: 12,
-  },
-  lastImageWrap: {
-    width: '100%',
-    height: 260,
-    borderRadius: 32,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  lastImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 32,
-  },
-  lastImageOverlay: {
+  /* ── Logo : position et taille indépendantes ── */
+  logoWrap: {
     position: 'absolute',
+    top: LOGO_TOP,
     left: 0,
     right: 0,
-    bottom: 0,
-    height: '55%',
-    backgroundColor: 'transparent',
+    alignItems: 'center',
+  },
+  slideLogo: {
+    width: LOGO_WIDTH,
+    height: LOGO_HEIGHT,
   },
 
-  /* ─── Footer ─── */
-  footer: {
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: 24,
+  /* ── Titre vert : position et taille indépendantes ── */
+  slideTitle: {
+    position: 'absolute',
+    top: TITLE_TOP,
+    left: 0,
+    right: 0,
+    minHeight: TITLE_HEIGHT,
+    fontFamily: 'SoraBold',
+    fontSize: 21,
+    lineHeight: 27,
+    color: '#074B36',
+    textAlign: 'center',
+    letterSpacing: -0.3,
+    paddingHorizontal: 20,
+  },
+
+  /* ── Image : position et taille indépendantes ── */
+  imageWrap: {
+    position: 'absolute',
+    top: IMAGE_TOP,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+
+  /* ── Description noire : position indépendante, ancrée depuis le bas ── */
+  slideDescription: {
+    position: 'absolute',
+    bottom: DESCRIPTION_BOTTOM,
+    left: 0,
+    right: 0,
+    paddingHorizontal: DESCRIPTION_HORIZONTAL_PADDING,
+    fontFamily: 'WorkSansBold',
+    fontSize: 15,
+    lineHeight: 20.5,
+    color: '#1A202C',
+    textAlign: 'center',
+  },
+
+  /* ── Bouton Passer, points de pagination, bouton Commencer : chacun ── */
+  /* ── positionné en absolu, indépendamment des autres ── */
+  overlay: {
+    ...StyleSheet.absoluteFill,
+  },
+  skipBtn: {
+    position: 'absolute',
+    top: 44,
+    right: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  skipBtnText: {
+    fontFamily: 'SoraBold',
+    fontSize: 14.5,
+    color: '#074B36',
   },
   pagination: {
+    position: 'absolute',
+    bottom: 22,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 18,
+  },
+  startBtnWrap: {
+    position: 'absolute',
+    bottom: 12,
+    right: 20,
+    justifyContent: 'center',
+  },
+  startBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  startBtnText: {
+    fontFamily: 'SoraBold',
+    fontSize: 14.5,
+    color: '#074B36',
   },
   dot: {
     height: 8,
     borderRadius: 4,
     backgroundColor: '#D8D2C2',
-  },
-  nextPillBtn: {
-    height: 54,
-    backgroundColor: '#074B36',
-    borderRadius: 27,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-    shadowColor: '#074B36',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.22,
-    shadowRadius: 14,
-    elevation: 5,
-  },
-  nextPillBtnText: {
-    fontFamily: 'SoraBold',
-    fontSize: 15.5,
-    color: '#FFFFFF',
-    letterSpacing: 0.2,
   },
 });

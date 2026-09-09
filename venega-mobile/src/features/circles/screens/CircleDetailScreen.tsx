@@ -13,7 +13,7 @@ import {
   Share,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, Redirect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ArrowLeft,
@@ -41,6 +41,12 @@ import {
   ShieldCheck,
   Building2,
   Coins,
+  ArrowDownLeft,
+  CircleDollarSign,
+  Settings2,
+  ChevronRight,
+  Phone,
+  Loader,
 } from 'lucide-react-native';
 import Animated, {
   useSharedValue,
@@ -54,8 +60,15 @@ import Animated, {
   cancelAnimation,
   FadeInDown,
 } from 'react-native-reanimated';
-import { mockCircles, mockCycles, mockMemberships, mockUsers } from '@venega/types';
-import { Role, PaymentStatus } from '@venega/types';
+import {
+  getCircle,
+  getCircles,
+  getActiveCycle,
+  getCycles,
+  getFounderCircleIds,
+} from '../circleStore';
+import { mockMemberships, mockUsers, mockCurrentUser, mockTransactions } from '@venega/types';
+import { Role, PaymentStatus, TransactionType, TransactionStatus, PaymentMethod, CircleType } from '@venega/types';
 
 const WHEEL_SIZE = 240;
 const CENTER_SIZE = 120;
@@ -79,10 +92,11 @@ const OPERATORS = [
 
 export default function CircleDetailScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ id: string }>();
+  const params = useLocalSearchParams<{ id: string; action?: string }>();
   const circleId = params.id;
+  const action = params.action;
 
-  const circle = mockCircles.find((c) => c.id === circleId) ?? mockCircles[0];
+  const circle = getCircle(circleId) ?? getCircles()[0];
 
   if (!circle) {
     return (
@@ -94,7 +108,19 @@ export default function CircleDetailScreen() {
     );
   }
 
-  const cycle = mockCycles.find((c) => c.circleId === circle.id && c.isActive) ?? mockCycles.find((c) => c.circleId === circle.id);
+  if (circle.type === CircleType.SOLIDARITY_ONLY) {
+    return <Redirect href={`/circle/${circle.id}/solidarity` as any} />;
+  }
+
+  if (circle.type === CircleType.TONTINE_ONLY) {
+    return <Redirect href={`/circle/${circle.id}/tontine` as any} />;
+  }
+
+  if (circle.type === CircleType.HYBRID) {
+    return <Redirect href={`/circle/${circle.id}/hybrid` as any} />;
+  }
+
+  const cycle = getActiveCycle(circle) ?? getCycles(circle.id)[0];
   const memberships = mockMemberships.filter((m) => m.circleId === circle.id);
 
   const [membersList, setMembersList] = useState(
@@ -114,22 +140,16 @@ export default function CircleDetailScreen() {
         }))
   );
 
-  // L'utilisateur connecté est le fondateur du cercle c1 uniquement
-  const isFounder = circle.id === 'c1';
+  // L'utilisateur connecté est le fondateur des cercles de sa liste
+  const isFounder = getFounderCircleIds().includes(circle.id);
 
   const [showAllMembers, setShowAllMembers] = useState(false);
   const [selectedTurn, setSelectedTurn] = useState<number>(cycle?.currentTurn ?? 1);
 
   // Modales
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const [showPayoutModal, setShowPayoutModal] = useState(false);
-  const [showReceiptModal, setShowReceiptModal] = useState(false);
-  const [selectedOperator, setSelectedOperator] = useState('ORANGE');
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
-  const [payoutValidated, setPayoutValidated] = useState(false);
-
-  const [simulationModal, setSimulationModal] = useState<{ visible: boolean; title: string; desc: string } | null>(null);
 
   const orderedMembers = [...membersList].sort((a, b) => (a.turnOrder ?? 0) - (b.turnOrder ?? 0));
   const notReceived = orderedMembers.filter((m) => !m.hasReceivedPayout);
@@ -158,21 +178,6 @@ export default function CircleDetailScreen() {
   const venegaCommission = Math.round(totalFounderFeesCollected * 0.10);
   // 4. Frais net du Fondateur (90% des frais = 2 700 F)
   const netFounderFees = totalFounderFeesCollected - venegaCommission;
-
-  // Validation du versement
-  const handleConfirmPayout = () => {
-    setShowPayoutModal(false);
-    setPayoutValidated(true);
-    setShowReceiptModal(true);
-  };
-
-  const handleSimulateReminder = () => {
-    setSimulationModal({
-      visible: true,
-      title: 'Relance des cotisations',
-      desc: `Un message de relance a été envoyé aux ${orderedMembers.length - paidCount} membre(s) qui n'ont pas encore cotisé pour le Tour ${cycle?.currentTurn ?? 1}.`,
-    });
-  };
 
   const handleCopyCode = () => {
     setCopiedCode(true);
@@ -206,9 +211,24 @@ export default function CircleDetailScreen() {
     } catch (e) {}
   };
 
+  // Historique personnel de l'utilisateur connecté dans ce cercle
+  const myTxns = mockTransactions
+    .filter((t) => t.circleId === circle.id && t.userId === mockCurrentUser.id && !!t.paymentMethod)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const myPaid = myTxns.filter((t) => t.type === TransactionType.TONTINE_CONTRIBUTION || t.type === TransactionType.SOLIDARITY_CONTRIBUTION);
+  const myReceived = myTxns.filter((t) => t.type === TransactionType.PAYOUT);
+  const totalPaid = myPaid.reduce((s, t) => s + (t.amount ?? 0), 0);
+  const totalReceived = myReceived.reduce((s, t) => s + (t.amount ?? 0), 0);
+
+  const paymentMethodLabel = (m?: PaymentMethod) =>
+    m === PaymentMethod.ORANGE_MONEY ? 'Orange Money'
+    : m === PaymentMethod.MOOV_MONEY ? 'Moov Money'
+    : m === PaymentMethod.WAVE ? 'Wave'
+    : m === PaymentMethod.MTN_MOBILE_MONEY ? 'MTN MoMo'
+    : 'Mobile Money';
+
   // Détails par tour
-  const getMemberTurnDetails = (userId: string, memberIndex: number) => {
-    const isCurrentTurn = selectedTurn === (cycle?.currentTurn ?? 1);
+  const getMemberTurnDetails = (userId: string, memberIndex: number) => {    const isCurrentTurn = selectedTurn === (cycle?.currentTurn ?? 1);
     if (isCurrentTurn) {
       const isPaid = membersList.find((m) => m.userId === userId)?.paymentStatus === PaymentStatus.PAID;
       return {
@@ -322,80 +342,40 @@ export default function CircleDetailScreen() {
             <View style={styles.actionPillsSection}>
               {isFounder ? (
                 <>
-                  {/* 4 Boutons d'action circulaires style Home (Relancer, Adhésion, Remplacer, Exclure) */}
+                  {/* Menu Gestion du cercle (unique) — toutes les actions admin */}
                   <View style={styles.circleQuickActionsCard}>
-                    <View style={styles.circleQuickActionsRow}>
-                      <TouchableOpacity
-                        style={styles.circleQuickActionItem}
-                        activeOpacity={0.78}
-                        onPress={handleSimulateReminder}
-                      >
-                        <View style={[styles.circularOutlineBtn, { borderColor: '#D97706' }]}>
-                          <BellRing size={22} color="#D97706" strokeWidth={2} />
-                        </View>
-                        <Text style={styles.circleQuickActionLabel}>Relancer</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.circleQuickActionItem}
-                        activeOpacity={0.78}
-                        onPress={() => router.push(`/circle/${circle.id}/requests` as any)}
-                      >
-                        <View style={[styles.circularOutlineBtn, { borderColor: '#06B6D4' }]}>
-                          <UserCheck size={22} color="#06B6D4" strokeWidth={2} />
-                        </View>
-                        <Text style={styles.circleQuickActionLabel}>Adhésion</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.circleQuickActionItem}
-                        activeOpacity={0.78}
-                        onPress={() => router.push(`/circle/${circle.id}/replacement` as any)}
-                      >
-                        <View style={[styles.circularOutlineBtn, { borderColor: '#6366F1' }]}>
-                          <Users size={22} color="#6366F1" strokeWidth={2} />
-                        </View>
-                        <Text style={styles.circleQuickActionLabel}>Remplacer</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.circleQuickActionItem}
-                        activeOpacity={0.78}
-                        onPress={() => router.push(`/circle/${circle.id}/exclusion` as any)}
-                      >
-                        <View style={[styles.circularOutlineBtn, { borderColor: '#EF4444' }]}>
-                          <UserX size={22} color="#EF4444" strokeWidth={2} />
-                        </View>
-                        <Text style={styles.circleQuickActionLabel}>Exclure</Text>
-                      </TouchableOpacity>
-                    </View>
+                    <TouchableOpacity
+                      style={styles.manageCircleBtn}
+                      activeOpacity={0.82}
+                      onPress={() => router.push(`/circle/${circle.id}/manage` as any)}
+                    >
+                      <View style={styles.manageCircleIconWrap}>
+                        <Settings2 size={20} color="#FFFFFF" strokeWidth={2} />
+                      </View>
+                      <View style={styles.manageCircleInfo}>
+                        <Text style={styles.manageCircleTitle}>Gérer le cercle</Text>
+                        <Text style={styles.manageCircleSub}>
+                          Versements, membres, adhésions, règles⬦
+                        </Text>
+                      </View>
+                      <ChevronRight size={20} color="#074B36" />
+                    </TouchableOpacity>
                   </View>
 
-                  {/* Ligne principale Fondateur (en-dessous) : Verser la cagnotte & Cotiser */}
+                  {/* Cotiser (le fondateur cotise aussi) */}
                   <View style={styles.pillsMainRow}>
-                    <TouchableOpacity
-                      style={[styles.actionPillMain, styles.actionPillVerser, payoutValidated && styles.actionPillVerserDone]}
-                      activeOpacity={0.88}
-                      onPress={() => setShowPayoutModal(true)}
-                    >
-                      <ArrowUpRight size={18} color="#FFFFFF" />
-                      <Text style={styles.actionPillMainText}>
-                        {payoutValidated ? 'Versé' : 'Verser'}
-                      </Text>
-                    </TouchableOpacity>
-
                     <TouchableOpacity
                       style={[styles.actionPillMain, styles.actionPillCotiser]}
                       activeOpacity={0.88}
                       onPress={() => router.push(`/payment?circleId=${circle.id}&amount=${totalAmountPerMember}` as any)}
                     >
                       <Wallet size={18} color="#FFFFFF" />
-                      <Text style={styles.actionPillMainText}>Cotiser</Text>
+                      <Text style={styles.actionPillMainText}>Cotiser ({formatXOF(totalAmountPerMember)})</Text>
                     </TouchableOpacity>
                   </View>
                 </>
               ) : (
-                /* Vue Membre : Uniquement le bouton Cotiser (Historique disponible dans les onglets du bas) */
+                /* Vue Membre : bouton Cotiser + accès à la caisse de solidarité (si le cercle en a une) */
                 <View style={styles.pillsMainRow}>
                   <TouchableOpacity
                     style={[styles.actionPillMain, styles.actionPillCotiser, { flex: 1 }]}
@@ -404,6 +384,18 @@ export default function CircleDetailScreen() {
                   >
                     <Wallet size={18} color="#FFFFFF" />
                     <Text style={styles.actionPillMainText}>Cotiser ({formatXOF(totalAmountPerMember)})</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              {circle.solidarityAmount > 0 && (
+                <View style={styles.pillsMainRow}>
+                  <TouchableOpacity
+                    style={[styles.actionPillMain, styles.actionPillSolidarity, { flex: 1 }]}
+                    activeOpacity={0.88}
+                    onPress={() => router.push(`/circle/${circle.id}/solidarity` as any)}
+                  >
+                    <Coins size={18} color="#FFFFFF" />
+                    <Text style={styles.actionPillMainText}>Caisse de solidarité</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -456,7 +448,7 @@ export default function CircleDetailScreen() {
                           )}
                         </View>
                         <Text style={styles.memberRoleText}>
-                          {isFounderRole ? 'Fondateur' : `Passage : Tour ${m.turnOrder}`} • {details.operator}
+                          {isFounderRole ? 'Fondateur' : `Passage : Tour ${m.turnOrder}`} ⬢ {details.operator}
                         </Text>
                         {details.isPaid && (
                           <Text style={styles.paymentDetailsText}>
@@ -466,7 +458,7 @@ export default function CircleDetailScreen() {
                       </View>
 
                       <View style={[styles.statusTag, details.isPaid ? styles.statusTagPaid : styles.statusTagPending]}>
-                        {details.isPaid ? <CheckCircle2 size={12} color="#059669" /> : <Clock size={12} color="#EF4444" />}
+                        {details.isPaid ? <CheckCircle2 size={12} color="#0B6E4F" /> : <Clock size={12} color="#E53E3E" />}
                         <Text style={[styles.statusTagText, details.isPaid ? styles.statusTagTextPaid : styles.statusTagTextPending]}>
                           {details.isPaid ? formatXOF(totalAmountPerMember) : 'En attente'}
                         </Text>
@@ -491,7 +483,75 @@ export default function CircleDetailScreen() {
               </View>
             </View>
 
-            {/* 5. BOUTON DE PARTAGE DU CODE / LIEN */}
+            {/* 5. MES TRANSACTIONS (paiements + réceptions de l'utilisateur connecté) */}
+            <View style={styles.historySection}>
+              <View style={styles.historyHeaderRow}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <CircleDollarSign size={18} color="#074B36" />
+                  <Text style={styles.sectionHeadingNoMargin}>Mes transactions</Text>
+                </View>
+              </View>
+
+              <View style={styles.myTxnSummaryRow}>
+                <View style={styles.myTxnSummaryCard}>
+                  <Text style={styles.myTxnSummaryLabel}>Total cotisé</Text>
+                  <Text style={styles.myTxnSummaryVal}>{formatXOF(totalPaid)}</Text>
+                  <Text style={styles.myTxnSummarySub}>{myPaid.length} paiement(s)</Text>
+                </View>
+                <View style={styles.myTxnSummaryCard}>
+                  <Text style={styles.myTxnSummaryLabel}>Total reçu</Text>
+                  <Text style={[styles.myTxnSummaryVal, { color: '#E53E3E' }]}>{formatXOF(totalReceived)}</Text>
+                  <Text style={styles.myTxnSummarySub}>{myReceived.length} cagnotte(s)</Text>
+                </View>
+              </View>
+
+              <View style={styles.membersListCard}>
+                {myTxns.length === 0 && (
+                  <View style={styles.myTxnEmptyBox}>
+                    <Text style={styles.myTxnEmptyText}>
+                      Aucune transaction pour vous dans ce cercle pour le moment.
+                    </Text>
+                  </View>
+                )}
+                {myTxns.map((t, idx) => {
+                  const isReceived = t.type === TransactionType.PAYOUT;
+                  const label = isReceived
+                    ? 'Cagnotte reçue'
+                    : t.type === TransactionType.SOLIDARITY_CONTRIBUTION
+                    ? 'Cotisation solidarité'
+                    : 'Cotisation tontine';
+                  const date = new Date(t.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+                  return (
+                    <View
+                      key={t.id}
+                      style={[styles.memberRow, idx === myTxns.length - 1 && styles.memberRowLast]}
+                    >
+                      <View style={[styles.myTxnIconWrap, isReceived ? styles.myTxnIconWrapReceived : styles.myTxnIconWrapPaid]}>
+                        {isReceived
+                          ? <ArrowDownLeft size={17} color="#E53E3E" />
+                          : <ArrowUpRight size={17} color="#0B6E4F" />}
+                      </View>
+                      <View style={styles.memberInfoCol}>
+                        <Text style={styles.memberNameText}>{label}</Text>
+                        <Text style={styles.memberRoleText}>
+                          {date} ⬢ {paymentMethodLabel(t.paymentMethod)}
+                        </Text>
+                        {t.providerReference && (
+                          <Text style={styles.paymentDetailsText}>
+                            Réf. {t.providerReference}
+                          </Text>
+                        )}
+                      </View>
+                      <Text style={[styles.myTxnAmountText, isReceived ? styles.myTxnAmountReceived : styles.myTxnAmountPaid]}>
+                        {isReceived ? '−' : '+'}{formatXOF(t.amount ?? 0)}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* 6. BOUTON DE PARTAGE DU CODE / LIEN */}
             <TouchableOpacity style={styles.inviteLinkBtn} activeOpacity={0.8} onPress={() => setShowInviteModal(true)}>
               <UserPlus size={18} color="#074B36" />
               <Text style={styles.inviteLinkText}>Partager le cercle ({inviteCode})</Text>
@@ -507,144 +567,6 @@ export default function CircleDetailScreen() {
             <MessageCircle size={24} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
-
-        {/* MODAL DE VERSEMENT DE LA CAGNOTTE (VENTILATION 3 COMPTES) */}
-        <Modal visible={showPayoutModal} animationType="fade" transparent={true}>
-          <View style={styles.modalOverlay}>
-            <Animated.View entering={FadeInDown.duration(300)} style={styles.modalCard}>
-              <View style={styles.modalHeaderRow}>
-                <Text style={styles.modalTitle}>Versement de la cagnotte</Text>
-                <TouchableOpacity onPress={() => setShowPayoutModal(false)}>
-                  <X size={20} color="#64748B" />
-                </TouchableOpacity>
-              </View>
-
-              {/* Infos Bénéficiaire du Tour */}
-              <View style={styles.beneficiaryCardBox}>
-                <View style={styles.beneficiaryIconWrap}>
-                  <User size={20} color="#074B36" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.beneficiaryLabelText}>Bénéficiaire (Tour {cycle?.currentTurn ?? 1})</Text>
-                  <Text style={styles.beneficiaryNameText}>
-                    {beneficiary?.user?.firstName} {beneficiary?.user?.lastName}
-                  </Text>
-                  <Text style={styles.beneficiaryPhoneText}>+226 70 12 34 56 (Mobile Money)</Text>
-                </View>
-              </View>
-
-              {/* Récapitulatif financierVentilation 3 comptes */}
-              <View style={styles.payoutBreakdownBox}>
-                <Text style={styles.breakdownHeadingText}>Ventilation du virement ({membersList.length} cotisations)</Text>
-
-                <View style={styles.payoutRow}>
-                  <Text style={styles.payoutLabelText}>1. Cagnotte Bénéficiaire (100%) :</Text>
-                  <Text style={styles.payoutValGreen}>{formatXOF(beneficiaryPotAmount)}</Text>
-                </View>
-
-                <View style={styles.payoutRow}>
-                  <Text style={styles.payoutLabelText}>2. Frais Fondateur net (90%) :</Text>
-                  <Text style={styles.payoutValText}>{formatXOF(netFounderFees)}</Text>
-                </View>
-
-                <View style={styles.payoutRow}>
-                  <Text style={styles.payoutLabelText}>3. Commission Venega (10%) :</Text>
-                  <Text style={styles.payoutValText}>{formatXOF(venegaCommission)}</Text>
-                </View>
-
-                <View style={styles.payoutDivider} />
-
-                <View style={styles.payoutRow}>
-                  <Text style={styles.payoutNetLabelText}>Total collecté du tour :</Text>
-                  <Text style={styles.payoutNetValText}>{formatXOF(totalGrossCollected)}</Text>
-                </View>
-              </View>
-
-              {/* Choix de l'opérateur Mobile Money */}
-              <Text style={styles.opSelectLabelText}>Opérateur de versement</Text>
-              <View style={styles.operatorsRow}>
-                {OPERATORS.map((op) => {
-                  const isSelected = op.id === selectedOperator;
-                  return (
-                    <TouchableOpacity
-                      key={op.id}
-                      style={[styles.operatorCard, isSelected && styles.operatorCardSelected]}
-                      activeOpacity={0.8}
-                      onPress={() => setSelectedOperator(op.id)}
-                    >
-                      <Image source={operatorLogos[op.id]} style={styles.operatorLogo} contentFit="contain" />
-                      <Text style={[styles.opNameText, isSelected && styles.opNameTextSelected]}>
-                        {op.name}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              {/* Boutons simples : Confirmer et Annuler */}
-              <View style={styles.modalFooterButtonsRow}>
-                <TouchableOpacity
-                  style={styles.cancelModalBtn}
-                  activeOpacity={0.8}
-                  onPress={() => setShowPayoutModal(false)}
-                >
-                  <Text style={styles.cancelModalBtnText}>Annuler</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.confirmModalBtn}
-                  activeOpacity={0.88}
-                  onPress={handleConfirmPayout}
-                >
-                  <Text style={styles.confirmModalBtnText}>Confirmer</Text>
-                </TouchableOpacity>
-              </View>
-            </Animated.View>
-          </View>
-        </Modal>
-
-        {/* MODAL REÇU DE VERSEMENT EFFECTUÉ */}
-        <Modal visible={showReceiptModal} animationType="fade" transparent={true}>
-          <View style={styles.modalOverlay}>
-            <Animated.View entering={FadeInDown.duration(300)} style={styles.modalCard}>
-              <View style={styles.receiptIconCircle}>
-                <CheckCircle2 size={46} color="#10B981" />
-              </View>
-              <Text style={styles.receiptTitleText}>Versement Effectué !</Text>
-
-              <View style={styles.receiptBox}>
-                <View style={styles.receiptRow}>
-                  <Text style={styles.receiptLabel}>Cagnotte versée :</Text>
-                  <Text style={styles.receiptValGreen}>{formatXOF(beneficiaryPotAmount)}</Text>
-                </View>
-                <View style={styles.receiptRow}>
-                  <Text style={styles.receiptLabel}>Bénéficiaire :</Text>
-                  <Text style={styles.receiptVal}>{beneficiary?.user?.firstName} {beneficiary?.user?.lastName}</Text>
-                </View>
-                <View style={styles.receiptRow}>
-                  <Text style={styles.receiptLabel}>Frais Fondateur :</Text>
-                  <Text style={styles.receiptVal}>{formatXOF(netFounderFees)}</Text>
-                </View>
-                <View style={styles.receiptRow}>
-                  <Text style={styles.receiptLabel}>Commission Venega :</Text>
-                  <Text style={styles.receiptVal}>{formatXOF(venegaCommission)}</Text>
-                </View>
-                <View style={styles.receiptRow}>
-                  <Text style={styles.receiptLabel}>Référence :</Text>
-                  <Text style={styles.receiptVal}>TX-{Math.floor(100000 + Math.random() * 900000)}</Text>
-                </View>
-              </View>
-
-              <TouchableOpacity
-                style={styles.primaryPillBtnFull}
-                activeOpacity={0.88}
-                onPress={() => setShowReceiptModal(false)}
-              >
-                <Text style={styles.primaryPillBtnText}>Fermer</Text>
-              </TouchableOpacity>
-            </Animated.View>
-          </View>
-        </Modal>
 
         {/* MODAL D'INVITATION AVEC SEULEMENT LES ICÔNES DE PARTAGE */}
         <Modal visible={showInviteModal} animationType="fade" transparent={true}>
@@ -702,31 +624,6 @@ export default function CircleDetailScreen() {
             </Animated.View>
           </View>
         </Modal>
-
-        {/* Modal de Simulation */}
-        {simulationModal && (
-          <Modal visible={simulationModal.visible} animationType="fade" transparent={true}>
-            <View style={styles.modalOverlay}>
-              <Animated.View entering={FadeInDown.duration(300)} style={styles.modalCard}>
-                <View style={styles.modalHeaderRow}>
-                  <Text style={styles.modalTitle}>{simulationModal.title}</Text>
-                  <TouchableOpacity onPress={() => setSimulationModal(null)}>
-                    <X size={20} color="#64748B" />
-                  </TouchableOpacity>
-                </View>
-
-                <Text style={styles.modalSubText}>{simulationModal.desc}</Text>
-
-                <TouchableOpacity
-                  style={styles.primaryPillBtnFull}
-                  onPress={() => setSimulationModal(null)}
-                >
-                  <Text style={styles.primaryPillBtnText}>Fermer</Text>
-                </TouchableOpacity>
-              </Animated.View>
-            </View>
-          </Modal>
-        )}
       </SafeAreaView>
     </View>
   );
@@ -937,7 +834,7 @@ const styles = StyleSheet.create({
   },
   formCardSheet: {
     flex: 1,
-    backgroundColor: '#FAF7F1',
+    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     marginTop: -20,
@@ -982,7 +879,7 @@ const styles = StyleSheet.create({
     width: CENTER_SIZE,
     height: CENTER_SIZE,
     borderRadius: CENTER_SIZE / 2,
-    backgroundColor: '#FAF7F1',
+    backgroundColor: '#FFFFFF',
     borderWidth: 2,
     borderColor: '#074B36',
     justifyContent: 'center',
@@ -1106,6 +1003,40 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#0F172A',
   },
+  manageCircleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  manageCircleIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#074B36',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#074B36',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  manageCircleInfo: {
+    flex: 1,
+  },
+  manageCircleTitle: {
+    fontFamily: 'SoraBold',
+    fontSize: 15,
+    color: '#0F172A',
+  },
+  manageCircleSub: {
+    fontFamily: 'WorkSans',
+    fontSize: 11.5,
+    color: '#64748B',
+    marginTop: 1,
+  },
   actionPillsSection: {
     gap: 10,
     marginVertical: 4,
@@ -1137,6 +1068,9 @@ const styles = StyleSheet.create({
   },
   actionPillCotiser: {
     backgroundColor: '#074B36',
+  },
+  actionPillSolidarity: {
+    backgroundColor: '#059669',
   },
   actionPillSecondary: {
     backgroundColor: '#FFFFFF',
@@ -1247,7 +1181,7 @@ const styles = StyleSheet.create({
   paymentDetailsText: {
     fontFamily: 'WorkSans',
     fontSize: 11,
-    color: '#059669',
+    color: '#0B6E4F',
     marginTop: 2,
   },
   statusTag: {
@@ -1259,20 +1193,20 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   statusTagPaid: {
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    backgroundColor: 'rgba(11, 110, 79, 0.1)',
   },
   statusTagPending: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    backgroundColor: 'rgba(229, 62, 62, 0.1)',
   },
   statusTagText: {
     fontFamily: 'WorkSansSemiBold',
     fontSize: 11.5,
   },
   statusTagTextPaid: {
-    color: '#059669',
+    color: '#0B6E4F',
   },
   statusTagTextPending: {
-    color: '#EF4444',
+    color: '#E53E3E',
   },
   toggleMembersBtn: {
     flexDirection: 'row',
@@ -1282,12 +1216,76 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
-    backgroundColor: '#FAF7F1',
+    backgroundColor: '#FFFFFF',
   },
   toggleMembersText: {
     fontFamily: 'WorkSansSemiBold',
     fontSize: 13,
     color: '#074B36',
+  },
+  myTxnSummaryRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  myTxnSummaryCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  myTxnSummaryLabel: {
+    fontFamily: 'WorkSans',
+    fontSize: 11.5,
+    color: '#64748B',
+  },
+  myTxnSummaryVal: {
+    fontFamily: 'SoraBold',
+    fontSize: 16,
+    color: '#074B36',
+    marginTop: 2,
+  },
+  myTxnSummarySub: {
+    fontFamily: 'WorkSans',
+    fontSize: 10.5,
+    color: '#94A3B8',
+    marginTop: 1,
+  },
+  myTxnIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  myTxnIconWrapReceived: {
+    backgroundColor: 'rgba(5, 150, 105, 0.12)',
+  },
+  myTxnIconWrapPaid: {
+    backgroundColor: 'rgba(7, 75, 54, 0.1)',
+  },
+  myTxnAmountText: {
+    fontFamily: 'SoraBold',
+    fontSize: 13,
+  },
+  myTxnAmountReceived: {
+    color: '#E53E3E',
+  },
+  myTxnAmountPaid: {
+    color: '#0B6E4F',
+  },
+  myTxnEmptyBox: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  myTxnEmptyText: {
+    fontFamily: 'WorkSans',
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
   },
   inviteLinkBtn: {
     flexDirection: 'row',
@@ -1329,11 +1327,115 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   modalCard: {
-    backgroundColor: '#FAF7F1',
+    backgroundColor: '#FFFFFF',
     borderRadius: 28,
     padding: 22,
     width: '100%',
+    maxHeight: '88%',
+  },
+  modalScrollBody: {
+    flexGrow: 0,
+  },
+  modalScrollContent: {
     gap: 14,
+    paddingBottom: 4,
+  },
+  simpleBenefRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  simpleBenefAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+  },
+  ussdCodeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    paddingLeft: 16,
+    paddingRight: 8,
+    paddingVertical: 12,
+  },
+  ussdCodeText: {
+    fontFamily: 'SoraBold',
+    fontSize: 17,
+    color: '#074B36',
+    letterSpacing: 1,
+  },
+  copyBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(7, 75, 54, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  copyBtnDone: {
+    backgroundColor: '#10B981',
+  },
+  armedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(217, 164, 65, 0.12)',
+    borderRadius: 14,
+    padding: 12,
+  },
+  armedBannerText: {
+    flex: 1,
+    fontFamily: 'WorkSansSemiBold',
+    fontSize: 12,
+    color: '#B47818',
+  },
+  dialBtn: {
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#074B36',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  dialBtnText: {
+    fontFamily: 'SoraBold',
+    fontSize: 13.5,
+    color: '#074B36',
+  },
+  checkPaymentBtn: {
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#10B981',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  checkPaymentBtnText: {
+    fontFamily: 'SoraBold',
+    fontSize: 13.5,
+    color: '#FFFFFF',
+  },
+  paidNoticeBox: {
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.25)',
+    padding: 12,
+    gap: 6,
+  },
+  paidNoticeLine: {
+    fontFamily: 'WorkSansSemiBold',
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#0F172A',
   },
   modalHeaderRow: {
     flexDirection: 'row',
@@ -1417,7 +1519,7 @@ const styles = StyleSheet.create({
   payoutValGreen: {
     fontFamily: 'SoraBold',
     fontSize: 13,
-    color: '#059669',
+    color: '#E53E3E',
   },
   payoutDivider: {
     height: 1,
@@ -1543,7 +1645,7 @@ const styles = StyleSheet.create({
   receiptValGreen: {
     fontFamily: 'SoraBold',
     fontSize: 14,
-    color: '#059669',
+    color: '#E53E3E',
   },
   inviteRowItem: {
     flexDirection: 'row',

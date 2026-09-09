@@ -1,89 +1,62 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
-import { ArrowRight, ShieldCheck, Sparkles, Users } from 'lucide-react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { ArrowLeft, ArrowRight } from 'lucide-react-native';
 
 const logoImg = require('../../../../assets/venega-logo.png');
-const slide4Img = require('../../../../assets/images/onboarding/slide4.png');
+const readyImg = require('../../../../assets/images/onboarding/ready.png');
 
 export default function LandingScreen() {
   const router = useRouter();
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FAF7F1" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          bounces={false}
-        >
+        {/* Page statique, sans défilement */}
+        <View style={styles.content}>
+          {/* Bouton retour vers l'onboarding */}
+          <TouchableOpacity
+            style={styles.backBtn}
+            activeOpacity={0.75}
+            onPress={() => router.replace('/onboarding')}
+          >
+            <ArrowLeft size={20} color="#074B36" />
+          </TouchableOpacity>
+
           {/* Logo Officiel Venega */}
           <Animated.View entering={FadeInDown.duration(700)} style={styles.header}>
             <Image source={logoImg} style={styles.logoImage} contentFit="contain" />
           </Animated.View>
 
-          {/* Hero Poster Section avec slide4.jpg */}
-          <Animated.View entering={FadeInUp.delay(150).duration(800)} style={styles.hero}>
-            <View style={styles.posterCard}>
-              <Image
-                source={slide4Img}
-                style={styles.posterImg}
-                contentFit="cover"
-                transition={300}
-              />
+          {/* Titres premium — même disposition que l'onboarding */}
+          <Animated.View entering={FadeInDown.delay(100).duration(700)} style={styles.titlesWrap}>
+            <View style={styles.tagRow}>
+              <View style={styles.accentDot} />
+              <Text style={styles.eyebrow}>DERNIÈRE ÉTAPE</Text>
             </View>
-          </Animated.View>
 
-          {/* Accroche Principale */}
-          <Animated.View entering={FadeInUp.delay(300).duration(800)} style={styles.content}>
-            <Text style={styles.mainTitle}>
-              Prêt à commencer ?{'\n'}Rejoignez <Text style={styles.accentText}>Venega</Text> dès aujourd'hui !
-            </Text>
-            <Text style={styles.subTitle}>
-              Accédez à des cercles d'épargne transparents, gérez vos cotisations en toute sérénité et développez la solidarité de votre communauté.
+            <Text style={styles.title}>PRÊT À COMMENCER ?</Text>
+
+            <View style={styles.dividerLine} />
+
+            <Text style={styles.subtitle}>REJOIGNEZ VENEGA AUJOURD'HUI !</Text>
+
+            <Text style={styles.desc}>
+              Créez votre premier cercle, invitez vos proches et commencez à épargner ensemble en toute transparence.
             </Text>
           </Animated.View>
 
-          {/* Avantages Clés Premium */}
-          <Animated.View entering={FadeInUp.delay(450).duration(800)} style={styles.benefitsGroup}>
-            <View style={styles.benefitRow}>
-              <View style={styles.benefitIconWrap}>
-                <ShieldCheck size={20} color="#074B36" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.benefitTitle}>Transparence absolue</Text>
-                <Text style={styles.benefitDesc}>Chaque versement et tour de rotation est traçable à tout moment.</Text>
-              </View>
-            </View>
-
-            <View style={styles.benefitRow}>
-              <View style={styles.benefitIconWrap}>
-                <Users size={20} color="#074B36" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.benefitTitle}>Fondateurs vérifiés</Text>
-                <Text style={styles.benefitDesc}>Un suivi rigoureux des rôles et des cotisations du groupe.</Text>
-              </View>
-            </View>
-
-            <View style={styles.benefitRow}>
-              <View style={styles.benefitIconWrap}>
-                <Sparkles size={20} color="#074B36" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.benefitTitle}>Paiements instantanés</Text>
-                <Text style={styles.benefitDesc}>Intégration directe avec vos comptes Mobile Money habituels.</Text>
-              </View>
-            </View>
+          {/* Illustration simple, sans photo ni ombre */}
+          <Animated.View entering={FadeInDown.delay(200).duration(700)} style={styles.imageWrap}>
+            <Image source={readyImg} style={styles.readyImage} contentFit="contain" />
           </Animated.View>
 
           {/* Boutons d'Action CTAs */}
-          <Animated.View entering={FadeInUp.delay(600).duration(800)} style={styles.ctaGroup}>
+          <Animated.View entering={FadeInDown.delay(300).duration(700)} style={styles.ctaGroup}>
             <TouchableOpacity
               style={styles.primaryBtn}
               activeOpacity={0.88}
@@ -101,7 +74,7 @@ export default function LandingScreen() {
               <Text style={styles.secondaryBtnText}>J'ai déjà un compte</Text>
             </TouchableOpacity>
           </Animated.View>
-        </ScrollView>
+        </View>
       </SafeAreaView>
     </View>
   );
@@ -110,103 +83,104 @@ export default function LandingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAF7F1',
+    backgroundColor: '#FFFFFF',
   },
-  scroll: {
+  content: {
     flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
     paddingHorizontal: 24,
-    paddingBottom: 32,
+    paddingTop: 10,
+    paddingBottom: 16,
+  },
+  backBtn: {
+    position: 'absolute',
+    top: 10,
+    left: 20,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(7, 75, 54, 0.07)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
   },
   header: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 12,
-    paddingBottom: 12,
-    backgroundColor: 'transparent',
+    marginBottom: 2,
   },
   logoImage: {
-    width: 200,
-    height: 64,
+    width: 150,
+    height: 100,
   },
-  hero: {
-    marginTop: 10,
+  titlesWrap: {
+    alignItems: 'center',
+    marginTop: 8,
   },
-  posterCard: {
-    position: 'relative',
-    borderRadius: 28,
-    overflow: 'hidden',
-    borderWidth: 0,
-    borderColor: 'transparent',
-    shadowColor: 'transparent',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    elevation: 0,
-    height: 250,
-    backgroundColor: 'transparent',
-  },
-  posterImg: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 28,
-  },
-  content: {
-    marginTop: 22,
-  },
-  mainTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 25,
-    lineHeight: 33,
-    color: '#0F172A',
-    marginBottom: 8,
-  },
-  accentText: {
-    color: '#074B36',
-  },
-  subTitle: {
-    fontFamily: 'WorkSans',
-    fontSize: 14,
-    lineHeight: 22,
-    color: '#64748B',
-  },
-  benefitsGroup: {
-    marginTop: 20,
-    gap: 12,
-  },
-  benefitRow: {
+  tagRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 14,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    gap: 8,
+    marginBottom: 10,
   },
-  benefitIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    backgroundColor: 'rgba(7, 75, 54, 0.08)',
+  accentDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#D9A441',
+  },
+  eyebrow: {
+    fontFamily: 'SoraBold',
+    fontSize: 11,
+    letterSpacing: 2.4,
+    color: '#64748B',
+  },
+  title: {
+    fontFamily: 'SoraBold',
+    fontSize: 29,
+    lineHeight: 35,
+    color: '#074B36',
+    textAlign: 'center',
+    letterSpacing: -0.5,
+    marginBottom: 10,
+  },
+  dividerLine: {
+    width: 80,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: '#D9A441',
+    marginBottom: 10,
+  },
+  subtitle: {
+    fontFamily: 'SoraBold',
+    fontSize: 16,
+    color: '#0F172A',
+    textAlign: 'center',
+    letterSpacing: -0.2,
+    marginBottom: 8,
+  },
+  desc: {
+    fontFamily: 'WorkSans',
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#64748B',
+    textAlign: 'center',
+    paddingHorizontal: 10,
+  },
+  imageWrap: {
+    flex: 1,
+    width: '100%',
+    minHeight: 160,
+    maxHeight: 250,
+    marginTop: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  benefitTitle: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 14,
-    color: '#0F172A',
-  },
-  benefitDesc: {
-    fontFamily: 'WorkSans',
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 1,
+  readyImage: {
+    width: '100%',
+    height: '100%',
   },
   ctaGroup: {
-    marginTop: 28,
+    marginTop: 12,
     gap: 10,
   },
   primaryBtn: {
@@ -243,4 +217,3 @@ const styles = StyleSheet.create({
     color: '#0F172A',
   },
 });
-

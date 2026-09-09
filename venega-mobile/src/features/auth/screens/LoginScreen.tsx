@@ -5,17 +5,16 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
+  Image,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
   StatusBar,
+  ScrollView,
 } from 'react-native';
-import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Lock, Eye, EyeOff, Smartphone, ArrowLeft } from 'lucide-react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
-import Svg, { Path, Circle as SvgCircle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
+import Svg, { Path, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 
 const logoImg = require('../../../../assets/venega-logo.png');
 
@@ -118,51 +117,32 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#074B36" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       <KeyboardAvoidingView
         style={styles.keyboardAvoid}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* ── Section supérieure verte avec formes organiques ── */}
-          <View style={styles.topSection}>
-            <SafeAreaView edges={['top']}>
-              <View style={styles.topBar}>
-                <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-                  <ArrowLeft size={20} color="#FFFFFF" />
-                </TouchableOpacity>
-                {/* Logo VISIBLE DIRECTEMENT, SANS carte blanche ni fond */}
-                <View style={styles.headerLogoWrap}>
-                  <Image source={logoImg} style={styles.headerLogoImg} contentFit="contain" />
-                </View>
-                <View style={{ width: 38 }} />
-              </View>
+        <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.replace('/landing')}>
+            <ArrowLeft size={20} color="#074B36" />
+          </TouchableOpacity>
 
-              {/* Logo GRAND en pleine vue, bien visible */}
-              <View style={styles.bigLogoWrap}>
-                <Image source={logoImg} style={styles.bigLogoImg} contentFit="contain" />
-              </View>
-
-              <View style={styles.heroTextGroup}>
-                <Text style={styles.heroTitle}>Hello !</Text>
-                <Text style={styles.heroSubtitle}>Bienvenue sur Venega</Text>
-              </View>
-            </SafeAreaView>
-            {/* Formes décoratives d'arrière-plan */}
-            <View style={styles.decorativeLeaf} />
-            <View style={styles.decorativeCircle} />
+          <View style={styles.logoSection}>
+            <Image source={logoImg} style={styles.logoImage} resizeMode="contain" />
           </View>
 
-          {/* ── Carte blanche arrondie emboîtée ("Calebasse") ── */}
-          <Animated.View entering={FadeInDown.delay(100).duration(600)} style={styles.formCardSheet}>
-            <Text style={styles.formTitle}>Connexion</Text>
+          <View style={styles.heroTextGroup}>
+            <Text style={styles.heroTitle}>Content de vous revoir</Text>
+            <Text style={styles.heroSubtitle}>Connectez-vous pour retrouver vos cercles</Text>
+          </View>
 
+          <ScrollView
+            style={styles.formScroll}
+            contentContainerStyle={styles.formScrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
             <View style={styles.formGroup}>
-              {/* Champ téléphone */}
               <View style={[styles.pillInputWrapper, focusedField === 'phone' && styles.pillInputFocused]}>
                 <Smartphone size={18} color={focusedField === 'phone' ? '#074B36' : '#94A3B8'} />
                 <View style={styles.prefixGroup}>
@@ -181,7 +161,6 @@ export default function LoginScreen() {
                 />
               </View>
 
-              {/* Champ mot de passe */}
               <View style={[styles.pillInputWrapper, focusedField === 'password' && styles.pillInputFocused]}>
                 <Lock size={18} color={focusedField === 'password' ? '#074B36' : '#94A3B8'} />
                 <TextInput
@@ -201,12 +180,10 @@ export default function LoginScreen() {
 
               {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-              {/* Mot de passe oublié */}
               <TouchableOpacity style={styles.forgotBtn}>
                 <Text style={styles.forgotText}>Mot de passe oublié ?</Text>
               </TouchableOpacity>
 
-              {/* Bouton de connexion Pilule */}
               <TouchableOpacity
                 style={styles.primaryPillBtn}
                 activeOpacity={0.88}
@@ -217,43 +194,45 @@ export default function LoginScreen() {
                   {isLoading ? 'Connexion...' : 'Se connecter'}
                 </Text>
               </TouchableOpacity>
-
-              {/* Séparateur social */}
-              <View style={styles.dividerRow}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>Ou continuer avec</Text>
-                <View style={styles.dividerLine} />
-              </View>
-
-              {/* Boutons sociaux — icônes seules */}
-              <View style={styles.socialRow}>
-                <TouchableOpacity style={styles.socialIconBtn} activeOpacity={0.75}>
-                  <GoogleIcon />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.socialIconBtn} activeOpacity={0.75}>
-                  <FacebookIcon />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.socialIconBtn} activeOpacity={0.75}>
-                  <InstagramIcon />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.socialIconBtn} activeOpacity={0.75}>
-                  <TikTokIcon />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.socialIconBtn} activeOpacity={0.75}>
-                  <XIcon />
-                </TouchableOpacity>
-              </View>
-
-              {/* Lien bas d'inscription */}
-              <View style={styles.switchAuthRow}>
-                <Text style={styles.switchAuthText}>Pas encore de compte ? </Text>
-                <TouchableOpacity onPress={() => router.push('/register')}>
-                  <Text style={styles.switchAuthLink}>S'inscrire</Text>
-                </TouchableOpacity>
-              </View>
             </View>
-          </Animated.View>
-        </ScrollView>
+
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>Ou continuer avec</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <View style={styles.socialRow}>
+              <TouchableOpacity style={styles.socialIconBtn} activeOpacity={0.75}>
+                <GoogleIcon />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.socialIconBtn} activeOpacity={0.75}>
+                <FacebookIcon />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.socialIconBtn} activeOpacity={0.75}>
+                <InstagramIcon />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.socialIconBtn} activeOpacity={0.75}>
+                <TikTokIcon />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.socialIconBtn} activeOpacity={0.75}>
+                <XIcon />
+              </TouchableOpacity>
+            </View>
+
+            <Text
+              style={styles.switchAuthRow}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.85}
+            >
+              <Text style={styles.switchAuthText}>Pas encore de compte ? </Text>
+              <Text style={styles.switchAuthLink} onPress={() => router.push('/register')}>
+                Créer un compte
+              </Text>
+            </Text>
+          </ScrollView>
+        </SafeAreaView>
       </KeyboardAvoidingView>
     </View>
   );
@@ -262,116 +241,59 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#074B36',
+    backgroundColor: '#FFFFFF',
   },
   keyboardAvoid: {
     flex: 1,
   },
-  scrollContent: {
-    flexGrow: 1,
-  },
-  topSection: {
-    backgroundColor: '#074B36',
+  safe: {
+    flex: 1,
     paddingHorizontal: 24,
-    paddingBottom: 50,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 10,
-    marginBottom: 10,
-  },
-  headerLogoWrap: {
-    backgroundColor: 'transparent',
-    shadowColor: 'transparent',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    elevation: 0,
-    borderRadius: 0,
-    borderWidth: 0,
-    paddingHorizontal: 0,
-    paddingVertical: 0,
-  },
-  headerLogoImg: {
-    width: 120,
-    height: 38,
-    tintColor: '#FFFFFF',
-  },
-  bigLogoWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-    marginBottom: 18,
-    backgroundColor: 'transparent',
-  },
-  bigLogoImg: {
-    width: 200,
-    height: 64,
-    tintColor: '#FFFFFF',
   },
   backBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: 'rgba(7, 75, 54, 0.08)',
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 6,
+  },
+  logoSection: {
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  logoImage: {
+    width: 170,
+    height: 113,
   },
   heroTextGroup: {
-    marginTop: 4,
+    alignItems: 'center',
+    marginTop: 18,
   },
   heroTitle: {
     fontFamily: 'SoraBold',
-    fontSize: 30,
-    color: '#FFFFFF',
-    letterSpacing: -0.5,
+    fontSize: 22,
+    color: '#1A202C',
+    letterSpacing: -0.4,
+    textAlign: 'center',
   },
   heroSubtitle: {
     fontFamily: 'WorkSans',
-    fontSize: 15,
-    color: 'rgba(255, 255, 255, 0.85)',
+    fontSize: 13.5,
+    color: '#64748B',
     marginTop: 4,
+    textAlign: 'center',
   },
-  decorativeLeaf: {
-    position: 'absolute',
-    top: -30,
-    left: -20,
-    width: 130,
-    height: 130,
-    borderRadius: 65,
-    backgroundColor: 'rgba(54, 227, 149, 0.15)',
-  },
-  decorativeCircle: {
-    position: 'absolute',
-    top: 40,
-    right: -40,
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-  },
-  formCardSheet: {
+  formScroll: {
     flex: 1,
-    backgroundColor: '#FAF7F1',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    marginTop: -28,
-    paddingHorizontal: 24,
-    paddingTop: 32,
-    paddingBottom: 40,
+    marginTop: 22,
   },
-  formTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 26,
-    color: '#074B36',
-    marginBottom: 24,
+  formScrollContent: {
+    paddingBottom: 24,
   },
   formGroup: {
-    gap: 16,
+    gap: 12,
   },
   pillInputWrapper: {
     flexDirection: 'row',
@@ -379,15 +301,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
-    borderRadius: 25,
-    paddingHorizontal: 18,
+    borderRadius: 14,
+    paddingHorizontal: 16,
     height: 52,
     gap: 10,
-    shadowColor: '#074B36',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 1,
   },
   pillInputFocused: {
     borderColor: '#074B36',
@@ -400,7 +317,7 @@ const styles = StyleSheet.create({
   prefixText: {
     fontFamily: 'WorkSansSemiBold',
     fontSize: 14,
-    color: '#0F172A',
+    color: '#1A202C',
   },
   prefixDivider: {
     width: 1,
@@ -412,19 +329,19 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: 'WorkSans',
     fontSize: 14.5,
-    color: '#0F172A',
+    color: '#1A202C',
   },
   errorText: {
     fontFamily: 'WorkSans',
     fontSize: 12.5,
-    color: '#EF4444',
+    color: '#E53E3E',
     marginTop: -4,
     marginLeft: 10,
   },
   forgotBtn: {
     alignSelf: 'flex-end',
     marginTop: -4,
-    marginBottom: 6,
+    marginBottom: 2,
   },
   forgotText: {
     fontFamily: 'WorkSansSemiBold',
@@ -434,13 +351,13 @@ const styles = StyleSheet.create({
   primaryPillBtn: {
     height: 52,
     backgroundColor: '#074B36',
-    borderRadius: 26,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#074B36',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.22,
+    shadowRadius: 20,
     elevation: 5,
   },
   primaryPillBtnText: {
@@ -452,7 +369,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginVertical: 8,
+    marginTop: 24,
   },
   dividerLine: {
     flex: 1,
@@ -467,28 +384,22 @@ const styles = StyleSheet.create({
   socialRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 14,
+    gap: 12,
+    marginTop: 16,
   },
   socialIconBtn: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
   },
   switchAuthRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 16,
+    textAlign: 'center',
+    marginTop: 18,
   },
   switchAuthText: {
     fontFamily: 'WorkSans',

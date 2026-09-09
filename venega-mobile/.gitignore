@@ -8,3 +8,9 @@ expo-env.d.ts
 Nouveau dossier/
 expo-server*.log
 
+# Build artifacts (regenerate with `npm run build` in packages/types)
+packages/types/dist/
+
+# Machine-specific local settings (dev server LAN IP, etc.)
+.env.local
+

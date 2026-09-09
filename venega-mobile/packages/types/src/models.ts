@@ -17,6 +17,14 @@ import {
   ContributionMode,
   MembershipRequestStatus,
   ReliabilityEventType,
+  PaymentMethod,
+  RefundRule,
+  ReplacementRule,
+  UnlockRule,
+  ContributorVisibility,
+  KycRequirement,
+  AdhesionPaymentStatus,
+  DepartureRequestStatus,
 } from './enums';
 
 /** Utilisateur de la plateforme */
@@ -57,10 +65,126 @@ export interface Circle {
   /** Nombre total de membres */
   memberCount: number;
   /** Cycle actif en cours */
+  activeCycle?: Cycle;
+}
+
+/**
+ * Règles paramétrables du cercle.
+ *
+ * Toutes ces règles sont configurées par le fondateur à la création
+ * (et modifiables) puis EXÉCUTÉES automatiquement par le backend/hub
+ * à chaque transaction. Aucune somme ne reste "en l'air".
+ */
+export interface CircleRules {
+  /**
+   * Règle de remboursement d'un membre qui quitte :
+   * IMMEDIATE = on lui rembourse les tours cotisés aussitôt ;
+   * AT_CYCLE_END = il attend la fin et est remboursé sur la prise du remplaçant.
+   */
+  refundRule: RefundRule;
+
+  /**
+   * Règle de remplacement d'un membre partant :
+   * PAY_PAST_TURNS = le nouveau paie les tours passés (frais de rachat) ;
+   * REDUCED_POT = le nouveau prend sa cagnotte moins les tours manqués ;
+   * NONE = pas de remplacement, la cagnotte est réajustée.
+   */
+  replacementRule: ReplacementRule;
+
+  /**
+   * Règle de déblocage des fonds de solidarité :
+   * ALL_APPROVERS = tous les approbateurs doivent valider ;
+   * MAJORITY = la majorité suffit.
+   */
+  unlockRule: UnlockRule;
+
+  /**
+   * Nombre d'approbateurs désignés par le fondateur (solidarité).
+   * Tant que le seuil n'est pas atteint, l'argent reste bloqué chez CityNet Pay.
+   */
+  approversRequired: number;
+
+  /**
+   * Pourcentage de réserve prélevé sur chaque tour (0 à 20).
+   * Ex: 5% => coussin de sécurité pour les départs imprévus.
+   */
+  reservePercent: number;
+
+  /**
+   * Appel à l'aide : accepte-t-on des contributions SANS adhésion
+   * (lien public, nom + numéro ou anonyme) ?
+   */
+  allowPublicContributions: boolean;
+
+  /**
+   * Appel à l'aide : montant minimum de contribution (XOF).
+   */
+  minContribution?: number;
+
+  /**
+   * Objectif cible de la collecte (nature / appel à l'aide) en XOF.
+   */
+  goalAmount?: number;
+
+  /**
+   * Le bien visé pour une tontine nature (ex: "Moto Bajaj Boxer",
+   * "Kit alimentaire (riz, spaghetti, huile)", "1 tonne de ciment").
+   */
+  goalItem?: string;
+
+  /**
+   * Exigences de documents pour les nouveaux membres :
+   * REQUIRE_NONE = aucun document ;
+   * REQUIRE_CNIB = CNIB (recto + verso) ;
+   * REQUIRE_CNIB_SELFIE = CNIB (recto + verso) + selfie facial.
+   * Le formulaire d'adhésion s'adapte automatiquement à ce réglage.
+   */
+  kycRequirement: KycRequirement;
+}
+
+/**
+ * Cercle (tontine, solidarité, nature, hybride ou appel à l'aide)
+ *
+ * Le fondateur configure TOUTES ces options à la création du cercle.
+ * L'argent circule toujours via CityNet Pay — le fondateur ne touche jamais
+ * les fonds : il valide, initie et exécute l'USSD depuis le compte Venega.
+ */
+export interface Circle {
+  id: string;
+  name: string;
+  type: CircleType;
+  /** Montant de la cotisation tontine en XOF (0 si SOLIDARITY_ONLY) */
+  tontineAmount: number;
+  /** Montant de la cotisation solidarité en XOF (0 si TONTINE_ONLY) */
+  solidarityAmount: number;
+  frequency: Frequency;
+  /** Mode de contribution : espèces ou nature */
+  contributionMode: ContributionMode;
+  /** Nombre de bénéficiaires par tour (habituellement 1) */
+  beneficiariesPerTurn: number;
+  /** Code d'invitation unique */
+  inviteCode: string;
+  /** Nombre total de membres */
+  memberCount: number;
+  /** Nombre maximum de membres autorisés (paramétré à la création) */
+  maxMembers?: number;
+  /** Cycle actif en cours */
   activeCycleId?: string;
   createdAt: string;
 
-  // ── Nouvelles options configurables par le président ──
+  /**
+   * Date d'activation du cercle.
+   * Un cercle créé n'est PAS actif tant que le fondateur n'a pas payé
+   * les frais de création (2 000 F). L'activation se fait à la réception
+   * du paiement (webhook USSD). Tant que `activatedAt` est absent,
+   * le cercle n'apparaît pas dans la liste des cercles actifs.
+   */
+  activatedAt?: string;
+
+  /** Règles paramétrables exécutées par le backend/hub */
+  rules: CircleRules;
+
+  // ── Autres options configurables par le président ──
 
   /**
    * Frais de gestion du président (marge) en XOF par tour.
@@ -189,9 +313,23 @@ export interface MembershipRequest {
   cnibFrontUrl: string;
   /** URL de la copie CNIB verso */
   cnibBackUrl: string;
+  /** URL du selfie facial du candidat (si exigé par le cercle) */
+  selfieUrl?: string;
 
   /** Les conditions du cercle ont été lues et approuvées */
   conditionsAccepted: boolean;
+
+  /**
+   * Statut de paiement des frais d'adhésion (rachat + dépôt).
+   * Renseigné après le paiement USSD du candidat. Le président
+   * le consulte avant d'approuver : tant que ce n'est pas PAYÉ,
+   * l'approbation est bloquée.
+   */
+  paymentStatus?: AdhesionPaymentStatus;
+  /** Référence de la transaction de paiement (ex: CP-2026-0017) */
+  paymentReference?: string;
+  /** Date du paiement */
+  paidAt?: string;
 
   /**
    * Montant du frais de rachat (cotisations des tours passés).
@@ -226,10 +364,94 @@ export interface Transaction {
   amount: number;
   type: TransactionType;
   status: TransactionStatus;
-  /** Référence de la transaction CinetPay */
+  /** Référence de la transaction CityNet Pay */
   providerReference?: string;
   /** Nom d'affichage du membre pour les vues UI */
   memberName: string;
+  /** Mode de paiement utilisé (Orange, Moov, Wave…) */
+  paymentMethod?: PaymentMethod;
+  /** Visibilité du contributeur (appel à l'aide) */
+  visibility?: ContributorVisibility;
+  createdAt: string;
+}
+
+/**
+ * Appel à l'aide public.
+ *
+ * Créé par un fondateur puis partagé par lien : n'importe qui peut
+ * contribuer SANS être membre (nom + numéro ou anonyme).
+ * Les fonds restent bloqués chez CityNet Pay jusqu'à l'approbation
+ * des approbateurs désignés, puis partent au bénéficiaire.
+ */
+export interface AidAppeal {
+  id: string;
+  circleId: string;
+  /** Nom de la personne aidée */
+  beneficiaryName: string;
+  /** Photo de la personne aidée */
+  beneficiaryPhoto?: string;
+  /** Numéro Mobile Money du bénéficiaire */
+  beneficiaryNumber: string;
+  /** Raison de l'appel */
+  reason: string;
+  /** Montant objectif en XOF */
+  goalAmount: number;
+  /** Montant déjà collecté en XOF */
+  collectedAmount: number;
+  /** Nombre total de contributeurs (y compris anonymes) */
+  contributorCount: number;
+  /** Date limite de collecte (optionnelle) */
+  deadline?: string;
+  status: 'ACTIVE' | 'COMPLETED' | 'CLOSED';
+  createdAt: string;
+}
+
+/**
+ * Contribution publique à un appel à l'aide.
+ *
+ * La liste est paginée côté serveur : même avec des milliers de
+ * contributeurs, on charge page par page (nom ou anonyme, montant,
+ * date, mode de paiement).
+ */
+export interface AidContribution {
+  id: string;
+  appealId: string;
+  /** Nom du contributeur (absent si anonyme) */
+  contributorName?: string;
+  visibility: ContributorVisibility;
+  amount: number;
+  paymentMethod: PaymentMethod;
+  createdAt: string;
+}
+
+/**
+ * Versement initié par le fondateur depuis le compte hub (CityNet Pay).
+ *
+ * Le fondateur initie le paiement : le système s'arme pour recevoir le
+ * paiement USSD d'un montant donné. Quand l'USSD est exécuté et le paiement
+ * envoyé, le système le détecte et valide la transaction automatiquement.
+ * Le bénéficiaire reçoit sa cagnotte, le fondateur sa commission nette.
+ * Rien n'apparaît dans l'historique tant que le versement n'est PAS payé.
+ */
+export interface PayoutRecord {
+  id: string;
+  circleId: string;
+  cycleId: string;
+  /** Nom du bénéficiaire de la cagnotte */
+  beneficiaryName: string;
+  beneficiaryAvatar?: string;
+  /** Montant total débité du compte hub (cagnotte + frais + commission) */
+  totalAmount: number;
+  /** Cagnotte nette reçue par le bénéficiaire */
+  beneficiaryAmount: number;
+  /** Frais de gestion nets crédités au fondateur */
+  founderFees: number;
+  /** Commission Venega (sur les frais de gestion) */
+  venegaCommission: number;
+  /** Opérateur Mobile Money utilisé pour l'exécution */
+  operator: string;
+  /** Seuls les versements PAYÉS apparaissent dans l'historique */
+  status: 'PAID' | 'PENDING';
   createdAt: string;
 }
 
@@ -264,7 +486,13 @@ export interface AidVote {
   votedAt: string;
 }
 
-/** Entrée du grand livre comptable de solidarité */
+/**
+ * Entrée du grand livre comptable de solidarité.
+ *
+ * CREDIT = cotisation d'un membre dans la caisse ; DEBIT = déboursement
+ * (aide validée). Chaque entrée est tracée et publique pour les membres :
+ * la caisse est transparente.
+ */
 export interface LedgerEntry {
   id: string;
   circleId: string;
@@ -273,6 +501,15 @@ export interface LedgerEntry {
   /** Solde après cette opération */
   balanceAfter: number;
   description: string;
+  /** Membre à l'origine du crédit (cotisation) ou bénéficiaire du débit (aide) */
+  userId?: string;
+  /** Nom d'affichage du membre (CREDIT) ou du bénéficiaire (DEBIT) */
+  memberName?: string;
+  /** Motif détaillé du déboursement, visible de tous — la caisse doit toujours justifier son usage */
+  reason?: string;
+  /** Justificatif du déboursement (facture, reçu, photo…) — exigé pour les DEBIT */
+  proofUrl?: string;
+  /** Référence de la transaction liée (CityNet Pay) */
   relatedTransactionId?: string;
   createdAt: string;
 }
@@ -367,4 +604,48 @@ export interface TurnValidation {
   managementFeeTotal: number;
   /** Montant qui sera versé au bénéficiaire */
   beneficiaryAmount: number;
+}
+
+/**
+ * Demande de départ d'un membre qui n'a PAS encore reçu sa cagnotte.
+ *
+ * Logique : je paie N tours, je n'ai jamais reçu de cagnotte, je veux
+ * quitter. Le fondateur approuve SANS ajouter de membre → les cagnottes
+ * des tours restants sont recalculées automatiquement (les membres
+ * restants cotisent un peu plus pour garder le pot entier).
+ *
+ * Le remboursement se fait main à main : ceux qui ont BÉNÉFICIÉ de mes
+ * tours (les bénéficiaires des tours que j'ai payés) me remettent mon
+ * argent. L'app affiche la ventilation (qui me doit quoi), sans tracer
+ * le paiement pour l'instant.
+ */
+export interface DepartureRequest {
+  id: string;
+  circleId: string;
+  userId: string;
+  /** Nom du membre qui veut partir (pour l'affichage fondateur) */
+  memberName: string;
+  status: DepartureRequestStatus;
+  /** Nombre de tours déjà cotisés (jamais reçus) */
+  pastTurns: number;
+  /** Montant total cotisé à récupérer = pastTurns × cotisation */
+  totalRecover: number;
+  /** Ventilation du remboursement : chaque bénéficiaire d'un tour cotisé rembourse sa part */
+  reimbursements: DepartureReimbursement[];
+  /** Nouvelle cotisation par membre après recalcul des cagnottes (si approuvé) */
+  recalculatedContribution?: number;
+  /** Date de la demande */
+  createdAt: string;
+  decidedAt?: string;
+  rejectionReason?: string;
+}
+
+/** Une part à rembourser : le bénéficiaire du tour N doit rembourser une cotisation. */
+export interface DepartureReimbursement {
+  /** Numéro du tour dont le bénéficiaire doit rembourser */
+  turnNumber: number;
+  /** Nom du bénéficiaire de ce tour (celui qui doit rembourser) */
+  beneficiaryName: string;
+  /** Montant à rembourser (une cotisation tontine) */
+  amount: number;
 }

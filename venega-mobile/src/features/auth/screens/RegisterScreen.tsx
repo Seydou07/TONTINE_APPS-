@@ -7,14 +7,13 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
   StatusBar,
+  ScrollView,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Lock, Eye, EyeOff, Smartphone, ArrowLeft } from 'lucide-react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
 
 const logoImg = require('../../../../assets/venega-logo.png');
 
@@ -58,31 +57,23 @@ export default function RegisterScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#074B36" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       <KeyboardAvoidingView
         style={styles.keyboardAvoid}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* ── Section supérieure verte ── */}
-          <View style={styles.topSection}>
-            <SafeAreaView edges={['top']}>
+        <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+          <View style={styles.content}>
+            {/* ── Section logo (hero) moderne ── */}
+            <View style={styles.heroSection}>
               <View style={styles.topBar}>
-                <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-                  <ArrowLeft size={20} color="#FFFFFF" />
+                <TouchableOpacity style={styles.backBtn} onPress={() => router.replace('/landing')}>
+                  <ArrowLeft size={20} color="#074B36" />
                 </TouchableOpacity>
-                {/* Logo VISIBLE DIRECTEMENT, SANS carte blanche ni fond */}
-                <View style={styles.headerLogoWrap}>
-                  <Image source={logoImg} style={styles.headerLogoImg} contentFit="contain" />
-                </View>
                 <View style={{ width: 38 }} />
               </View>
 
-              {/* Logo GRAND en pleine vue, bien visible */}
+              {/* Logo réel, bien visible */}
               <View style={styles.bigLogoWrap}>
                 <Image source={logoImg} style={styles.bigLogoImg} contentFit="contain" />
               </View>
@@ -91,34 +82,36 @@ export default function RegisterScreen() {
                 <Text style={styles.heroTitle}>Inscription</Text>
                 <Text style={styles.heroSubtitle}>Rejoignez la communauté Venega</Text>
               </View>
-            </SafeAreaView>
-            <View style={styles.decorativeLeaf} />
-            <View style={styles.decorativeCircle} />
-          </View>
+            </View>
 
-          {/* ── Carte emboîtée "Calebasse" ── */}
-          <Animated.View entering={FadeInDown.delay(100).duration(600)} style={styles.formCardSheet}>
-            <Text style={styles.formTitle}>Créer un compte</Text>
+            {/* ── Formulaire statique (ne bouge pas) ── */}
+            <ScrollView
+              style={styles.formScroll}
+              contentContainerStyle={styles.formCardSheet}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              <Text style={styles.formTitle}>Créer un compte</Text>
 
-            <View style={styles.formGroup}>
-              {/* Champ téléphone */}
-              <View style={[styles.pillInputWrapper, focusedField === 'phone' && styles.pillInputFocused]}>
-                <Smartphone size={18} color={focusedField === 'phone' ? '#074B36' : '#94A3B8'} />
-                <View style={styles.prefixGroup}>
-                  <Text style={styles.prefixText}>+226</Text>
-                  <View style={styles.prefixDivider} />
+              <View style={styles.formGroup}>
+                {/* Champ téléphone */}
+                <View style={[styles.pillInputWrapper, focusedField === 'phone' && styles.pillInputFocused]}>
+                  <Smartphone size={18} color={focusedField === 'phone' ? '#074B36' : '#94A3B8'} />
+                  <View style={styles.prefixGroup}>
+                    <Text style={styles.prefixText}>+226</Text>
+                    <View style={styles.prefixDivider} />
+                  </View>
+                  <TextInput
+                    style={styles.pillInput}
+                    placeholder="70 12 34 56"
+                    placeholderTextColor="#94A3B8"
+                    value={phone}
+                    onChangeText={setPhone}
+                    keyboardType="phone-pad"
+                    onFocus={() => setFocusedField('phone')}
+                    onBlur={() => setFocusedField(null)}
+                  />
                 </View>
-                <TextInput
-                  style={styles.pillInput}
-                  placeholder="Téléphone (ex: 70 12 34 56)"
-                  placeholderTextColor="#94A3B8"
-                  value={phone}
-                  onChangeText={setPhone}
-                  keyboardType="phone-pad"
-                  onFocus={() => setFocusedField('phone')}
-                  onBlur={() => setFocusedField(null)}
-                />
-              </View>
 
               {/* Champ mot de passe */}
               <View style={[styles.pillInputWrapper, focusedField === 'password' && styles.pillInputFocused]}>
@@ -143,7 +136,7 @@ export default function RegisterScreen() {
                 <Lock size={18} color={focusedField === 'confirm' ? '#074B36' : '#94A3B8'} />
                 <TextInput
                   style={styles.pillInput}
-                  placeholder="Confirmer le mot de passe"
+                  placeholder="Confirmer mot de passe"
                   placeholderTextColor="#94A3B8"
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
@@ -171,15 +164,21 @@ export default function RegisterScreen() {
               </TouchableOpacity>
 
               {/* Switch connexion */}
-              <View style={styles.switchAuthRow}>
-                <Text style={styles.switchAuthText}>Vous avez déjà un compte ? </Text>
-                <TouchableOpacity onPress={() => router.push('/login')}>
-                  <Text style={styles.switchAuthLink}>Se connecter</Text>
-                </TouchableOpacity>
+              <Text
+                style={styles.switchAuthRow}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.85}
+              >
+                <Text style={styles.switchAuthText}>Déjà un compte ? </Text>
+                <Text style={styles.switchAuthLink} onPress={() => router.push('/login')}>
+                  Se connecter
+                </Text>
+              </Text>
               </View>
-            </View>
-          </Animated.View>
-        </ScrollView>
+            </ScrollView>
+          </View>
+        </SafeAreaView>
       </KeyboardAvoidingView>
     </View>
   );
@@ -188,116 +187,82 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#074B36',
+    backgroundColor: '#FFFFFF',
   },
   keyboardAvoid: {
     flex: 1,
   },
-  scrollContent: {
-    flexGrow: 1,
+  safe: {
+    flex: 1,
   },
-  topSection: {
-    backgroundColor: '#074B36',
+  content: {
+    flex: 1,
     paddingHorizontal: 24,
-    paddingBottom: 50,
-    position: 'relative',
-    overflow: 'hidden',
+    paddingTop: 10,
+  },
+  heroSection: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 16,
+    alignItems: 'center',
   },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 10,
-    marginBottom: 10,
-  },
-  headerLogoWrap: {
-    backgroundColor: 'transparent',
-    shadowColor: 'transparent',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    elevation: 0,
-    borderRadius: 0,
-    borderWidth: 0,
-    paddingHorizontal: 0,
-    paddingVertical: 0,
-  },
-  headerLogoImg: {
-    width: 120,
-    height: 38,
-    tintColor: '#FFFFFF',
+    width: '100%',
   },
   bigLogoWrap: {
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
-    marginBottom: 18,
-    backgroundColor: 'transparent',
+    marginBottom: 8,
   },
   bigLogoImg: {
-    width: 200,
-    height: 64,
-    tintColor: '#FFFFFF',
+    width: 150,
+    height: 100,
   },
   backBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    backgroundColor: 'rgba(7, 75, 54, 0.08)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   heroTextGroup: {
-    marginTop: 4,
+    alignItems: 'center',
   },
   heroTitle: {
     fontFamily: 'SoraBold',
-    fontSize: 30,
-    color: '#FFFFFF',
+    fontSize: 26,
+    color: '#0F172A',
     letterSpacing: -0.5,
+    textAlign: 'center',
   },
   heroSubtitle: {
     fontFamily: 'WorkSans',
-    fontSize: 15,
-    color: 'rgba(255, 255, 255, 0.85)',
-    marginTop: 4,
+    fontSize: 14.5,
+    color: '#64748B',
+    marginTop: 3,
+    textAlign: 'center',
   },
-  decorativeLeaf: {
-    position: 'absolute',
-    top: -30,
-    left: -20,
-    width: 130,
-    height: 130,
-    borderRadius: 65,
-    backgroundColor: 'rgba(54, 227, 149, 0.15)',
-  },
-  decorativeCircle: {
-    position: 'absolute',
-    top: 40,
-    right: -40,
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+  formScroll: {
+    flex: 1,
   },
   formCardSheet: {
-    flex: 1,
-    backgroundColor: '#FAF7F1',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    marginTop: -28,
-    paddingHorizontal: 24,
-    paddingTop: 32,
-    paddingBottom: 40,
+    paddingTop: 14,
+    paddingBottom: 24,
   },
   formTitle: {
     fontFamily: 'SoraBold',
-    fontSize: 26,
+    fontSize: 24,
     color: '#074B36',
-    marginBottom: 24,
+    marginBottom: 14,
   },
   formGroup: {
-    gap: 16,
+    gap: 12,
   },
   pillInputWrapper: {
     flexDirection: 'row',
@@ -305,15 +270,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
-    borderRadius: 25,
-    paddingHorizontal: 18,
+    borderRadius: 14,
+    paddingHorizontal: 16,
     height: 52,
     gap: 10,
-    shadowColor: '#074B36',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 1,
   },
   pillInputFocused: {
     borderColor: '#074B36',
@@ -337,7 +297,7 @@ const styles = StyleSheet.create({
   pillInput: {
     flex: 1,
     fontFamily: 'WorkSans',
-    fontSize: 14.5,
+    fontSize: 13.5,
     color: '#0F172A',
   },
   errorText: {
@@ -350,14 +310,14 @@ const styles = StyleSheet.create({
   primaryPillBtn: {
     height: 52,
     backgroundColor: '#074B36',
-    borderRadius: 26,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 6,
     shadowColor: '#074B36',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.22,
+    shadowRadius: 20,
     elevation: 5,
   },
   primaryPillBtnText: {
@@ -366,19 +326,17 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   switchAuthRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 20,
+    textAlign: 'center',
+    marginTop: 16,
   },
   switchAuthText: {
     fontFamily: 'WorkSans',
-    fontSize: 14,
+    fontSize: 13.5,
     color: '#64748B',
   },
   switchAuthLink: {
     fontFamily: 'SoraBold',
-    fontSize: 14,
+    fontSize: 13.5,
     color: '#074B36',
   },
 });

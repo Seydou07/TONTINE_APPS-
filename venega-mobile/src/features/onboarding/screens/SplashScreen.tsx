@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
-import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useSharedValue,
@@ -55,12 +55,17 @@ export default function SplashScreen() {
   }));
 
   const barStyle = useAnimatedStyle(() => ({
-    width: interpolate(progress.value, [0, 1], [0, 160], Extrapolate.CLAMP),
+    width: interpolate(progress.value, [0, 1], [0, 180], Extrapolate.CLAMP),
   }));
 
   return (
-    <View style={styles.container}>
-      {/* Background Soft Aura Halos */}
+    <LinearGradient
+      colors={['#0F8563', '#0B6E4F', '#074B36']}
+      locations={[0, 0.45, 1]}
+      start={{ x: 0.5, y: 0 }}
+      end={{ x: 0.5, y: 1 }}
+      style={styles.container}
+    >
       <View style={styles.haloTop} />
       <View style={styles.haloBottom} />
 
@@ -79,60 +84,53 @@ export default function SplashScreen() {
           <Animated.View style={[styles.progressFill, barStyle]} />
         </View>
       </View>
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
   },
   haloTop: {
     position: 'absolute',
-    top: -120,
-    right: -100,
-    width: 340,
-    height: 340,
-    borderRadius: 170,
-    backgroundColor: 'rgba(15, 133, 99, 0.06)',
+    top: -140,
+    right: -120,
+    width: 400,
+    height: 400,
+    borderRadius: 200,
+    backgroundColor: 'rgba(217, 164, 65, 0.10)',
   },
   haloBottom: {
     position: 'absolute',
-    bottom: -100,
-    left: -80,
-    width: 320,
-    height: 320,
-    borderRadius: 160,
-    backgroundColor: 'rgba(217, 164, 65, 0.08)',
+    bottom: -120,
+    left: -100,
+    width: 380,
+    height: 380,
+    borderRadius: 190,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
   },
   centerContent: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     width: '100%',
+    paddingHorizontal: 24,
   },
   logoWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'transparent',
-    shadowColor: 'transparent',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    elevation: 0,
-    borderRadius: 0,
-    borderWidth: 0,
   },
   logoImage: {
     width: 300,
-    height: 120,
+    height: 200,
   },
   bottomContent: {
     position: 'absolute',
-    bottom: 60,
+    bottom: 64,
     alignItems: 'center',
     width: SCREEN_WIDTH,
     paddingHorizontal: 32,
@@ -141,21 +139,21 @@ const styles = StyleSheet.create({
     fontFamily: 'WorkSansSemiBold',
     fontSize: 17,
     lineHeight: 25,
-    color: '#074B36',
+    color: 'rgba(255, 255, 255, 0.92)',
     textAlign: 'center',
-    marginBottom: 28,
+    marginBottom: 30,
   },
   progressTrack: {
-    width: 160,
-    height: 5,
+    width: 180,
+    height: 6,
     borderRadius: 3,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
     overflow: 'hidden',
   },
   progressFill: {
-    height: 5,
+    height: 6,
     borderRadius: 3,
-    backgroundColor: '#074B36',
+    backgroundColor: '#D9A441',
   },
 });
 

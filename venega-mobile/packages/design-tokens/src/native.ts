@@ -20,7 +20,7 @@ export const colors = {
     DEFAULT: '#7A4E9C',
     tint: '#EFE6F4',
   },
-  bg: '#FAF7F1',
+  bg: '#FFFFFF',
   surface: '#FFFFFF',
   text: '#22271F',
   textMuted: '#6E7568',

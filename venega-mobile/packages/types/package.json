@@ -10,5 +10,9 @@
     "./models": "./src/models.ts",
     "./mocks": "./src/mock-data.ts"
   },
-  "files": ["src"]
+  "files": ["src"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "postbuild": "node -e \"require('fs').writeFileSync('dist/package.json', JSON.stringify({name:'@venega/types',version:'0.1.0',private:true,main:'./index.js',types:'./index.d.ts'}, null, 2))\""
+  }
 }

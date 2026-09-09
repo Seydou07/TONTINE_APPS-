@@ -12,6 +12,51 @@ export enum CircleType {
   SOLIDARITY_ONLY = 'SOLIDARITY_ONLY',
   /** Tontine + Caisse de solidarité greffée */
   HYBRID = 'HYBRID',
+  /** Tontine en nature — l'objectif est un bien (moto, kit alimentaire, ciment…) remis à tour de rôle */
+  NATURE = 'NATURE',
+  /** Appel à l'aide public — contribution possible sans être membre via un lien partagé */
+  AID_APPEAL = 'AID_APPEAL',
+}
+
+/** Mode de paiement utilisé pour une transaction */
+export enum PaymentMethod {
+  ORANGE_MONEY = 'ORANGE_MONEY',
+  MOOV_MONEY = 'MOOV_MONEY',
+  WAVE = 'WAVE',
+  MTN_MOBILE_MONEY = 'MTN_MOBILE_MONEY',
+  CASH = 'CASH',
+}
+
+/** Règle de remboursement d'un membre qui quitte un cercle */
+export enum RefundRule {
+  /** Remboursement immédiat des tours cotisés */
+  IMMEDIATE = 'IMMEDIATE',
+  /** Le partant attend la fin du cycle (remboursé sur la prise du remplaçant) */
+  AT_CYCLE_END = 'AT_CYCLE_END',
+}
+
+/** Règle de remplacement d'un membre partant */
+export enum ReplacementRule {
+  /** Le nouveau paie les tours passés (frais de rachat) et prend la place complète */
+  PAY_PAST_TURNS = 'PAY_PAST_TURNS',
+  /** Le nouveau ne paie pas les tours passés, sa prise est réduite des tours manqués */
+  REDUCED_POT = 'REDUCED_POT',
+  /** Pas de remplacement, la cagnotte est réajustée à la baisse */
+  NONE = 'NONE',
+}
+
+/** Règle de déblocage des fonds (solidarité) */
+export enum UnlockRule {
+  /** Tous les approbateurs désignés doivent approuver */
+  ALL_APPROVERS = 'ALL_APPROVERS',
+  /** La majorité des approbateurs suffit */
+  MAJORITY = 'MAJORITY',
+}
+
+/** Visibilité d'un contributeur (appel à l'aide) */
+export enum ContributorVisibility {
+  PUBLIC = 'PUBLIC',
+  ANONYMOUS = 'ANONYMOUS',
 }
 
 /** Rôle d'un membre dans un cercle */
@@ -87,6 +132,22 @@ export enum PaymentStatus {
   PENDING = 'PENDING',
 }
 
+/** Exigences de documents (KYC) pour les nouveaux membres d'un cercle */
+export enum KycRequirement {
+  /** Aucun document demandé */
+  NONE = 'REQUIRE_NONE',
+  /** CNIB (recto + verso) obligatoire */
+  CNIB = 'REQUIRE_CNIB',
+  /** CNIB (recto + verso) + selfie facial */
+  CNIB_SELFIE = 'REQUIRE_CNIB_SELFIE',
+}
+
+/** Statut de paiement d'une demande d'adhésion (frais de rachat / dépôt de garantie) */
+export enum AdhesionPaymentStatus {
+  UNPAID = 'UNPAID',
+  PAID = 'PAID',
+}
+
 /** Mode de contribution (espèces ou nature) */
 export enum ContributionMode {
   CASH = 'CASH',
@@ -117,4 +178,14 @@ export enum ReliabilityEventType {
   EXCLUDED = 'EXCLUDED',
   /** Remboursement partiel après exclusion */
   PARTIAL_REFUND = 'PARTIAL_REFUND',
+}
+
+/** Statut d'une demande de départ d'un membre qui n'a pas encore reçu sa cagnotte */
+export enum DepartureRequestStatus {
+  /** En attente de validation du fondateur */
+  PENDING = 'PENDING',
+  /** Approuvé — le membre part, les cagnottes sont recalculées */
+  APPROVED = 'APPROVED',
+  /** Refusé par le fondateur */
+  REJECTED = 'REJECTED',
 }
