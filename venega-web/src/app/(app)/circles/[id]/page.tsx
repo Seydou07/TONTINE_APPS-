@@ -185,6 +185,44 @@ export default function CircleDetailPage() {
         </div>
       </motion.div>
 
+      {/* ── PAYER ── */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        {circle.type !== CircleType.SOLIDARITY_ONLY && (
+          <div className="flex-1 bg-surface border border-border rounded-2xl p-4 flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-primary-tint flex items-center justify-center shrink-0">
+              <Coins size={18} className="text-primary-dark" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-text-muted">Cotisation tontine</p>
+              <p className="font-heading font-bold text-text-main">{formatXOF(circle.tontineAmount)}</p>
+            </div>
+            <Link
+              href={`/payment?circleId=${circle.id}&amount=${circle.tontineAmount}&type=TONTINE`}
+              className="px-5 py-2.5 bg-accent text-primary-dark rounded-xl font-semibold text-sm hover:opacity-90 transition-opacity shrink-0"
+            >
+              Payer
+            </Link>
+          </div>
+        )}
+        {circle.type !== CircleType.TONTINE_ONLY && circle.solidarityAmount > 0 && (
+          <div className="flex-1 bg-surface border border-border rounded-2xl p-4 flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-primary-tint flex items-center justify-center shrink-0">
+              <HandHeart size={18} className="text-primary-dark" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-text-muted">Cotisation solidarité</p>
+              <p className="font-heading font-bold text-text-main">{formatXOF(circle.solidarityAmount)}</p>
+            </div>
+            <Link
+              href={`/payment?circleId=${circle.id}&amount=${circle.solidarityAmount}&type=SOLIDARITY`}
+              className="px-5 py-2.5 bg-accent text-primary-dark rounded-xl font-semibold text-sm hover:opacity-90 transition-opacity shrink-0"
+            >
+              Payer
+            </Link>
+          </div>
+        )}
+      </div>
+
       {/* ── STATS ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="card p-4">

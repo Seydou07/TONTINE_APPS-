@@ -2,7 +2,9 @@ import { Controller, Get, Post, Patch, Body, Param, UseGuards, Request, Query } 
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CirclesService } from './circles.service';
-import { CreateCircleDto } from '@venega/types';
+import { CreateCircleDto } from './dto/create-circle.dto';
+import { RequestJoinDto } from './dto/request-join.dto';
+import { DecideJoinRequestDto } from './dto/decide-join-request.dto';
 
 @ApiTags('Circles')
 @ApiBearerAuth()
@@ -40,14 +42,7 @@ export class CirclesController {
   requestJoin(
     @Param('id') id: string,
     @Request() req: any,
-    @Body() body: {
-      fullName: string;
-      phoneNumber: string;
-      depositNumber: string;
-      cnibFrontUrl: string;
-      cnibBackUrl: string;
-      conditionsAccepted: boolean;
-    },
+    @Body() body: RequestJoinDto,
   ) {
     return this.circlesService.requestJoin(req.user.id, id, body);
   }
@@ -63,7 +58,7 @@ export class CirclesController {
   decideJoinRequest(
     @Param('requestId') requestId: string,
     @Request() req: any,
-    @Body() body: { approved: boolean; rejectionReason?: string },
+    @Body() body: DecideJoinRequestDto,
   ) {
     return this.circlesService.decideJoinRequest(requestId, req.user.id, body.approved, body.rejectionReason);
   }

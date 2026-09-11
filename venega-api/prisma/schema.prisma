@@ -22,6 +22,8 @@ enum CircleType {
   TONTINE_ONLY     // Tontine rotative pure
   SOLIDARITY_ONLY  // Caisse de solidarité pure
   HYBRID           // Tontine + Caisse de solidarité greffée
+  NATURE           // Tontine en nature — bien remis à tour de rôle
+  AID_APPEAL       // Appel à l'aide public — contribution possible sans être membre
 }
 
 /// Rôle d'un membre dans un cercle
@@ -190,6 +192,7 @@ model User {
   // ── Relations ──
   memberships           Membership[]
   membershipRequests    MembershipRequest[]
+  decidedMembershipRequests MembershipRequest[] @relation("MembershipDecision")
   transactions          Transaction[]
   solidarityRequests    SolidarityRequest[]
   aidVotes              AidVote[]
@@ -241,7 +244,7 @@ model Circle {
   // ── Métadonnées ──
   memberCount         Int          @default(0)
   maxMembers          Int          @default(20)
-  activeCycleId       String?
+  activeCycleId       String?      @unique
   createdById         String
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
@@ -257,6 +260,7 @@ model Circle {
   ledgerEntries   LedgerEntry[]
   chatMessages    ChatMessage[]
   turnValidations TurnValidation[]
+  reliabilityEvents ReliabilityEvent[]
 
   @@index([inviteCode])
   @@index([createdById])
@@ -278,7 +282,6 @@ model Cycle {
   // ── Relations ──
   circle            Circle            @relation(fields: [circleId], references: [id], onDelete: Cascade)
   circleAsActive    Circle?           @relation("ActiveCycle")
-  memberships       Membership[]
   transactions      Transaction[]
   solidarityRequests SolidarityRequest[]
   reliabilityEvents ReliabilityEvent[]

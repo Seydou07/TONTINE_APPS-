@@ -1,13 +1,21 @@
 'use client';
 
 import React from 'react';
-import Image from 'next/image';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { Plus, UserPlus, Users, Activity } from 'lucide-react';
 import { mockCurrentUser } from '@venega/types';
 import StatsCards from '@/features/dashboard/components/StatsCards';
 import CircleCardGrid from '@/features/dashboard/components/CircleCardGrid';
 import RecentTransactions from '@/features/dashboard/components/RecentTransactions';
 import NotificationsList from '@/features/dashboard/components/NotificationsList';
+
+const quickActions = [
+  { label: 'Créer', icon: Plus, color: 'text-primary-dark', href: '/circles/create' },
+  { label: 'Rejoindre', icon: UserPlus, color: 'text-accent-dark', href: '/circles/join' },
+  { label: 'Cercles', icon: Users, color: 'text-purple', href: '/circles' },
+  { label: 'Activité', icon: Activity, color: 'text-info', href: '/activity' },
+];
 
 export default function DashboardPage() {
   return (
@@ -21,38 +29,36 @@ export default function DashboardPage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-heading font-bold text-text-main">
-              Bonjour, {mockCurrentUser.firstName} 👋
+              Bonjour, {mockCurrentUser.firstName}
             </h1>
             <p className="text-text-muted mt-1">Voici l'état de vos cercles aujourd'hui</p>
           </div>
         </div>
       </motion.div>
 
-      {/* Photo Carousel */}
+      {/* Actions rapides */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.1 }}
-        className="relative h-64 rounded-2xl overflow-hidden"
+        className="grid grid-cols-2 sm:grid-cols-4 gap-4"
       >
-        <Image
-          src="https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=1200&q=80"
-          alt="Community"
-          fill
-          className="object-cover"
-          priority
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-primary/80 to-transparent" />
-        <div className="absolute inset-0 flex items-center p-8">
-          <div className="max-w-md text-white">
-            <h2 className="text-2xl font-heading font-bold mb-2">
-              Gérez vos économies avec transparence
-            </h2>
-            <p className="text-white/80">
-              Venega vous aide à organiser vos tontines et vos caisses de solidarité simplement
-            </p>
-          </div>
-        </div>
+        {quickActions.map((action, i) => (
+          <motion.div
+            key={action.label}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.15 + i * 0.05 }}
+          >
+            <Link
+              href={action.href}
+              className="flex flex-col items-center justify-center gap-2 p-5 bg-surface border border-border rounded-2xl hover:border-primary/30 hover:-translate-y-0.5 transition-all"
+            >
+              <action.icon size={22} className={action.color} />
+              <span className="text-sm font-medium text-text-main">{action.label}</span>
+            </Link>
+          </motion.div>
+        ))}
       </motion.div>
 
       {/* Stats Cards */}

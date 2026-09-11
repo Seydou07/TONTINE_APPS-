@@ -15,7 +15,6 @@ import {
   HandHeart,
   MessageSquare,
   User,
-  PlusCircle,
   LogIn,
   Shield,
 } from 'lucide-react';
@@ -27,7 +26,6 @@ const navItems = [
   { name: 'Tableau de bord', icon: Home, href: '/dashboard' },
   { divider: true, label: 'MES CERCLES' },
   { name: 'Mes cercles', icon: Users, href: '/circles' },
-  { name: 'Créer un cercle', icon: PlusCircle, href: '/circles/create' },
   { name: 'Rejoindre un cercle', icon: LogIn, href: '/circles/join' },
   { divider: true, label: 'FONDS' },
   { name: 'Solidarité', icon: HandHeart, href: '/solidarity' },

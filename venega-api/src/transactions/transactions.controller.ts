@@ -2,7 +2,8 @@ import { Controller, Get, Post, Body, Param, Query, UseGuards, Request } from '@
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TransactionsService } from './transactions.service';
-import { PayContributionDto, InitiatePayoutDto } from '@venega/types';
+import { PayContributionDto } from './dto/pay-contribution.dto';
+import { InitiatePayoutDto } from './dto/initiate-payout.dto';
 
 @ApiTags('Transactions')
 @ApiBearerAuth()

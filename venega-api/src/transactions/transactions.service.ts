@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { PayContributionDto, InitiatePayoutDto } from '@venega/types';
+import { PayContributionDto } from './dto/pay-contribution.dto';
+import { InitiatePayoutDto } from './dto/initiate-payout.dto';
 
 @Injectable()
 export class TransactionsService {

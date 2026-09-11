@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { SubmitAidRequestDto, VoteAidRequestDto } from '@venega/types';
+import { SubmitAidRequestDto } from './dto/submit-aid-request.dto';
 
 @Injectable()
 export class SolidarityService {

@@ -5,7 +5,7 @@ import { Logo } from './Logo';
 export function Footer() {
   return (
     <footer className="bg-surface border-t border-border mt-20 py-16 px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between gap-12">
+      <div className="max-w-[1400px] mx-auto flex flex-col md:flex-row justify-between gap-12">
         <div className="max-w-sm">
           <Link href="/" className="flex items-center gap-3 mb-6">
             <Logo className="w-8 h-8" />
@@ -67,7 +67,7 @@ export function Footer() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto mt-16 pt-8 border-t border-border flex flex-col md:flex-row items-center justify-between gap-4">
+      <div className="max-w-[1400px] mx-auto mt-16 pt-8 border-t border-border flex flex-col md:flex-row items-center justify-between gap-4">
         <p className="text-xs text-text-muted">
           &copy; {new Date().getFullYear()} Venega. Fait pour le Burkina Faso 🇧🇫. Tous droits réservés.
         </p>

@@ -2,10 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { DownloadBadges } from '@/components/DownloadBadges';
 import { MarketingNavbar } from '@/components/MarketingNavbar';
 import { Footer } from '@/components/Footer';
-import { ShieldCheck, RefreshCw, HandHeart, Users, ArrowRight, Star, CheckCircle2, Bell, Search, Coins, AlertCircle } from 'lucide-react';
+import { ShieldCheck, RefreshCw, HandHeart, Users, ArrowRight, Star, CheckCircle2, Bell, Search, Coins, AlertCircle, MapPin } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -68,7 +67,7 @@ export default function LandingPage() {
       <MarketingNavbar />
 
       {/* ===== SUPER HERO SECTION ===== */}
-      <section className="relative pt-24 pb-20 px-6 lg:px-12 max-w-[1180px] mx-auto w-full overflow-hidden flex flex-col lg:flex-row items-center gap-14">
+      <section className="relative pt-24 pb-20 px-6 lg:px-12 max-w-[1400px] mx-auto w-full overflow-hidden flex flex-col lg:flex-row items-center gap-14">
         <div className="absolute -top-32 -right-32 w-[600px] h-[600px] bg-[#E4F0EB] rounded-full blur-[120px] -z-10" />
         <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-[#FBF1DD] rounded-full blur-[100px] -z-10" />
 
@@ -79,7 +78,7 @@ export default function LandingPage() {
           className="z-10 flex-1 max-w-[560px]"
         >
           <motion.div variants={FADE_UP} className="inline-flex items-center gap-2 bg-[#E4F0EB] text-[#074B36] text-[12.5px] font-bold px-4 py-2 rounded-full mb-5 border border-[#0B6E4F]/20">
-            <span>🇧🇫</span> Fait pour le Burkina Faso
+            <MapPin size={13} /> Fait pour le Burkina Faso
           </motion.div>
           
           <motion.h1 variants={FADE_UP} className="text-[44px] md:text-[44px] font-[var(--font-heading)] font-extrabold text-[#22271F] leading-[1.15] mb-5">
@@ -108,7 +107,12 @@ export default function LandingPage() {
               </div>
             </div>
             <div className="flex items-center gap-2.5 bg-[#0B0D0B] text-white rounded-xl px-4 py-2.5 cursor-pointer hover:-translate-y-0.5 transition-transform">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><path d="M3.6 2.3c-.4.3-.6.8-.6 1.4v16.6c0 .6.2 1.1.6 1.4l.1.1L13 12.6v-.2L3.7 2.2z"/><path d="M16.1 15.7l-3.1-3.1v-.2l3.1-3.1 3.7 2.1c1 .6 1 1.5 0 2.1z" fill="#D9A441"/><path d="M16.1 8.3L12.9 12l-9.3 9.3c.4.4 1 .4 1.7 0l10.8-3z"/><path d="M16.1 15.7l-10.8 6c-.7.4-1.3.4-1.7 0l9.4-9.3z"/></svg>
+              <svg width="22" height="22" viewBox="0 0 24 24">
+                <path d="M3.6 2.3c-.4.3-.6.8-.6 1.4v16.6c0 .6.2 1.1.6 1.4l.1.1L13 12.6v-.2L3.7 2.2z" fill="#4285F4"/>
+                <path d="M16.1 15.7l-3.1-3.1v-.2l3.1-3.1 3.7 2.1c1 .6 1 1.5 0 2.1z" fill="#FBBC05"/>
+                <path d="M16.1 8.3L12.9 12l-9.3 9.3c.4.4 1 .4 1.7 0l10.8-3z" fill="#34A853"/>
+                <path d="M16.1 15.7l-10.8 6c-.7.4-1.3.4-1.7 0l9.4-9.3z" fill="#EA4335"/>
+              </svg>
               <div className="flex flex-col leading-[1.1]">
                 <span className="text-[9px] opacity-80">Disponible sur</span>
                 <span className="text-[14.5px] font-bold font-[var(--font-heading)]">Google Play</span>
@@ -177,7 +181,7 @@ export default function LandingPage() {
       </div>
 
       {/* ===== FEATURES SECTION ===== */}
-      <section id="features" className="py-20 px-6 lg:px-12 max-w-[1180px] mx-auto w-full">
+      <section id="features" className="py-20 px-6 lg:px-12 max-w-[1400px] mx-auto w-full">
         <div className="text-center max-w-2xl mx-auto mb-14">
           <div className="text-[#0B6E4F] font-bold text-[12.5px] uppercase tracking-[0.06em] mb-2.5">Fonctionnalités</div>
           <h2 className="text-[32px] font-[var(--font-heading)] font-extrabold text-[#22271F] mb-3">
@@ -265,7 +269,7 @@ export default function LandingPage() {
 
       {/* ===== HOW IT WORKS ===== */}
       <section id="how-it-works" className="py-16 px-6 lg:px-12">
-        <div className="max-w-[1180px] mx-auto w-full bg-white rounded-[28px] p-10 lg:p-14 shadow-sm border border-[#E9E4D8]">
+        <div className="max-w-[1400px] mx-auto w-full bg-white rounded-[28px] p-10 lg:p-14 shadow-sm border border-[#E9E4D8]">
           <div className="text-center max-w-2xl mx-auto mb-12">
             <div className="text-[#0B6E4F] font-bold text-[12.5px] uppercase tracking-[0.06em] mb-2.5">Comment ça marche</div>
             <h2 className="text-[32px] font-[var(--font-heading)] font-extrabold text-[#22271F] mb-3">
@@ -300,7 +304,7 @@ export default function LandingPage() {
       </section>
 
       {/* ===== POLYVALENCE ===== */}
-      <section className="py-[70px] px-6 lg:px-12 max-w-[1180px] mx-auto w-full">
+      <section className="py-[70px] px-6 lg:px-12 max-w-[1400px] mx-auto w-full">
         <div className="text-center max-w-[640px] mx-auto mb-[46px]">
           <div className="text-[#0B6E4F] font-bold text-[12.5px] uppercase tracking-[0.06em] mb-2.5">Polyvalence</div>
           <h2 className="text-[32px] font-[var(--font-heading)] font-extrabold text-[#22271F] mb-3">
@@ -356,7 +360,7 @@ export default function LandingPage() {
       </section>
 
       {/* ===== POUR QUI ===== */}
-      <section className="py-[70px] px-6 lg:px-12 max-w-[1180px] mx-auto w-full">
+      <section className="py-[70px] px-6 lg:px-12 max-w-[1400px] mx-auto w-full">
         <div className="text-center max-w-[640px] mx-auto mb-[46px]">
           <div className="text-[#0B6E4F] font-bold text-[12.5px] uppercase tracking-[0.06em] mb-2.5">Pour qui ?</div>
           <h2 className="text-[32px] font-[var(--font-heading)] font-extrabold text-[#22271F] mb-3">
@@ -398,7 +402,7 @@ export default function LandingPage() {
       </section>
 
       {/* ===== MARKET STAT ===== */}
-      <section className="py-10 px-6 lg:px-12 max-w-[1180px] mx-auto w-full">
+      <section className="py-10 px-6 lg:px-12 max-w-[1400px] mx-auto w-full">
         <div className="rounded-[28px] p-14 text-center text-white bg-[radial-gradient(120%_200%_at_50%_0%,#0F8563_0%,#0B6E4F_55%,#074B36_100%)]">
           <div className="text-[13px] text-white/75 font-semibold mb-3.5 tracking-wider">L'ÉPARGNE INFORMELLE EN AFRIQUE DE L'OUEST</div>
           <div className="font-[var(--font-heading)] text-[56px] font-extrabold mb-3">200 Milliards $</div>
@@ -409,7 +413,7 @@ export default function LandingPage() {
       </section>
 
       {/* ===== SÉCURITÉ SECTION ===== */}
-      <section className="py-16 px-6 lg:px-12 max-w-[1180px] mx-auto w-full">
+      <section className="py-16 px-6 lg:px-12 max-w-[1400px] mx-auto w-full">
         <div className="flex flex-col lg:flex-row items-center gap-14 bg-[#E4F0EB] rounded-[28px] p-14">
           <motion.div
             className="flex-1"
@@ -471,7 +475,7 @@ export default function LandingPage() {
       </section>
 
       {/* ===== TESTIMONIALS ===== */}
-      <section id="testimonials" className="py-16 px-6 lg:px-12 max-w-[1180px] mx-auto w-full">
+      <section id="testimonials" className="py-16 px-6 lg:px-12 max-w-[1400px] mx-auto w-full">
         <div className="text-center max-w-2xl mx-auto mb-12">
           <div className="text-[#0B6E4F] font-bold text-[12.5px] uppercase tracking-[0.06em] mb-2.5">Témoignages</div>
           <h2 className="text-[32px] font-[var(--font-heading)] font-extrabold text-[#22271F] mb-3">
@@ -525,7 +529,7 @@ export default function LandingPage() {
       </section>
 
       {/* ===== PAIEMENT ===== */}
-      <section className="py-[70px] px-6 lg:px-12 max-w-[1180px] mx-auto w-full">
+      <section className="py-[70px] px-6 lg:px-12 max-w-[1400px] mx-auto w-full">
         <div className="text-center mb-[46px]">
           <div className="text-[#0B6E4F] font-bold text-[12.5px] uppercase tracking-[0.06em] mb-2.5">Paiement</div>
           <h2 className="text-[32px] font-[var(--font-heading)] font-extrabold text-[#22271F] mb-3">
@@ -551,7 +555,7 @@ export default function LandingPage() {
       </section>
 
       {/* ===== CTA FINAL ===== */}
-      <section className="py-10 px-6 lg:px-12 max-w-[1180px] mx-auto w-full mb-10">
+      <section className="py-10 px-6 lg:px-12 max-w-[1400px] mx-auto w-full mb-10">
         <div className="rounded-[28px] p-14 text-center relative overflow-hidden bg-[radial-gradient(120%_160%_at_50%_0%,#0F8563_0%,#0B6E4F_50%,#074B36_100%)]">
           <h2 className="text-[30px] font-[var(--font-heading)] font-extrabold text-white mb-3.5">
             Prêt à digitaliser votre tontine ?
@@ -569,7 +573,12 @@ export default function LandingPage() {
               </div>
             </div>
             <div className="flex items-center gap-2.5 bg-[#0B0D0B] text-white rounded-xl px-4 py-2 cursor-pointer hover:-translate-y-0.5 transition-transform">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M3.6 2.3c-.4.3-.6.8-.6 1.4v16.6c0 .6.2 1.1.6 1.4l.1.1L13 12.6v-.2L3.7 2.2z"/><path d="M16.1 15.7l-3.1-3.1v-.2l3.1-3.1 3.7 2.1c1 .6 1 1.5 0 2.1z" fill="#D9A441"/><path d="M16.1 8.3L12.9 12l-9.3 9.3c.4.4 1 .4 1.7 0l10.8-3z"/><path d="M16.1 15.7l-10.8 6c-.7.4-1.3.4-1.7 0l9.4-9.3z"/></svg>
+              <svg width="20" height="20" viewBox="0 0 24 24">
+                <path d="M3.6 2.3c-.4.3-.6.8-.6 1.4v16.6c0 .6.2 1.1.6 1.4l.1.1L13 12.6v-.2L3.7 2.2z" fill="#4285F4"/>
+                <path d="M16.1 15.7l-3.1-3.1v-.2l3.1-3.1 3.7 2.1c1 .6 1 1.5 0 2.1z" fill="#FBBC05"/>
+                <path d="M16.1 8.3L12.9 12l-9.3 9.3c.4.4 1 .4 1.7 0l10.8-3z" fill="#34A853"/>
+                <path d="M16.1 15.7l-10.8 6c-.7.4-1.3.4-1.7 0l9.4-9.3z" fill="#EA4335"/>
+              </svg>
               <div className="flex flex-col leading-[1.1] text-left">
                 <span className="text-[9px] opacity-80">Disponible sur</span>
                 <span className="text-[14.5px] font-bold font-[var(--font-heading)]">Google Play</span>

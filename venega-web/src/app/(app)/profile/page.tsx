@@ -11,8 +11,10 @@ import {
 } from "lucide-react";
 import { mockCurrentUser } from '@venega/types';
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 export default function ProfilePage() {
+  const router = useRouter();
   return (
     <div className="flex-1 p-6 lg:p-8">
       <div className="max-w-3xl mx-auto space-y-6">
@@ -83,7 +85,10 @@ export default function ProfilePage() {
               </span>
             </div>
           </button>
-          <button className="w-full flex items-center justify-between p-4 border-b border-border hover:bg-bg transition-colors text-left">
+          <button
+            onClick={() => router.push('/kyc/intro')}
+            className="w-full flex items-center justify-between p-4 border-b border-border hover:bg-bg transition-colors text-left"
+          >
             <div className="flex items-center gap-3">
               <div className="p-2 bg-accent-tint rounded-lg">
                 <Shield size={20} className="text-accent-dark" />

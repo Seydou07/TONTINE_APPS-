@@ -15,6 +15,14 @@ const formatXOF = (amount: number) => {
   }).format(amount);
 };
 
+const typeLabel: Record<string, string> = {
+  [CircleType.TONTINE_ONLY]: "Tontine",
+  [CircleType.SOLIDARITY_ONLY]: "Solidarité",
+  [CircleType.HYBRID]: "Hybride",
+  [CircleType.NATURE]: "Nature",
+  [CircleType.AID_APPEAL]: "Appel à l'aide",
+};
+
 export default function CirclesPage() {
   return (
     <div className="flex-1 p-6 lg:p-8">
@@ -55,97 +63,69 @@ export default function CirclesPage() {
 }
 
 function CircleCard({ circle, index }: { circle: any; index: number }) {
-  const getCircleTypeStyle = () => {
-    switch (circle.type) {
-      case CircleType.TONTINE_ONLY:
-        return {
-          bg: "bg-primary-tint",
-          color: "text-primary-dark",
-          label: "Tontine",
-          icon: <Coins size={24} />,
-        };
-      case CircleType.SOLIDARITY_ONLY:
-        return {
-          bg: "bg-purple-tint",
-          color: "text-purple",
-          label: "Solidarité",
-          icon: <Users size={24} />,
-        };
-      default:
-        return {
-          bg: "bg-accent-tint",
-          color: "text-accent-dark",
-          label: "Hybride",
-          icon: <Users size={24} />,
-        };
-    }
-  };
-  const style = getCircleTypeStyle();
+  const icon = circle.type === CircleType.SOLIDARITY_ONLY ? <Users size={24} /> : <Coins size={24} />;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay: index * 0.1 }}
-      className="bg-surface border border-border rounded-2xl p-6 shadow-sm hover:shadow-md transition-all"
-    >
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center gap-4">
-          <div
-            className={`w-14 h-14 rounded-xl ${style.bg} flex items-center justify-center ${style.color}`}
-          >
-            {style.icon}
+    <Link href={`/circles/${circle.id}`}>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: index * 0.06 }}
+        whileHover={{ y: -3 }}
+        className="bg-surface border border-border rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow cursor-pointer h-full"
+      >
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-xl bg-primary-tint flex items-center justify-center text-primary-dark">
+              {icon}
+            </div>
+            <div>
+              <h3 className="text-lg font-bold font-sora text-text">
+                {circle.name}
+              </h3>
+              <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold font-worksans bg-primary-tint text-primary-dark mt-1">
+                {typeLabel[circle.type as string] ?? circle.type}
+              </span>
+            </div>
           </div>
-          <div>
-            <h3 className="text-lg font-bold font-sora text-text">
-              {circle.name}
-            </h3>
-            <span
-              className={`inline-block px-3 py-1 rounded-full text-xs font-semibold font-worksans ${style.bg} ${style.color} mt-1`}
-            >
-              {style.label}
+          <ArrowRight size={20} className="text-text-muted" />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          {circle.type !== CircleType.SOLIDARITY_ONLY && (
+            <div>
+              <p className="text-xs text-text-muted font-worksans">
+                Cotisation tontine
+              </p>
+              <p className="text-lg font-bold font-sora text-text">
+                {formatXOF(circle.tontineAmount)}
+              </p>
+            </div>
+          )}
+          {circle.type !== CircleType.TONTINE_ONLY && (
+            <div>
+              <p className="text-xs text-text-muted font-worksans">
+                Cotisation solidarité
+              </p>
+              <p className="text-lg font-bold font-sora text-text">
+                {formatXOF(circle.solidarityAmount)}
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between pt-4 border-t border-border">
+          <div className="flex items-center gap-2">
+            <Users size={16} className="text-text-muted" />
+            <span className="text-sm font-worksans text-text-muted">
+              {circle.memberCount} membres
             </span>
           </div>
-        </div>
-        <button className="text-text-muted hover:text-primary transition-colors">
-          <ArrowRight size={20} />
-        </button>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4 mb-4">
-        {circle.type !== CircleType.SOLIDARITY_ONLY && (
-          <div>
-            <p className="text-xs text-text-muted font-worksans">
-              Cotisation tontine
-            </p>
-            <p className="text-lg font-bold font-sora text-text">
-              {formatXOF(circle.tontineAmount)}
-            </p>
-          </div>
-        )}
-        {circle.type !== CircleType.TONTINE_ONLY && (
-          <div>
-            <p className="text-xs text-text-muted font-worksans">
-              Cotisation solidarité
-            </p>
-            <p className="text-lg font-bold font-sora text-text">
-              {formatXOF(circle.solidarityAmount)}
-            </p>
-          </div>
-        )}
-      </div>
-
-      <div className="flex items-center justify-between pt-4 border-t border-border">
-        <div className="flex items-center gap-2">
-          <Users size={16} className="text-text-muted" />
           <span className="text-sm font-worksans text-text-muted">
-            {circle.memberCount} membres
+            {circle.frequency === "MONTHLY" ? "Mensuel" : "Hebdomadaire"}
           </span>
         </div>
-        <span className="text-sm font-worksans text-text-muted">
-          {circle.frequency === "MONTHLY" ? "Mensuel" : "Hebdomadaire"}
-        </span>
-      </div>
-    </motion.div>
+      </motion.div>
+    </Link>
   );
 }

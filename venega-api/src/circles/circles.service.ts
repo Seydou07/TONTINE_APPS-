@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateCircleDto } from '@venega/types';
+import { CreateCircleDto } from './dto/create-circle.dto';
+import { RequestJoinDto } from './dto/request-join.dto';
 
 @Injectable()
 export class CirclesService {
@@ -100,14 +101,7 @@ export class CirclesService {
     }));
   }
 
-  async requestJoin(userId: string, circleId: string, data: {
-    fullName: string;
-    phoneNumber: string;
-    depositNumber: string;
-    cnibFrontUrl: string;
-    cnibBackUrl: string;
-    conditionsAccepted: boolean;
-  }) {
+  async requestJoin(userId: string, circleId: string, data: RequestJoinDto) {
     const circle = await this.prisma.circle.findUnique({ where: { id: circleId } });
     if (!circle) throw new NotFoundException('Cercle non trouvé');
     if (!circle.isActive) throw new BadRequestException('Ce cercle est inactif');

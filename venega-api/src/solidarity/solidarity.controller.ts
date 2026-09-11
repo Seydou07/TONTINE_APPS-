@@ -2,7 +2,8 @@ import { Controller, Get, Post, Patch, Body, Param, UseGuards, Request } from '@
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { SolidarityService } from './solidarity.service';
-import { SubmitAidRequestDto, VoteAidRequestDto } from '@venega/types';
+import { SubmitAidRequestDto } from './dto/submit-aid-request.dto';
+import { VoteDto } from './dto/vote.dto';
 
 @ApiTags('Solidarity')
 @ApiBearerAuth()
@@ -22,7 +23,7 @@ export class SolidarityController {
   vote(
     @Param('id') id: string,
     @Request() req: any,
-    @Body() body: { approved: boolean },
+    @Body() body: VoteDto,
   ) {
     return this.solidarityService.vote(id, req.user.id, body.approved);
   }
