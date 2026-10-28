@@ -1,29 +1,39 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, StatusBar, Alert, Linking } from 'react-native';
-import { Image } from 'expo-image';
-import * as Clipboard from 'expo-clipboard';
+import { View, Text, StyleSheet, ScrollView, StatusBar } from 'react-native';
+import type { ScrollViewInstance } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Copy, Check, Phone, Loader, CheckCircle2, History, Bell } from 'lucide-react-native';
+import { Check, CheckCircle2, History, Bell } from 'lucide-react-native';
 import { colors, radius, typography } from '@venega/design-tokens';
-import { getCircle, getCircles, getActiveCycle, getCycles } from '../circleStore';
+import { getCircle, getCircles, getActiveCycle, getCycles, getCurrentUser } from '../circleStore';
 import { mockMemberships, mockPayoutRecords } from '@venega/types';
 import type { PayoutRecord } from '@venega/types';
-import { Button, IconButton, Sheet } from '../../../components/ui';
-import OperatorPicker, { UssdCodeBox } from '../components/OperatorPicker';
-
-const formatXOF = (n: number) => new Intl.NumberFormat('fr-FR').format(n) + ' F CFA';
-
-const OPERATORS = [
-  { id: 'ORANGE', name: 'Orange Money' },
-  { id: 'MOOV', name: 'Moov Money' },
-  { id: 'WAVE', name: 'Wave' },
-];
+import { Avatar, Button, Sheet } from '../../../components/ui';
+import OperatorPicker from '../components/OperatorPicker';
+import {
+  PAYMENT_OPERATORS,
+  PaymentConfirmSheet,
+  formatPayAmount as formatXOF,
+  operatorName as getOperatorName,
+  payButtonTitle,
+  useUssdPayment,
+} from '../components/PaymentFlow';
+import {
+  PaymentAmountCard,
+  PaymentFooter,
+  PaymentHeader,
+  PaymentHint,
+  PaymentSectionTitle,
+  SummaryCard,
+  SummaryRow,
+  paymentStyles,
+} from '../components/PaymentLayout';
 
 export default function PayoutInitScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id: string }>();
   const circleId = params.id ?? 'c1';
+  const me = getCurrentUser();
 
   const circle = getCircle(circleId) ?? getCircles()[0]!;
   const cycle = getActiveCycle(circle) ?? getCycles(circle.id)[0];
@@ -43,13 +53,10 @@ export default function PayoutInitScreen() {
   const venegaCommission = Math.round(totalFounderFeesCollected * 0.1);
   const netFounderFees = totalFounderFeesCollected - venegaCommission;
 
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
 
-  const [selectedOperator, setSelectedOperator] = useState('ORANGE');
-  const [copied, setCopied] = useState(false);
-  const [ussdModal, setUssdModal] = useState(false);
-  const [detecting, setDetecting] = useState(false);
-  const [ussdCode, setUssdCode] = useState('');
+  const [selectedOperator, setSelectedOperator] = useState<string | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [refNumber, setRefNumber] = useState('');
   const [showNotification, setShowNotification] = useState(false);
 
@@ -59,48 +66,36 @@ export default function PayoutInitScreen() {
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
   );
 
-  const buildUssd = (op: string) =>
-    `*${op === 'MOOV' ? '802' : op === 'WAVE' ? '888' : '800'}*${beneficiaryPotAmount}*${Math.floor(100 + Math.random() * 900)}#`;
+  const beneficiaryName = `${beneficiary?.user?.firstName ?? ''} ${beneficiary?.user?.lastName ?? ''}`.trim();
+  const operatorName = selectedOperator ? getOperatorName(selectedOperator) : undefined;
+  const turn = cycle?.currentTurn ?? 1;
 
-  const handleCopyCode = async () => {
-    await Clipboard.setStringAsync(ussdCode);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2500);
-  };
+  // Au retour de l'USSD : le versement est enregistré et la notification Venega s'affiche.
+  const { dial } = useUssdPayment(() => {
+    const now = new Date();
+    const newRecord: PayoutRecord = {
+      id: `p${Date.now()}`,
+      circleId: circle.id,
+      cycleId: cycle?.id ?? 'cy1',
+      beneficiaryName,
+      beneficiaryAvatar: beneficiary?.user?.avatarUrl,
+      totalAmount: totalGrossCollected,
+      beneficiaryAmount: beneficiaryPotAmount,
+      founderFees: netFounderFees,
+      venegaCommission,
+      operator: getOperatorName(selectedOperator),
+      status: 'PAID',
+      createdAt: now.toISOString(),
+    };
+    setHistory((h) => [newRecord, ...h]);
+    setShowNotification(true);
+  });
 
-  const handleInitiate = () => {
+  const handleConfirm = () => {
+    if (!selectedOperator) return;
+    setShowConfirm(false);
     setRefNumber(`TX-${Math.floor(100000 + Math.random() * 900000)}`);
-    setUssdCode(buildUssd(selectedOperator));
-    setUssdModal(true);
-  };
-
-  const handleExecuteUssd = () => {
-    Linking.openURL(`tel:${ussdCode.replace(/#$/, '%23')}`).catch(() => {
-      Alert.alert('Code USSD', ussdCode);
-    });
-    // Système déjà armé : Venega détecte automatiquement le paiement exécuté
-    setDetecting(true);
-    setTimeout(() => {
-      setDetecting(false);
-      setUssdModal(false);
-      const now = new Date();
-      const newRecord: PayoutRecord = {
-        id: `p${Date.now()}`,
-        circleId: circle.id,
-        cycleId: cycle?.id ?? 'cy1',
-        beneficiaryName: `${beneficiary?.user?.firstName ?? ''} ${beneficiary?.user?.lastName ?? ''}`.trim(),
-        beneficiaryAvatar: beneficiary?.user?.avatarUrl,
-        totalAmount: totalGrossCollected,
-        beneficiaryAmount: beneficiaryPotAmount,
-        founderFees: netFounderFees,
-        venegaCommission,
-        operator: OPERATORS.find((o) => o.id === selectedOperator)?.name ?? 'Orange Money',
-        status: 'PAID',
-        createdAt: now.toISOString(),
-      };
-      setHistory((h) => [newRecord, ...h]);
-      setShowNotification(true);
-    }, 6000);
+    dial(selectedOperator, beneficiaryPotAmount);
   };
 
   const handleViewHistory = () => {
@@ -117,126 +112,88 @@ export default function PayoutInitScreen() {
     );
   };
 
-  const operatorName = OPERATORS.find((o) => o.id === selectedOperator)?.name;
-  const beneficiaryName = `${beneficiary?.user?.firstName ?? ''} ${beneficiary?.user?.lastName ?? ''}`.trim();
-
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
-      <SafeAreaView style={styles.flex} edges={['top', 'bottom']}>
-        {/* En-tête */}
-        <View style={styles.header}>
-          <IconButton icon={ArrowLeft} variant="plain" accessibilityLabel="Retour" onPress={() => router.back()} />
-          <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle} numberOfLines={1}>Verser la cagnotte</Text>
-            <Text style={styles.headerSub} numberOfLines={1}>Compte hub Venega · CityNet Pay</Text>
-          </View>
-          <View style={styles.headerSpacer} />
-        </View>
+    <View style={paymentStyles.container}>
+      <StatusBar barStyle="dark-content" />
+      <SafeAreaView style={paymentStyles.flex} edges={['top', 'bottom']}>
+        <PaymentHeader title="Verser la cagnotte" onBack={() => router.back()} />
 
-        <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          {/* Bénéficiaire */}
-          <View style={styles.heroCard}>
-            <View style={styles.heroTop}>
-              <Image source={{ uri: beneficiary?.user?.avatarUrl }} style={styles.heroAvatar} contentFit="cover" />
-              <View style={styles.flex}>
-                <Text style={styles.heroLabel}>Bénéficiaire · Tour {cycle?.currentTurn ?? 1}</Text>
-                <Text style={styles.heroName}>{beneficiaryName}</Text>
-                <Text style={styles.heroPhone}>+226 70 12 34 56 · Mobile Money</Text>
-              </View>
-            </View>
-            <View style={styles.heroDivider} />
-            <Text style={styles.heroLabel}>Somme à verser</Text>
-            <Text style={styles.heroAmount}>{formatXOF(beneficiaryPotAmount)}</Text>
-          </View>
+        <ScrollView ref={scrollRef} contentContainerStyle={paymentStyles.scroll} showsVerticalScrollIndicator={false}>
+          <PaymentAmountCard amount={beneficiaryPotAmount} sub={`Cagnotte du tour ${turn} · ${circle.name}`} />
 
-          {/* Détails de la transaction */}
-          <View style={styles.card}>
-            <Row label="Total collecté" value={formatXOF(totalGrossCollected)} />
-            <Row label="Frais fondateur" value={formatXOF(netFounderFees)} />
-            <Row label="Commission Venega" value={formatXOF(venegaCommission)} />
-            <Row label="Somme à verser" value={formatXOF(beneficiaryPotAmount)} strong last />
-          </View>
+          <SummaryCard>
+            <SummaryRow
+              label="Bénéficiaire"
+              value={beneficiaryName || '—'}
+              leading={<Avatar name={beneficiaryName || '?'} uri={beneficiary?.user?.avatarUrl} size={32} />}
+            />
+            <SummaryRow label="Numéro Mobile Money" value={beneficiary?.user?.phoneNumber ?? '—'} />
+            <SummaryRow label="Tour" value={`Tour ${turn}`} />
+            <SummaryRow label="Total collecté" value={formatXOF(totalGrossCollected)} />
+            <SummaryRow label="Frais fondateur" value={formatXOF(netFounderFees)} />
+            <SummaryRow label="Commission Venega" value={formatXOF(venegaCommission)} />
+            <SummaryRow label="Somme à verser" value={formatXOF(beneficiaryPotAmount)} strong last />
+          </SummaryCard>
+          <PaymentHint>Le versement passe par le compte hub Venega (CityNet Pay).</PaymentHint>
 
-          {/* Opérateur */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Opérateur de versement</Text>
-            <Text style={styles.sectionHint}>Choisissez l'opérateur qui exécutera le paiement.</Text>
-            <OperatorPicker operators={OPERATORS} value={selectedOperator} onChange={setSelectedOperator} />
-          </View>
+          <PaymentSectionTitle>Choisissez l'opérateur</PaymentSectionTitle>
+          <OperatorPicker operators={PAYMENT_OPERATORS} value={selectedOperator} onChange={setSelectedOperator} />
 
           {/* Historique des versements (seulement les payés) */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Historique des versements</Text>
-            {history.length === 0 ? (
-              <View style={styles.empty}>
-                <View style={styles.emptyIcon}>
-                  <History size={24} color={colors.subtle} />
-                </View>
-                <Text style={styles.emptyTitle}>Aucun versement</Text>
-                <Text style={styles.emptyText}>Les versements payés apparaîtront ici.</Text>
+          <PaymentSectionTitle>Historique des versements</PaymentSectionTitle>
+          {history.length === 0 ? (
+            <View style={styles.empty}>
+              <View style={styles.emptyIcon}>
+                <History size={24} color={colors.subtle} />
               </View>
-            ) : (
-              <View style={[styles.card, styles.historyCard]}>
-                {history.map((p: PayoutRecord, idx: number) => (
-                  <View key={p.id} style={[styles.historyRow, idx < history.length - 1 && styles.rowBorder]}>
-                    <Image source={{ uri: p.beneficiaryAvatar }} style={styles.historyAvatar} contentFit="cover" />
-                    <View style={styles.flex}>
-                      <Text style={styles.historyName} numberOfLines={1}>{p.beneficiaryName}</Text>
-                      <Text style={styles.historyMeta}>
-                        {formatDate(p.createdAt)} · {p.operator}
-                      </Text>
-                      <Text style={styles.historyRef}>Réf. TX-{p.id.toUpperCase().slice(1)}</Text>
-                    </View>
-                    <View style={styles.historyRight}>
-                      <Text style={styles.historyAmount}>−{formatXOF(p.beneficiaryAmount)}</Text>
-                      <View style={styles.paidTag}>
-                        <CheckCircle2 size={12} color={colors.primary.DEFAULT} />
-                        <Text style={styles.paidTagText}>Payé</Text>
-                      </View>
+              <Text style={styles.emptyTitle}>Aucun versement</Text>
+              <Text style={styles.emptyText}>Les versements payés apparaîtront ici.</Text>
+            </View>
+          ) : (
+            <View style={styles.historyCard}>
+              {history.map((p: PayoutRecord, idx: number) => (
+                <View key={p.id} style={[styles.historyRow, idx < history.length - 1 && styles.rowBorder]}>
+                  <Avatar name={p.beneficiaryName} uri={p.beneficiaryAvatar} size={40} />
+                  <View style={styles.flex}>
+                    <Text style={styles.historyName} numberOfLines={1}>{p.beneficiaryName}</Text>
+                    <Text style={styles.historyMeta}>
+                      {formatDate(p.createdAt)} · {p.operator}
+                    </Text>
+                    <Text style={styles.historyRef}>Réf. TX-{p.id.toUpperCase().slice(1)}</Text>
+                  </View>
+                  <View style={styles.historyRight}>
+                    <Text style={styles.historyAmount}>−{formatXOF(p.beneficiaryAmount)}</Text>
+                    <View style={styles.paidTag}>
+                      <CheckCircle2 size={12} color={colors.primary.DEFAULT} />
+                      <Text style={styles.paidTagText}>Payé</Text>
                     </View>
                   </View>
-                ))}
-              </View>
-            )}
-          </View>
+                </View>
+              ))}
+            </View>
+          )}
         </ScrollView>
 
-        <View style={styles.footer}>
-          <Button title="Initier le paiement" icon={Phone} onPress={handleInitiate} />
-        </View>
+        <PaymentFooter>
+          <Button
+            title={payButtonTitle(beneficiaryPotAmount)}
+            disabled={!selectedOperator}
+            onPress={() => setShowConfirm(true)}
+          />
+        </PaymentFooter>
       </SafeAreaView>
 
-      {/* Code USSD : copier ou exécuter (pas de bouton « J'ai effectué ») */}
-      <Sheet visible={ussdModal} onClose={() => setUssdModal(false)} title="Code USSD à exécuter">
-        <Text style={styles.sheetSub}>{operatorName} · Compte hub Venega</Text>
-        <View style={styles.sheetBlock}>
-          <UssdCodeBox code={ussdCode} />
-        </View>
+      <PaymentConfirmSheet
+        visible={showConfirm}
+        onClose={() => setShowConfirm(false)}
+        onConfirm={handleConfirm}
+        amount={beneficiaryPotAmount}
+        operatorId={selectedOperator}
+        phone={me.phoneNumber}
+        detail={`Versement à ${beneficiaryName || 'bénéficiaire'} · Compte hub Venega`}
+      />
 
-        {!detecting ? (
-          <View style={styles.sheetActions}>
-            <Button
-              title={copied ? 'Copié' : 'Copier le code'}
-              icon={copied ? Check : Copy}
-              variant="secondary"
-              onPress={handleCopyCode}
-            />
-            <Button title="Exécuter le code USSD" icon={Phone} onPress={handleExecuteUssd} />
-          </View>
-        ) : (
-          <View style={styles.detecting}>
-            <Loader size={22} color={colors.primary.DEFAULT} />
-            <Text style={styles.detectingTitle}>Détection automatique du paiement…</Text>
-            <Text style={styles.detectingText}>
-              Le système a vu votre paiement de {formatXOF(beneficiaryPotAmount)}. Venega vous enverra la notification
-              dès que la transaction est validée.
-            </Text>
-          </View>
-        )}
-      </Sheet>
-
-      {/* Notification Venega : versement détecté automatiquement */}
+      {/* Notification Venega : versement effectué */}
       <Sheet visible={showNotification} onClose={() => setShowNotification(false)}>
         <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
           <View style={styles.notifHead}>
@@ -254,14 +211,16 @@ export default function PayoutInitScreen() {
             <CheckLine>Vous avez reçu {formatXOF(netFounderFees)} (frais fondateur) sur votre compte.</CheckLine>
           </View>
 
-          <View style={[styles.card, styles.sheetBlock]}>
-            <Row label="Bénéficiaire" value={beneficiaryName} />
-            <Row label="Somme versée" value={formatXOF(beneficiaryPotAmount)} strong />
-            <Row label="Reçu (fondateur)" value={formatXOF(netFounderFees)} />
-            <Row label="Commission Venega" value={formatXOF(venegaCommission)} />
-            <Row label="Opérateur" value={operatorName ?? '—'} />
-            <Row label="Référence" value={refNumber} />
-            <Row label="Date" value={formatDate(new Date().toISOString())} last />
+          <View style={styles.sheetBlock}>
+            <SummaryCard>
+              <SummaryRow label="Bénéficiaire" value={beneficiaryName} />
+              <SummaryRow label="Somme versée" value={formatXOF(beneficiaryPotAmount)} strong />
+              <SummaryRow label="Reçu (fondateur)" value={formatXOF(netFounderFees)} />
+              <SummaryRow label="Commission Venega" value={formatXOF(venegaCommission)} />
+              <SummaryRow label="Opérateur" value={operatorName ?? '—'} />
+              <SummaryRow label="Référence" value={refNumber} />
+              <SummaryRow label="Date" value={formatDate(new Date().toISOString())} last />
+            </SummaryCard>
           </View>
 
           <View style={styles.sheetActions}>
@@ -270,17 +229,6 @@ export default function PayoutInitScreen() {
           </View>
         </ScrollView>
       </Sheet>
-    </View>
-  );
-}
-
-function Row({ label, value, strong, last }: { label: string; value: string; strong?: boolean; last?: boolean }) {
-  return (
-    <View style={[styles.row, !last && styles.rowBorder]}>
-      <Text style={[styles.rowLabel, strong && styles.rowLabelStrong]}>{label}</Text>
-      <Text style={[styles.rowValue, strong && styles.rowValueStrong]} numberOfLines={2}>
-        {value}
-      </Text>
     </View>
   );
 }
@@ -298,50 +246,17 @@ function CheckLine({ children }: { children: React.ReactNode }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
   flex: { flex: 1 },
+  rowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
 
-  /* En-tête */
-  header: { height: 56, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8 },
-  headerCenter: { flex: 1, alignItems: 'center' },
-  headerTitle: { ...typography.headline, color: colors.ink, textAlign: 'center' },
-  headerSub: { ...typography.caption, fontWeight: '400', color: colors.muted, textAlign: 'center' },
-  headerSpacer: { width: 40 },
-
-  scroll: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 32 },
-  section: { marginTop: 28 },
-  sectionTitle: { ...typography.bodyStrong, color: colors.ink, marginBottom: 12 },
-  sectionHint: { ...typography.footnote, color: colors.muted, marginTop: -8, marginBottom: 12 },
-
-  /* Carte bénéficiaire (verte unie) */
-  heroCard: { borderRadius: 24, backgroundColor: colors.primary.dark, padding: 20, marginBottom: 16 },
-  heroTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  heroAvatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.primary.DEFAULT },
-  heroLabel: { ...typography.footnote, color: '#FFFFFF', opacity: 0.8 },
-  heroName: { ...typography.headline, color: '#FFFFFF', marginTop: 1 },
-  heroPhone: { ...typography.footnote, color: '#FFFFFF', opacity: 0.8, marginTop: 1 },
-  heroDivider: { height: StyleSheet.hairlineWidth, backgroundColor: '#FFFFFF', opacity: 0.25, marginVertical: 16 },
-  heroAmount: { ...typography.display, color: '#FFFFFF', marginTop: 2 },
-
-  /* Cartes et lignes */
-  card: {
+  /* Historique */
+  historyCard: {
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.bg,
-    paddingHorizontal: 16,
   },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 16, paddingVertical: 13 },
-  rowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
-  rowLabel: { ...typography.callout, color: colors.muted },
-  rowLabelStrong: { fontWeight: '600', color: colors.ink },
-  rowValue: { flexShrink: 1, ...typography.callout, fontWeight: '500', color: colors.ink, textAlign: 'right' },
-  rowValueStrong: { ...typography.bodyStrong, fontWeight: '700', color: colors.primary.dark },
-
-  /* Historique */
-  historyCard: { paddingHorizontal: 0 },
   historyRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 16 },
-  historyAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.fill },
   historyName: { ...typography.callout, fontWeight: '600', color: colors.ink },
   historyMeta: { ...typography.footnote, color: colors.muted, marginTop: 1 },
   historyRef: { ...typography.caption, fontWeight: '400', color: colors.subtle, marginTop: 1 },
@@ -370,22 +285,9 @@ const styles = StyleSheet.create({
   emptyTitle: { ...typography.headline, color: colors.ink },
   emptyText: { ...typography.callout, color: colors.muted, marginTop: 4, textAlign: 'center' },
 
-  footer: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.line,
-    backgroundColor: colors.bg,
-  },
-
-  /* Feuilles */
-  sheetSub: { ...typography.footnote, color: colors.muted, marginTop: -6 },
+  /* Notification */
   sheetBlock: { marginTop: 16 },
   sheetActions: { gap: 10, marginTop: 20 },
-  detecting: { alignItems: 'center', gap: 8, paddingTop: 20, paddingBottom: 8 },
-  detectingTitle: { ...typography.bodyStrong, color: colors.ink, textAlign: 'center' },
-  detectingText: { ...typography.footnote, color: colors.muted, textAlign: 'center' },
-
   notifHead: { alignItems: 'center', marginBottom: 16 },
   bellCircle: {
     width: 56,

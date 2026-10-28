@@ -1,5 +1,6 @@
 import { Tabs, useRouter } from 'expo-router';
-import { Home, Users, Activity, User, Plus } from 'lucide-react-native';
+import type { BottomTabBarProps } from 'expo-router/build/layouts/TabsClient';
+import { Home, Users, History, User, Plus } from 'lucide-react-native';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import React from 'react';
@@ -30,8 +31,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="messages"
         options={{
-          title: 'Activité',
-          tabBarIcon: ({ color, focused }) => <Activity size={24} color={color as string} strokeWidth={focused ? 2.2 : 1.7} />,
+          title: 'Historique',
+          tabBarIcon: ({ color, focused }) => <History size={24} color={color as string} strokeWidth={focused ? 2.2 : 1.7} />,
         }}
       />
       <Tabs.Screen
@@ -47,29 +48,30 @@ export default function TabLayout() {
   );
 }
 
-function CustomTabBar({ state, descriptors, navigation }: any) {
+// Depuis expo-router 58, la barre reçoit `emitter` + `navigateToTab` (plus d'objet `navigation`).
+function CustomTabBar({ state, descriptors, emitter, navigateToTab }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const routes = state.routes.filter((route: any) => !['create', 'notifications'].includes(route.name));
 
-  const onPressTab = (route: any) => {
-    const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
-    if (!event.defaultPrevented) navigation.navigate(route.name);
+  const onPressTab = (route: any, isFocused: boolean) => {
+    const event = emitter.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+    if (!isFocused && !event.defaultPrevented) navigateToTab(route.key);
   };
 
   return (
     <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
       {routes.map((route: any, index: number) => {
-        const { options } = descriptors[route.key];
+        const options = descriptors[route.key]?.options ?? {};
         const label = options.title ?? route.name;
         const isFocused = state.index === state.routes.indexOf(route);
-        const color = isFocused ? colors.ink : colors.subtle;
+        const color = isFocused ? colors.primary.DEFAULT : colors.subtle;
 
         return (
           <React.Fragment key={route.key}>
             <TouchableOpacity
               style={styles.tabItem}
-              onPress={() => onPressTab(route)}
+              onPress={() => onPressTab(route, isFocused)}
               activeOpacity={0.7}
               accessibilityRole="tab"
               accessibilityState={{ selected: isFocused }}

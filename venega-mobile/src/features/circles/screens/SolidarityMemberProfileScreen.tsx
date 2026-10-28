@@ -4,8 +4,8 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { UserMinus, LogOut, ShieldCheck, ShieldOff, Receipt, SearchX } from 'lucide-react-native';
 import { colors, typography } from '@venega/design-tokens';
-import { ListGroup, ListRow } from '../../../components/ui';
-import { Avatar, EmptyState, RoleBadge, ScreenHeader, cardStyle } from '../components/SolidarityParts';
+import { Avatar, ListGroup, ListRow } from '../../../components/ui';
+import { EmptyState, RoleBadge, ScreenHeader, cardStyle } from '../components/SolidarityParts';
 import {
   getCircle,
   getCircles,
@@ -102,7 +102,7 @@ export default function SolidarityMemberProfileScreen() {
   if (!member) {
     return (
       <View style={styles.container}>
-        <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+        <StatusBar barStyle="dark-content" />
         <SafeAreaView style={styles.flex} edges={['top']}>
           <ScreenHeader title="Profil du membre" onBack={() => router.back()} />
           <EmptyState icon={SearchX} title="Membre introuvable" text="Ce membre ne fait plus partie du cercle." style={styles.notFound} />
@@ -115,13 +115,13 @@ export default function SolidarityMemberProfileScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <StatusBar barStyle="dark-content" />
       <SafeAreaView style={styles.flex} edges={['top']}>
         <ScreenHeader title="Profil du membre" onBack={() => router.back()} />
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.profileHeader}>
-            <Avatar name={fullName} userId={member.userId} photoUrl={member.user.avatarUrl} size={80} />
+            <Avatar name={fullName} uri={member.user.avatarUrl} size={56} />
             <Text style={styles.name}>{fullName}</Text>
             <RoleBadge role={member.role} label={roleLabel[member.role]} always />
             <Text style={styles.meta}>

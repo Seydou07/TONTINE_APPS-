@@ -1,17 +1,19 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Image, StatusBar } from 'react-native';
+import { Text, StyleSheet, TouchableOpacity, Modal, Image, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
 import { typography } from '@venega/design-tokens';
-import { IconButton } from './ui';
+import { Avatar, IconButton } from './ui';
 
 interface AvatarViewerModalProps {
   visible: boolean;
   onClose: () => void;
   name: string;
   photoUrl?: string;
-  initials: string;
-  color: string;
+  /** Obsolète — les initiales sont calculées par <Avatar> à partir de `name`. */
+  initials?: string;
+  /** Obsolète — ignoré : le fond suit le style unique de <Avatar>. */
+  color?: string;
 }
 
 /** Visionneuse plein écran de la photo de profil d'un membre. */
@@ -20,8 +22,6 @@ export default function AvatarViewerModal({
   onClose,
   name,
   photoUrl,
-  initials,
-  color,
 }: AvatarViewerModalProps) {
   const insets = useSafeAreaInsets();
   return (
@@ -32,9 +32,7 @@ export default function AvatarViewerModal({
           {photoUrl ? (
             <Image source={{ uri: photoUrl }} style={styles.photo} />
           ) : (
-            <View style={[styles.photo, styles.initialsCircle, { backgroundColor: color }]}>
-              <Text style={styles.initialsText}>{initials}</Text>
-            </View>
+            <Avatar name={name} size={240} />
           )}
           <Text style={styles.name}>{name}</Text>
         </TouchableOpacity>
@@ -61,8 +59,6 @@ const styles = StyleSheet.create({
   },
   content: { alignItems: 'center', gap: 16 },
   photo: { width: 240, height: 240, borderRadius: 120 },
-  initialsCircle: { justifyContent: 'center', alignItems: 'center' },
-  initialsText: { fontSize: 64, fontWeight: '600', color: '#FFFFFF' },
   name: { ...typography.headline, color: '#FFFFFF', textAlign: 'center' },
   closeBtn: {
     position: 'absolute',

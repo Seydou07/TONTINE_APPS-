@@ -41,7 +41,7 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <StatusBar barStyle="dark-content" />
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <KeyboardAvoidingView style={styles.safe} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView
@@ -106,10 +106,13 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
   },
+  // Contenu centré verticalement, légèrement remonté (padding bas > haut).
   scroll: {
+    flexGrow: 1,
+    justifyContent: 'center',
     paddingHorizontal: 24,
-    paddingTop: 48,
-    paddingBottom: 24,
+    paddingTop: 24,
+    paddingBottom: 72,
   },
   title: {
     ...typography.display,

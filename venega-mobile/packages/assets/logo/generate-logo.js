@@ -31,7 +31,7 @@ const ANGLE_STEP = 360 / N; // ~51.43°
 // Colors ordered around the aperture, matching the reference image gradient
 // Blade 0 = gold (top-right), then clockwise through greens
 const BLADE_COLORS = [
-  '#D9A441',  // 0: GOLD — top right (whose turn)
+  '#FCB031',  // 0: GOLD — top right (whose turn)
   '#0F8563',  // 1: lighter green  
   '#0B6E50',  // 2: mid-light green
   '#074B36',  // 3: mid green

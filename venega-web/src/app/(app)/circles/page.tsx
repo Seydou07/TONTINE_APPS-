@@ -18,7 +18,6 @@ const formatXOF = (amount: number) => {
 const typeLabel: Record<string, string> = {
   [CircleType.TONTINE_ONLY]: "Tontine",
   [CircleType.SOLIDARITY_ONLY]: "Solidarité",
-  [CircleType.HYBRID]: "Hybride",
   [CircleType.NATURE]: "Nature",
   [CircleType.AID_APPEAL]: "Appel à l'aide",
 };

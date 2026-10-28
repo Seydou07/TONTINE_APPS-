@@ -6,24 +6,17 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
-  Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import * as Clipboard from 'expo-clipboard';
-import { Linking } from 'react-native';
 import {
   ArrowLeft,
   Search,
   Upload,
   Check,
   ShieldCheck,
-  Wallet,
-  Smartphone,
-  Copy,
-  Loader,
   Users,
 } from 'lucide-react-native';
 import { colors, radius, typography } from '@venega/design-tokens';
@@ -40,16 +33,22 @@ import {
 } from '../circleStore';
 import { KycRequirement, MembershipRequestStatus, AdhesionPaymentStatus, KycStatus } from '@venega/types';
 import type { Circle, User } from '@venega/types';
-import { Button, IconButton, Sheet, TextField } from '../../../components/ui';
-import OperatorPicker, { UssdCodeBox } from '../components/OperatorPicker';
-
-const formatXOF = (n: number) => new Intl.NumberFormat('fr-FR').format(n) + ' F CFA';
-
-const OPERATORS = [
-  { id: 'ORANGE', name: 'Orange Money' },
-  { id: 'MOOV', name: 'Moov Money' },
-  { id: 'WAVE', name: 'Wave' },
-];
+import { Button, IconButton, TextField } from '../../../components/ui';
+import OperatorPicker from '../components/OperatorPicker';
+import {
+  PAYMENT_OPERATORS,
+  PaymentConfirmSheet,
+  formatPayAmount as formatXOF,
+  payButtonTitle,
+  useUssdPayment,
+} from '../components/PaymentFlow';
+import {
+  PaymentAmountCard,
+  PaymentHint,
+  PaymentSectionTitle,
+  SummaryCard,
+  SummaryRow,
+} from '../components/PaymentLayout';
 
 const typeLabels: Record<string, string> = {
   TONTINE_ONLY: 'Tontine rotative',
@@ -83,11 +82,8 @@ export default function JoinCircleScreen() {
   });
   const [docs, setDocs] = useState({ cnibFront: false, cnibBack: false, selfie: false });
 
-  const [selectedOperator, setSelectedOperator] = useState('ORANGE');
-  const [ussdModal, setUssdModal] = useState(false);
-  const [ussdCode, setUssdCode] = useState('');
-  const [copied, setCopied] = useState(false);
-  const [detecting, setDetecting] = useState(false);
+  const [selectedOperator, setSelectedOperator] = useState<string | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [paymentRef, setPaymentRef] = useState('');
 
   const cycle = circle ? getActiveCycle(circle) : undefined;
@@ -172,33 +168,18 @@ export default function JoinCircleScreen() {
     setStep('done');
   };
 
-  const buildUssd = (op: string) =>
-    `*${op === 'MOOV' ? '802' : op === 'WAVE' ? '888' : '800'}*${total}*${Math.floor(100 + Math.random() * 900)}#`;
+  // Au retour de l'USSD : la demande est enregistrée comme payée.
+  const { dial } = useUssdPayment(() => {
+    const ref = `CP-${Date.now().toString().slice(-6)}`;
+    setPaymentRef(ref);
+    buildRequest(AdhesionPaymentStatus.PAID, ref);
+    setStep('done');
+  });
 
-  const handleInitiatePayment = () => {
-    setUssdCode(buildUssd(selectedOperator));
-    setUssdModal(true);
-  };
-
-  const handleCopyCode = async () => {
-    await Clipboard.setStringAsync(ussdCode);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2500);
-  };
-
-  const handleExecuteUssd = () => {
-    Linking.openURL(`tel:${ussdCode.replace(/#$/, '%23')}`).catch(() => {
-      Alert.alert('Code USSD', ussdCode);
-    });
-    setDetecting(true);
-    setTimeout(() => {
-      setDetecting(false);
-      setUssdModal(false);
-      const ref = `CP-${Date.now().toString().slice(-6)}`;
-      setPaymentRef(ref);
-      buildRequest(AdhesionPaymentStatus.PAID, ref);
-      setStep('done');
-    }, 6000);
+  const handleConfirmPayment = () => {
+    if (!selectedOperator) return;
+    setShowConfirm(false);
+    dial(selectedOperator, total);
   };
 
   const kycLabel =
@@ -233,7 +214,7 @@ export default function JoinCircleScreen() {
           />
         );
       case 'payment':
-        return <Button title={`Payer ${formatXOF(total)}`} icon={Wallet} onPress={handleInitiatePayment} />;
+        return <Button title={payButtonTitle(total)} disabled={!selectedOperator} onPress={() => setShowConfirm(true)} />;
       case 'done':
         return <Button title="Retour aux cercles" onPress={() => router.back()} />;
     }
@@ -241,7 +222,7 @@ export default function JoinCircleScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <StatusBar barStyle="dark-content" />
       <SafeAreaView style={styles.flex} edges={['top', 'bottom']}>
         {/* ── En-tête ── */}
         <View style={styles.header}>
@@ -437,25 +418,24 @@ export default function JoinCircleScreen() {
               </>
             )}
 
-            {/* ── Paiement de la place ── */}
+            {/* ── Paiement de la place (parcours de paiement unique) ── */}
             {step === 'payment' && circle && (
               <>
-                <Text style={styles.stepTitle}>Paiement de la place</Text>
-                <Text style={styles.stepSubtitle}>
-                  Réglez les frais d'adhésion pour finaliser votre demande. Le montant est vérifié avant l'approbation
-                  du fondateur.
-                </Text>
+                <PaymentAmountCard amount={total} sub={`Adhésion · ${circle.name}`} />
 
-                <View style={styles.card}>
-                  <AmountRow label="Frais de rachat des tours passés" value={formatXOF(rachat)} />
-                  <AmountRow label="Dépôt de garantie" value={formatXOF(deposit)} />
-                  <AmountRow label="Total à payer" value={formatXOF(total)} strong last />
-                </View>
+                <SummaryCard>
+                  <SummaryRow label="Cercle" value={circle.name} />
+                  <SummaryRow label="Frais de rachat des tours passés" value={formatXOF(rachat)} />
+                  <SummaryRow label="Dépôt de garantie" value={formatXOF(deposit)} />
+                  <SummaryRow label="Numéro Mobile Money" value={me.phoneNumber} />
+                  <SummaryRow label="Montant" value={formatXOF(total)} strong last />
+                </SummaryCard>
+                <PaymentHint>
+                  Le montant est vérifié avant l'approbation du fondateur.
+                </PaymentHint>
 
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>Opérateur de paiement</Text>
-                  <OperatorPicker operators={OPERATORS} value={selectedOperator} onChange={setSelectedOperator} />
-                </View>
+                <PaymentSectionTitle>Choisissez l'opérateur</PaymentSectionTitle>
+                <OperatorPicker operators={PAYMENT_OPERATORS} value={selectedOperator} onChange={setSelectedOperator} />
               </>
             )}
 
@@ -488,29 +468,15 @@ export default function JoinCircleScreen() {
         </KeyboardAvoidingView>
       </SafeAreaView>
 
-      {/* ── Code USSD ── */}
-      <Sheet visible={ussdModal} onClose={() => setUssdModal(false)} title="Paiement de la place">
-        <Text style={styles.sheetText}>
-          Exécutez ce code USSD pour régler <Text style={styles.sheetStrong}>{formatXOF(total)}</Text>.
-        </Text>
-        <View style={styles.sheetCode}>
-          <UssdCodeBox code={ussdCode} />
-        </View>
-        <View style={styles.sheetActions}>
-          <Button
-            title={copied ? 'Copié' : 'Copier le code'}
-            icon={copied ? Check : Copy}
-            variant="secondary"
-            onPress={handleCopyCode}
-          />
-          <Button
-            title={detecting ? 'Détection du paiement…' : 'Exécuter le code USSD'}
-            icon={detecting ? Loader : Smartphone}
-            disabled={detecting}
-            onPress={handleExecuteUssd}
-          />
-        </View>
-      </Sheet>
+      <PaymentConfirmSheet
+        visible={showConfirm}
+        onClose={() => setShowConfirm(false)}
+        onConfirm={handleConfirmPayment}
+        amount={total}
+        operatorId={selectedOperator}
+        phone={me.phoneNumber}
+        detail={circle ? `Adhésion · ${circle.name}` : undefined}
+      />
     </View>
   );
 }
@@ -709,10 +675,4 @@ const styles = StyleSheet.create({
     borderTopColor: colors.line,
     backgroundColor: colors.bg,
   },
-
-  /* Feuille USSD */
-  sheetText: { ...typography.body, color: colors.inkSoft },
-  sheetStrong: { fontWeight: '600', color: colors.ink },
-  sheetCode: { marginTop: 16 },
-  sheetActions: { gap: 10, marginTop: 20 },
 });

@@ -111,7 +111,7 @@ export default function EditCircleScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <StatusBar barStyle="dark-content" />
       <SafeAreaView style={styles.flex} edges={['top', 'bottom']}>
         <View style={styles.header}>
           <IconButton icon={ArrowLeft} variant="plain" accessibilityLabel="Retour" onPress={() => router.back()} />

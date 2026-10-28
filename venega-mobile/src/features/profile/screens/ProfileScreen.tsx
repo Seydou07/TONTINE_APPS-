@@ -1,6 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import Constants from 'expo-constants';
@@ -24,7 +23,10 @@ import { colors, radius, typography } from '@venega/design-tokens';
 import { KycStatus } from '@venega/types';
 import { getProfile } from '../profileStore';
 import { getCircles, getCurrentUser } from '../../circles/circleStore';
-import { Button, ListGroup, ListRow, Sheet, TextField } from '../../../components/ui';
+import { Button, HeroHeader, HeroStatusBar, ListGroup, ListRow, Sheet, TextField, heroColors } from '../../../components/ui';
+
+/** Hauteur dont la carte des chiffres clés chevauche le bandeau vert. */
+const STATS_OVERLAP = 36;
 
 const FAQ_ITEMS = [
   {
@@ -101,43 +103,43 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
-      <SafeAreaView style={styles.flex} edges={['top']}>
+      <HeroStatusBar />
+      <View style={styles.flex}>
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          <Text style={styles.screenTitle}>Profil</Text>
-
-          {/* ── Identité ── */}
-          <View style={styles.identity}>
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => router.push('/profile-photo' as any)}
-              accessibilityRole="button"
-              accessibilityLabel="Changer la photo de profil"
-            >
-              {avatarUrl ? (
-                <Image source={{ uri: avatarUrl }} style={styles.avatar} contentFit="cover" />
-              ) : (
-                <View style={[styles.avatar, styles.avatarFallback]}>
-                  <Text style={styles.avatarInitials}>{initials(fullName)}</Text>
+          {/* ── Identité (section verte) ── */}
+          <HeroHeader overlap={STATS_OVERLAP} style={styles.hero}>
+            <View style={styles.identity}>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => router.push('/profile-photo' as any)}
+                accessibilityRole="button"
+                accessibilityLabel="Changer la photo de profil"
+              >
+                {avatarUrl ? (
+                  <Image source={{ uri: avatarUrl }} style={styles.avatar} contentFit="cover" />
+                ) : (
+                  <View style={[styles.avatar, styles.avatarFallback]}>
+                    <Text style={styles.avatarInitials}>{initials(fullName)}</Text>
+                  </View>
+                )}
+                <View style={styles.cameraBadge}>
+                  <Camera size={14} color={colors.ink} />
                 </View>
-              )}
-              <View style={styles.cameraBadge}>
-                <Camera size={14} color={colors.ink} />
+              </TouchableOpacity>
+
+              <View style={styles.nameRow}>
+                <Text style={styles.name} numberOfLines={1}>
+                  {fullName}
+                </Text>
+                {kyc.ok ? <BadgeCheck size={20} color={colors.primary.dark} fill={heroColors.accent} /> : null}
               </View>
-            </TouchableOpacity>
+              <Text style={styles.phone}>+226 {localPhone(user.phoneNumber)}</Text>
 
-            <View style={styles.nameRow}>
-              <Text style={styles.name} numberOfLines={1}>
-                {fullName}
-              </Text>
-              {kyc.ok ? <BadgeCheck size={20} color={colors.primary.DEFAULT} fill={colors.primary.tint} /> : null}
+              <TouchableOpacity style={styles.editBtn} onPress={() => router.push('/profile-setup')} activeOpacity={0.7}>
+                <Text style={styles.editBtnText}>Modifier le profil</Text>
+              </TouchableOpacity>
             </View>
-            <Text style={styles.phone}>+226 {localPhone(user.phoneNumber)}</Text>
-
-            <TouchableOpacity style={styles.editBtn} onPress={() => router.push('/profile-setup')} activeOpacity={0.7}>
-              <Text style={styles.editBtnText}>Modifier le profil</Text>
-            </TouchableOpacity>
-          </View>
+          </HeroHeader>
 
           {/* ── Chiffres clés ── */}
           <View style={styles.stats}>
@@ -200,7 +202,7 @@ export default function ProfileScreen() {
 
           <Text style={styles.version}>Venega · version {Constants.expoConfig?.version ?? '1.0.0'}</Text>
         </ScrollView>
-      </SafeAreaView>
+      </View>
 
       {/* ── Numéro mobile money ── */}
       <Sheet visible={phoneSheet} onClose={() => setPhoneSheet(false)} title="Numéro mobile money">
@@ -272,12 +274,13 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.fill },
   flex: { flex: 1 },
   scroll: { paddingHorizontal: 16, paddingBottom: 40 },
-  screenTitle: { ...typography.title, color: colors.ink, paddingHorizontal: 4, paddingTop: 12, paddingBottom: 8 },
+  // Le bandeau occupe toute la largeur malgré le padding horizontal du ScrollView.
+  hero: { marginHorizontal: -16 },
 
-  identity: { alignItems: 'center', paddingTop: 12, paddingBottom: 20 },
-  avatar: { width: 96, height: 96, borderRadius: 48 },
-  avatarFallback: { backgroundColor: colors.primary.tint, justifyContent: 'center', alignItems: 'center' },
-  avatarInitials: { fontSize: 32, fontWeight: '700', color: colors.primary.dark },
+  identity: { alignItems: 'center' },
+  avatar: { width: 96, height: 96, borderRadius: 48, borderWidth: 3, borderColor: heroColors.accent },
+  avatarFallback: { backgroundColor: heroColors.button, justifyContent: 'center', alignItems: 'center' },
+  avatarInitials: { fontSize: 32, fontWeight: '700', color: heroColors.accent },
   cameraBadge: {
     position: 'absolute',
     right: 0,
@@ -287,26 +290,27 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: colors.bg,
     borderWidth: 2,
-    borderColor: colors.fill,
+    borderColor: colors.primary.dark,
     justifyContent: 'center',
     alignItems: 'center',
   },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 14, maxWidth: '90%' },
-  name: { ...typography.title, fontSize: 22, color: colors.ink, flexShrink: 1 },
-  phone: { ...typography.callout, color: colors.muted, marginTop: 4 },
+  name: { ...typography.title, fontSize: 22, color: heroColors.text, flexShrink: 1 },
+  phone: { ...typography.callout, color: heroColors.textSoft, marginTop: 4 },
   editBtn: {
     marginTop: 16,
     height: 40,
     paddingHorizontal: 20,
     borderRadius: radius.pill,
-    backgroundColor: colors.bg,
+    backgroundColor: heroColors.button,
     borderWidth: 1,
-    borderColor: colors.lineStrong,
+    borderColor: 'rgba(255,255,255,0.28)',
     justifyContent: 'center',
   },
-  editBtnText: { ...typography.callout, fontWeight: '600', color: colors.ink },
+  editBtnText: { ...typography.callout, fontWeight: '600', color: heroColors.text },
 
   stats: {
+    marginTop: -STATS_OVERLAP,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.bg,

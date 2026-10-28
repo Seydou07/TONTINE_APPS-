@@ -17,20 +17,22 @@ export const colors = {
     soft: '#C9E3D8',
   },
   accent: {
-    DEFAULT: '#D9A441',
-    dark: '#B9852A',
+    // Ambre du logo Venega (#FCB031).
+    DEFAULT: '#FCB031',
+    // Assez foncé pour du texte sur blanc (« En attente »…).
+    dark: '#A86200',
     deep: '#8A5A12',
-    tint: '#FBF1DD',
+    tint: '#FEF3DC',
   },
   purple: {
     DEFAULT: '#7A4E9C',
     tint: '#EFE6F4',
   },
 
-  /** Neutres — texte, traits et fonds */
-  ink: '#16181D',
-  inkSoft: '#3D424A',
-  muted: '#5E6470',
+  /** Neutres — texte, traits et fonds. Les textes tirent vers le vert du logo (pas de noir pur). */
+  ink: '#12261E',
+  inkSoft: '#384A43',
+  muted: '#5B6B65',
   subtle: '#8F96A0',
   line: '#E5E7EB',
   lineStrong: '#CFD4DA',
@@ -52,8 +54,8 @@ export const colors = {
     tint: '#F7E7E5',
   },
   warning: {
-    DEFAULT: '#D9A441',
-    tint: '#FBF1DD',
+    DEFAULT: '#FCB031',
+    tint: '#FEF3DC',
   },
   info: {
     DEFAULT: '#2B7FB0',

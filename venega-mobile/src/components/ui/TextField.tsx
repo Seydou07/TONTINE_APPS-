@@ -1,6 +1,6 @@
 import React, { forwardRef, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import type { StyleProp, TextInputProps, ViewStyle } from 'react-native';
+import type { StyleProp, TextInputInstance, TextInputProps, ViewStyle } from 'react-native';
 import { Eye, EyeOff } from 'lucide-react-native';
 import { colors, radius, sizes, typography } from '@venega/design-tokens';
 
@@ -18,7 +18,7 @@ type Props = TextInputProps & {
 };
 
 /** Champ de formulaire : libellé au-dessus, saisie, aide ou erreur en dessous. */
-const TextField = forwardRef<TextInput, Props>(function TextField(
+const TextField: React.ForwardRefExoticComponent<Props & React.RefAttributes<TextInputInstance>> = forwardRef<TextInputInstance, Props>(function TextField(
   { label, prefix, suffix, hint, error, password, multiline, containerStyle, onFocus, onBlur, style, ...input },
   ref,
 ) {

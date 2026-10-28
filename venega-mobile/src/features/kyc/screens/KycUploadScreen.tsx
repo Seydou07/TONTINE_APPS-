@@ -148,7 +148,7 @@ export default function KycUploadScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <StatusBar barStyle="dark-content" />
       <SafeAreaView style={styles.flex} edges={['top', 'bottom']}>
         <View style={styles.header}>
           <IconButton icon={ArrowLeft} variant="plain" accessibilityLabel="Retour" onPress={() => router.back()} />
@@ -252,7 +252,7 @@ export default function KycUploadScreen() {
         onRequestClose={() => setCameraVisible(false)}
       >
         <View style={styles.camera}>
-          <StatusBar barStyle="light-content" backgroundColor={colors.ink} />
+          <StatusBar barStyle="light-content" />
           <SafeAreaView style={styles.flex} edges={['top', 'bottom']}>
             <View style={styles.header}>
               <IconButton

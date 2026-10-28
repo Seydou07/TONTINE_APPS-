@@ -1,19 +1,14 @@
-import React, { useCallback, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Image, Alert, PanResponder } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Alert, Image } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Circle } from 'react-native-svg';
 import {
-  ArrowLeft,
   ArrowUpRight,
   ArrowDownLeft,
-  Calendar,
-  Check,
   ChevronRight,
-  ChevronLeft,
-  Filter,
   MoreVertical,
+  Package,
   Settings2,
   Repeat,
   UserPlus,
@@ -21,11 +16,32 @@ import {
   Receipt,
 } from 'lucide-react-native';
 import { colors, radius, typography } from '@venega/design-tokens';
-import { mockTransactions, Role, TransactionType, TransactionStatus, Frequency, MembershipRequestStatus } from '@venega/types';
-import type { Transaction, MembershipRequest } from '@venega/types';
+import {
+  mockTransactions,
+  mockUsers,
+  Role,
+  TransactionType,
+  TransactionStatus,
+  Frequency,
+  MembershipRequestStatus,
+  CircleType,
+  ContributionMode,
+  PaymentStatus,
+} from '@venega/types';
+import type { Transaction, MembershipRequest, Membership } from '@venega/types';
 import TransactionDetailModal from '../../../components/TransactionDetailModal';
-import AvatarViewerModal from '../../../components/AvatarViewerModal';
-import { Button, IconButton, ListGroup, ListRow, Sheet } from '../../../components/ui';
+import { Avatar, Button, IconButton, ListGroup, ListRow, Sheet } from '../../../components/ui';
+import { ScreenHeader } from '../components/SolidarityParts';
+import {
+  CircleTab,
+  CircleTabBar,
+  HistoryFilterButton,
+  OverviewSectionHeader,
+  OverviewStack,
+  OverviewSummaryCard,
+} from '../components/CircleOverview';
+import RotationWheel from '../components/RotationWheel';
+import { payButtonTitle } from '../components/PaymentFlow';
 import {
   getCircle,
   getCircles,
@@ -34,64 +50,19 @@ import {
   getCircleMembers,
   getActiveCycle,
   getMembershipRequests,
-  updateMembershipRequest,
   removeMember,
   setMemberTurnOrder,
 } from '../circleStore';
 
-const roleLabel: Record<Role, string> = {
-  [Role.PRESIDENT]: 'Président',
-  [Role.TREASURER]: 'Trésorier',
-  [Role.SECRETARY]: 'Secrétaire',
-  [Role.MEMBER]: 'Membre',
-};
-
-const roleBadgeStyle: Partial<Record<Role, { bg: string; color: string }>> = {
-  [Role.PRESIDENT]: { bg: colors.accent.tint, color: colors.accent.deep },
-  [Role.TREASURER]: { bg: colors.primary.tint, color: colors.primary.DEFAULT },
-  [Role.SECRETARY]: { bg: colors.info.tint, color: colors.info.DEFAULT },
-};
-
-const rolePriority: Record<Role, number> = {
-  [Role.PRESIDENT]: 0,
-  [Role.TREASURER]: 1,
-  [Role.SECRETARY]: 2,
-  [Role.MEMBER]: 3,
-};
+// Dans une tontine il n'y a que deux statuts : le fondateur (rôle PRESIDENT) et les membres.
+const isFounderRole = (role: Role) => role === Role.PRESIDENT;
 
 const monthLabels = ['Janv', 'Févr', 'Mars', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'];
-
-const avatarPalette: string[] = [
-  colors.accent.DEFAULT,
-  colors.primary.DEFAULT,
-  colors.purple.DEFAULT,
-  colors.info.DEFAULT,
-  colors.accent.dark,
-  colors.danger.DEFAULT,
-];
-const avatarColor = (userId: string) => {
-  const sum = userId.split('').reduce((s, ch) => s + ch.charCodeAt(0), 0);
-  return avatarPalette[sum % avatarPalette.length] ?? avatarPalette[0]!;
-};
 
 const formatMonthYear = (iso: string) =>
   new Date(iso).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
 
 type Tab = 'apercu' | 'tour' | 'membres' | 'demandes' | 'gestion';
-
-const GAUGE_SIZE = 150;
-const GAUGE_STROKE = 12;
-const ARC_AVATAR_SIZE = 56;
-const RING_GAP = 22;
-const RING_RADIUS = GAUGE_SIZE / 2 + RING_GAP + ARC_AVATAR_SIZE / 2;
-const RING_CAPACITY = 10;
-const RING_DRAG_STEP_PX = 34;
-
-const initials = (name?: string) => {
-  if (!name) return '?';
-  const parts = name.trim().split(/\s+/);
-  return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase();
-};
 
 const formatXOF = (n: number) => new Intl.NumberFormat('fr-FR').format(n) + ' F CFA';
 
@@ -103,6 +74,9 @@ const formatDate = (iso: string) => {
     d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
   );
 };
+
+const formatShortDate = (iso: string) =>
+  new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
 
 const formatDateHeader = (iso: string) => {
   const d = new Date(iso);
@@ -125,6 +99,10 @@ export default function TontineScreen() {
   const isFounder = getFounderCircleIds().includes(circle.id);
   const me = getCurrentUser();
   const cycle = getActiveCycle(circle);
+  // Une tontine est un seul produit, en argent ou en nature (le bien est remis à tour de rôle).
+  const isNature = circle.contributionMode === ContributionMode.NATURE || circle.type === CircleType.NATURE;
+  const goalItem = circle.rules?.goalItem?.trim() || undefined;
+  const itemName = goalItem ?? 'Bien en nature';
 
   const [tab, setTab] = useState<Tab>('apercu');
   const [showFounderMenu, setShowFounderMenu] = useState(false);
@@ -132,33 +110,12 @@ export default function TontineScreen() {
   const [showMonthFilter, setShowMonthFilter] = useState(false);
   const [visibleCount, setVisibleCount] = useState(5);
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
-  const [viewedProfile, setViewedProfile] = useState<{ name: string; photoUrl?: string; initials: string; color: string } | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>(() =>
     mockTransactions.filter((t) => t.circleId === circle.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
   );
   const [membershipRequests, setMembershipRequests] = useState<MembershipRequest[]>(() => getMembershipRequests(circle.id));
   const [, forceRender] = useState(0);
   const [turnPickerMember, setTurnPickerMember] = useState<{ userId: string; name: string } | null>(null);
-  const [ringOffset, setRingOffset] = useState(0);
-  const ringDragStart = useRef(0);
-
-  const ringPanResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 6,
-      onPanResponderGrant: () => {
-        ringDragStart.current = 0;
-      },
-      onPanResponderMove: (_, g) => {
-        const steps = Math.trunc((g.dx - ringDragStart.current) / RING_DRAG_STEP_PX);
-        if (steps !== 0) {
-          ringDragStart.current += steps * RING_DRAG_STEP_PX;
-          setRingOffset((o) => o - steps);
-        }
-      },
-    })
-  ).current;
-
   const refreshMembershipRequests = () => setMembershipRequests(getMembershipRequests(circle.id));
 
   useFocusEffect(
@@ -169,11 +126,6 @@ export default function TontineScreen() {
       refreshMembershipRequests();
     }, [circle.id])
   );
-
-  const handleDecideMembership = (id: string, approved: boolean) => {
-    updateMembershipRequest(id, { status: approved ? MembershipRequestStatus.APPROVED : MembershipRequestStatus.REJECTED, decidedAt: new Date().toISOString() });
-    refreshMembershipRequests();
-  };
 
   const handleRemoveMember = (userId: string, name: string) => {
     Alert.alert(
@@ -204,12 +156,29 @@ export default function TontineScreen() {
     router.push(`/circle/${circle.id}/edit` as any);
   };
 
-  const members = [...getCircleMembers(circle.id)].sort((a, b) => (a.turnOrder ?? 0) - (b.turnOrder ?? 0));
-  const sortedMembers = [...members].sort((a, b) => rolePriority[a.role] - rolePriority[b.role]);
-  const pendingMembership = membershipRequests.filter((r) => r.status === MembershipRequestStatus.PENDING);
-  const myMembership = members.find((m) => m.userId === me.id);
-
   const currentTurn = cycle?.currentTurn ?? 1;
+  const storedMembers = getCircleMembers(circle.id);
+  // Données de démonstration : certains cercles fictifs (ex. la tontine moto) n'ont pas
+  // encore d'adhésions dans les données de test — on reprend le repli de l'ancienne fiche.
+  const memberSource: Membership[] =
+    storedMembers.length > 0 || circle.memberCount === 0
+      ? storedMembers
+      : mockUsers.slice(0, Math.min(circle.memberCount, 8)).map((u, idx) => ({
+          userId: u.id,
+          circleId: circle.id,
+          role: idx === 0 ? Role.PRESIDENT : Role.MEMBER,
+          turnOrder: idx + 1,
+          paymentStatus: idx < 2 ? PaymentStatus.PAID : PaymentStatus.PENDING,
+          joinedAt: circle.createdAt,
+          user: u,
+          reliabilityScore: 88,
+          hasReceivedPayout: idx + 1 < currentTurn,
+          hasDeposit: true,
+        }));
+  const members = [...memberSource].sort((a, b) => (a.turnOrder ?? 0) - (b.turnOrder ?? 0));
+  const sortedMembers = [...members].sort((a, b) => Number(!isFounderRole(a.role)) - Number(!isFounderRole(b.role)));
+  const pendingMembership = membershipRequests.filter((r) => r.status === MembershipRequestStatus.PENDING);
+
   const completedContribByUser: Record<string, number> = {};
   transactions.forEach((t) => {
     if (t.type === TransactionType.TONTINE_CONTRIBUTION && t.status === TransactionStatus.COMPLETED) {
@@ -218,30 +187,8 @@ export default function TontineScreen() {
   });
   const turnCompletedCount = members.filter((m) => (completedContribByUser[m.userId] ?? 0) >= currentTurn).length;
   const turnProgress = members.length > 0 ? turnCompletedCount / members.length : 0;
-
-  const gaugeCircumference = 2 * Math.PI * ((GAUGE_SIZE - GAUGE_STROKE) / 2);
-  const gaugeDashoffset = gaugeCircumference * (1 - turnProgress);
-
-  // Anneau de profils fermé autour de la jauge, comme un collier — la jauge
-  // (le pendentif) reste au centre. Jusqu'à RING_CAPACITY membres, chacun a
-  // sa place fixe sur l'anneau. Au-delà, seuls RING_CAPACITY profils sont
-  // affichés à la fois : glisser (ou les flèches) fait tourner l'anneau et
-  // fait apparaître/disparaître les membres, comme un chapelet qu'on tourne.
-  const arcContainerSize = RING_RADIUS * 2 + ARC_AVATAR_SIZE;
-  const arcCenter = arcContainerSize / 2;
-  const ringVisibleCount = Math.min(members.length, RING_CAPACITY);
-  const ringCanRotate = members.length > RING_CAPACITY;
-  const ringNormalizedOffset = members.length > 0 ? ((ringOffset % members.length) + members.length) % members.length : 0;
-  const arcPositions = Array.from({ length: ringVisibleCount }, (_, i) => {
-    const m = members[(ringNormalizedOffset + i) % members.length]!;
-    const angleDeg = -90 + (i * 360) / ringVisibleCount;
-    const rad = (angleDeg * Math.PI) / 180;
-    return {
-      member: m,
-      x: arcCenter + RING_RADIUS * Math.cos(rad),
-      y: arcCenter + RING_RADIUS * Math.sin(rad),
-    };
-  });
+  const turnBeneficiary = members.find((m) => m.turnOrder === currentTurn) ?? members.find((m) => !m.hasReceivedPayout);
+  const turnPot = circle.tontineAmount * members.length;
 
   const monthsWithActivity = [...new Set(transactions.map((t) => new Date(t.createdAt).getMonth()))].sort((a, b) => a - b);
   const filteredTx = monthFilter === null ? transactions : transactions.filter((t) => new Date(t.createdAt).getMonth() === monthFilter);
@@ -261,6 +208,16 @@ export default function TontineScreen() {
     router.push(`/payment?circleId=${circle.id}&amount=${circle.tontineAmount}&type=TONTINE` as any);
   };
 
+  const openMember = (userId: string) => {
+    router.push(`/circle/${circle.id}/member/${userId}` as any);
+  };
+
+  const openMembershipRequest = (requestId: string) => {
+    router.push({ pathname: '/circle/[id]/requests', params: { id: circle.id, requestId } } as any);
+  };
+
+  const memberName = (m: Membership) => `${m.user.firstName} ${m.user.lastName}`;
+
   const handleSettings = () => {
     setShowFounderMenu(false);
     router.push(`/circle/${circle.id}/manage` as any);
@@ -278,97 +235,121 @@ export default function TontineScreen() {
 
   const txLabel = (t: Transaction) => {
     const turn = getTurnNumber(t);
-    if (t.type === TransactionType.PAYOUT) return `Cagnotte reçue par ${t.memberName} · Tour ${turn}`;
+    if (t.type === TransactionType.PAYOUT) {
+      return isNature ? `${itemName} remis à ${t.memberName} · Tour ${turn}` : `Cagnotte reçue par ${t.memberName} · Tour ${turn}`;
+    }
     const base = t.userId === me.id ? 'Cotisation tontine versée' : `Cotisation de ${t.memberName}`;
     return `${base} · Tour ${turn}`;
   };
 
   const txStatusLabel = (t: Transaction) => {
-    if (t.type === TransactionType.PAYOUT) return 'Versée';
+    if (t.type === TransactionType.PAYOUT) return isNature ? 'Remis' : 'Versée';
     return t.status === TransactionStatus.PENDING ? 'En attente' : t.status === TransactionStatus.FAILED ? 'Échouée' : 'Payé';
   };
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <StatusBar barStyle="dark-content" />
       <SafeAreaView style={styles.safe} edges={['top']}>
         {/* ── En-tête ── */}
-        <View style={styles.header}>
-          <IconButton icon={ArrowLeft} variant="plain" accessibilityLabel="Retour" onPress={() => router.back()} />
-          <View style={styles.headerText}>
-            <Text style={styles.headerTitle} numberOfLines={1}>
-              {circle.name}
-            </Text>
-            <Text style={styles.headerSub} numberOfLines={1}>
-              Tontine · {isFounder ? 'Vous êtes fondateur' : `Vous êtes ${roleLabel[myMembership?.role ?? Role.MEMBER].toLowerCase()}`}
-            </Text>
-          </View>
-          {isFounder ? (
-            <IconButton
-              icon={MoreVertical}
-              variant="plain"
-              accessibilityLabel="Options du cercle"
-              onPress={() => setShowFounderMenu((v) => !v)}
-            />
-          ) : (
-            <View style={styles.headerSpacer} />
-          )}
-        </View>
+        <ScreenHeader
+          title={circle.name}
+          subtitle={`${isNature ? 'Tontine en nature' : 'Tontine'} · Vous êtes ${isFounder ? 'fondateur' : 'membre'}`}
+          onBack={() => router.back()}
+          right={
+            isFounder ? (
+              <IconButton
+                icon={MoreVertical}
+                variant="plain"
+                accessibilityLabel="Options du cercle"
+                onPress={() => setShowFounderMenu((v) => !v)}
+              />
+            ) : null
+          }
+        />
 
         {/* ── Onglets ── */}
-        <View style={styles.tabBar}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabRow}>
-            <TabButton label="Aperçu" active={tab === 'apercu'} onPress={() => setTab('apercu')} />
-            <TabButton label="Tour" active={tab === 'tour'} onPress={() => setTab('tour')} />
-            <TabButton label="Membres" active={tab === 'membres'} onPress={() => setTab('membres')} />
-            <TabButton label="Demandes" active={tab === 'demandes'} badge={pendingMembership.length} onPress={() => setTab('demandes')} />
-            {isFounder && (
-              <TabButton label="Gestion" active={tab === 'gestion'} onPress={() => setTab('gestion')} />
-            )}
-          </ScrollView>
-        </View>
+        <CircleTabBar>
+          <CircleTab label="Aperçu" active={tab === 'apercu'} onPress={() => setTab('apercu')} />
+          <CircleTab label="Tour" active={tab === 'tour'} onPress={() => setTab('tour')} />
+          <CircleTab label="Membres" active={tab === 'membres'} onPress={() => setTab('membres')} />
+          <CircleTab label="Demandes" active={tab === 'demandes'} badge={pendingMembership.length} onPress={() => setTab('demandes')} />
+          {isFounder && <CircleTab label="Gestion" active={tab === 'gestion'} onPress={() => setTab('gestion')} />}
+        </CircleTabBar>
 
         <ScrollView style={styles.contentScroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {tab === 'apercu' && (
             <View>
-              {/* ── Prochain versement ── */}
-              <View style={styles.dueCard}>
-                <View style={styles.dueTop}>
-                  <Calendar size={16} color="rgba(255,255,255,0.72)" />
-                  <Text style={styles.dueLabel}>
-                    Prochain versement{nextDueDays !== null ? ` · dans ${nextDueDays} jour${nextDueDays > 1 ? 's' : ''}` : ''}
-                  </Text>
-                </View>
-                <Text style={styles.dueAmount}>{formatXOF(circle.tontineAmount)}</Text>
-                <View style={styles.dueBottom}>
-                  <Text style={styles.dueMeta}>
-                    Tour {currentTurn} · {turnCompletedCount}/{members.length} ont cotisé
-                  </Text>
-                  <Button title="Payer" size="sm" variant="secondary" onPress={handlePayNow} style={styles.payBtn} />
-                </View>
-              </View>
+              <OverviewStack>
+                <OverviewSummaryCard
+                  label={isNature ? `Bien du tour ${currentTurn}` : `Cagnotte du tour ${currentTurn}`}
+                  amount={isNature ? itemName : formatXOF(turnPot)}
+                  stats={[
+                    {
+                      label: 'Bénéficiaire du tour',
+                      value: turnBeneficiary
+                        ? turnBeneficiary.userId === me.id
+                          ? 'Moi'
+                          : `${turnBeneficiary.user.firstName} ${turnBeneficiary.user.lastName}`
+                        : '—',
+                      person: turnBeneficiary
+                        ? {
+                            name: `${turnBeneficiary.user.firstName} ${turnBeneficiary.user.lastName}`,
+                            uri: turnBeneficiary.user.avatarUrl,
+                          }
+                        : undefined,
+                    },
+                    { label: 'Cotisations', value: `${turnCompletedCount}/${members.length} ont cotisé` },
+                  ]}
+                  progress={turnProgress}
+                />
+
+                {isNature && (
+                  <View style={[styles.card, styles.itemCard]}>
+                    {circle.rules?.goalImageUrl ? (
+                      <Image source={{ uri: circle.rules.goalImageUrl }} style={styles.itemImage} resizeMode="cover" accessibilityLabel={itemName} />
+                    ) : (
+                      <View style={[styles.itemImage, styles.itemImagePlaceholder]}>
+                        <Package size={40} color={colors.muted} strokeWidth={1.5} />
+                      </View>
+                    )}
+                    <View style={styles.itemBody}>
+                      <Text style={styles.itemEyebrow}>Bien remis à chaque tour</Text>
+                      <Text style={styles.itemName}>{itemName}</Text>
+                      {!!circle.rules?.goalDetails && <Text style={styles.itemDetails}>{circle.rules.goalDetails}</Text>}
+                      <View style={styles.itemFacts}>
+                        {!!circle.rules?.goalAmount && (
+                          <View style={styles.itemFact}>
+                            <Text style={styles.itemFactLabel}>Valeur estimée</Text>
+                            <Text style={styles.itemFactValue}>{formatXOF(circle.rules.goalAmount)}</Text>
+                          </View>
+                        )}
+                        <View style={styles.itemFact}>
+                          <Text style={styles.itemFactLabel}>Cotisation</Text>
+                          <Text style={styles.itemFactValue}>{formatXOF(circle.tontineAmount)}</Text>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                )}
+              </OverviewStack>
 
               {/* ── Historique ── */}
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Historique</Text>
-                {monthsWithActivity.length > 1 && (
-                  <TouchableOpacity
-                    style={[styles.filterBtn, monthFilter !== null && styles.filterBtnActive]}
-                    activeOpacity={0.7}
-                    accessibilityRole="button"
-                    accessibilityLabel="Filtrer par mois"
-                    onPress={() => setShowMonthFilter((v) => !v)}
-                  >
-                    <Filter size={14} color={monthFilter !== null ? colors.primary.DEFAULT : colors.muted} />
-                    <Text style={[styles.filterBtnText, monthFilter !== null && styles.filterBtnTextActive]}>
-                      {monthFilter !== null ? monthLabels[monthFilter] : 'Filtrer'}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+              <OverviewSectionHeader
+                title="Historique"
+                right={
+                  monthsWithActivity.length > 1 ? (
+                    <HistoryFilterButton
+                      label={monthFilter !== null ? `${monthLabels[monthFilter]} 2026` : 'Filtrer'}
+                      active={monthFilter !== null}
+                      onPress={() => setShowMonthFilter((v) => !v)}
+                    />
+                  ) : null
+                }
+              />
 
               {filteredTx.length === 0 && (
-                <EmptyState icon={Receipt} title="Aucune opération" text="Les cotisations et cagnottes apparaîtront ici." />
+                <EmptyState icon={Receipt} title="Aucune opération" text={isNature ? 'Les cotisations et les remises du bien apparaîtront ici.' : 'Les cotisations et cagnottes apparaîtront ici.'} />
               )}
 
               {groups.map((group) => (
@@ -435,96 +416,72 @@ export default function TontineScreen() {
           )}
 
           {tab === 'tour' && (
-            <View style={[styles.card, styles.tourCard]}>
-              <Text style={styles.tourTitle}>Tour en cours</Text>
-
-              <View
-                style={[styles.tourRingWrap, { width: arcContainerSize, height: arcContainerSize }]}
-                {...(ringCanRotate ? ringPanResponder.panHandlers : {})}
+            <View>
+              <RotationWheel
+                title="Tour en cours"
+                members={members.map((m) => ({
+                  userId: m.userId,
+                  name: memberName(m),
+                  avatarUrl: m.user.avatarUrl,
+                  hasReceived: m.hasReceivedPayout,
+                }))}
+                beneficiaryUserId={turnBeneficiary?.userId}
+                centerName={turnBeneficiary ? (turnBeneficiary.userId === me.id ? 'Moi' : turnBeneficiary.user.firstName) : '—'}
+                centerCaption={`Tour ${currentTurn} / ${members.length}`}
+                onPressMember={openMember}
               >
-                {arcPositions.map(({ member: m, x, y }) => {
-                  const isMe = m.userId === me.id;
-                  const isCurrentTurn = m.turnOrder === currentTurn;
-                  const fullName = `${m.user.firstName} ${m.user.lastName}`;
-                  const initialsText = initials(fullName);
-                  const color = avatarColor(m.userId);
+                <Text style={styles.tourProgressText}>
+                  {turnCompletedCount}/{members.length} membres ont cotisé pour ce tour
+                </Text>
+                {nextDueDays != null && (
+                  <Text style={styles.tourDueText}>
+                    Prochaine cotisation dans {nextDueDays} jour{nextDueDays > 1 ? 's' : ''}
+                  </Text>
+                )}
+                <Button title={payButtonTitle(circle.tontineAmount)} onPress={handlePayNow} />
+                {isFounder && (
+                  <Button
+                    title="Verser la cagnotte"
+                    variant="secondary"
+                    onPress={() => router.push(`/circle/${circle.id}/payout` as any)}
+                  />
+                )}
+              </RotationWheel>
+
+              <Text style={[styles.groupTitle, styles.tourListTitle]}>Ordre de passage</Text>
+              <View style={styles.card}>
+                {members.map((m, idx) => {
+                  const isCurrent = m.userId === turnBeneficiary?.userId;
+                  const status = m.hasReceivedPayout
+                    ? isNature ? 'Bien reçu' : 'Servi'
+                    : isCurrent
+                    ? 'Ce tour'
+                    : 'À venir';
                   return (
-                    <TouchableOpacity
-                      key={m.userId}
-                      activeOpacity={0.8}
-                      accessibilityLabel={`Voir le profil de ${isMe ? 'Moi' : fullName}`}
-                      style={[styles.tourAvatarWrap, { left: x - ARC_AVATAR_SIZE / 2, top: y - ARC_AVATAR_SIZE / 2 }]}
-                      onPress={() => setViewedProfile({ name: isMe ? 'Moi' : fullName, photoUrl: m.user.avatarUrl, initials: initialsText, color })}
-                    >
-                      <View
-                        style={[
-                          styles.tourAvatar,
-                          !m.user.avatarUrl && { backgroundColor: m.hasReceivedPayout ? colors.primary.soft : color },
-                          isCurrentTurn && styles.tourAvatarActive,
-                        ]}
-                      >
-                        {m.user.avatarUrl ? (
-                          <Image source={{ uri: m.user.avatarUrl }} style={styles.tourAvatarImage} />
-                        ) : m.hasReceivedPayout ? (
-                          <Check size={18} color={colors.primary.dark} strokeWidth={3} />
-                        ) : (
-                          <Text style={styles.tourAvatarText}>{initialsText}</Text>
-                        )}
-                      </View>
-                      {m.user.avatarUrl && m.hasReceivedPayout && (
-                        <View style={styles.tourAvatarDoneBadge}>
-                          <Check size={10} color="#FFFFFF" strokeWidth={4} />
+                    <TouchableOpacity key={m.userId} style={styles.row} activeOpacity={0.6} onPress={() => openMember(m.userId)}>
+                      <Avatar name={memberName(m)} uri={m.user.avatarUrl} size={40} highlighted={isCurrent} />
+                      <View style={[styles.rowBody, idx < members.length - 1 && styles.rowBorder]}>
+                        <View style={styles.flex}>
+                          <Text style={styles.rowTitle} numberOfLines={1}>
+                            {memberName(m)}{m.userId === me.id ? ' (Moi)' : ''}
+                          </Text>
+                          <Text style={styles.rowSub}>
+                            Tour {m.turnOrder ?? '—'}{isFounderRole(m.role) ? ' · Fondateur' : ''}
+                          </Text>
                         </View>
-                      )}
+                        <Text
+                          style={[
+                            styles.turnStatus,
+                            isCurrent && { color: colors.primary.DEFAULT },
+                            m.hasReceivedPayout && { color: colors.accent.deep },
+                          ]}
+                        >
+                          {status}
+                        </Text>
+                      </View>
                     </TouchableOpacity>
                   );
                 })}
-
-                <View
-                  style={[styles.tourGaugeWrap, { left: arcCenter - GAUGE_SIZE / 2, top: arcCenter - GAUGE_SIZE / 2 }]}
-                  pointerEvents="none"
-                >
-                  <Svg width={GAUGE_SIZE} height={GAUGE_SIZE}>
-                    <Circle
-                      cx={GAUGE_SIZE / 2}
-                      cy={GAUGE_SIZE / 2}
-                      r={(GAUGE_SIZE - GAUGE_STROKE) / 2}
-                      stroke={colors.line}
-                      strokeWidth={GAUGE_STROKE}
-                      fill="none"
-                    />
-                    <Circle
-                      cx={GAUGE_SIZE / 2}
-                      cy={GAUGE_SIZE / 2}
-                      r={(GAUGE_SIZE - GAUGE_STROKE) / 2}
-                      stroke={colors.accent.DEFAULT}
-                      strokeWidth={GAUGE_STROKE}
-                      strokeLinecap="round"
-                      fill="none"
-                      strokeDasharray={`${gaugeCircumference} ${gaugeCircumference}`}
-                      strokeDashoffset={gaugeDashoffset}
-                      transform={`rotate(-90 ${GAUGE_SIZE / 2} ${GAUGE_SIZE / 2})`}
-                    />
-                  </Svg>
-                  <View style={styles.tourGaugeCenter}>
-                    <Text style={styles.tourGaugeLabel}>Tour</Text>
-                    <Text style={styles.tourGaugeNumber}>{currentTurn}</Text>
-                  </View>
-                </View>
-              </View>
-
-              {ringCanRotate && (
-                <View style={styles.ringNavRow}>
-                  <IconButton icon={ChevronLeft} accessibilityLabel="Membres précédents" onPress={() => setRingOffset((o) => o - 1)} />
-                  <Text style={styles.tourPanHint}>Faites glisser l’anneau pour voir tous les membres</Text>
-                  <IconButton icon={ChevronRight} accessibilityLabel="Membres suivants" onPress={() => setRingOffset((o) => o + 1)} />
-                </View>
-              )}
-
-              <View style={styles.tourProgress}>
-                <Text style={styles.tourProgressText}>
-                  {turnCompletedCount}/{members.length} membres ont déjà cotisé pour ce tour
-                </Text>
               </View>
             </View>
           )}
@@ -534,41 +491,33 @@ export default function TontineScreen() {
               <Text style={styles.groupTitle}>{sortedMembers.length} membre(s)</Text>
               <View style={styles.card}>
                 {sortedMembers.map((m, idx) => {
-                  const badge = roleBadgeStyle[m.role];
-                  const fullName = `${m.user.firstName} ${m.user.lastName}`;
-                  const initialsText = initials(fullName);
-                  const color = avatarColor(m.userId);
+                  const fullName = memberName(m);
                   return (
-                    <View key={m.userId} style={styles.row}>
-                      <TouchableOpacity
-                        activeOpacity={0.8}
-                        accessibilityLabel={`Voir le profil de ${fullName}`}
-                        onPress={() => setViewedProfile({ name: m.userId === me.id ? 'Moi' : fullName, photoUrl: m.user.avatarUrl, initials: initialsText, color })}
-                      >
-                        {m.user.avatarUrl ? (
-                          <Image source={{ uri: m.user.avatarUrl }} style={styles.avatar} />
-                        ) : (
-                          <View style={[styles.avatar, { backgroundColor: color }]}>
-                            <Text style={styles.avatarText}>{initialsText}</Text>
-                          </View>
-                        )}
-                      </TouchableOpacity>
+                    <TouchableOpacity
+                      key={m.userId}
+                      style={styles.row}
+                      activeOpacity={0.6}
+                      accessibilityLabel={`Voir le profil de ${fullName}`}
+                      onPress={() => openMember(m.userId)}
+                    >
+                      <Avatar name={fullName} uri={m.user.avatarUrl} size={40} />
                       <View style={[styles.rowBody, idx < sortedMembers.length - 1 && styles.rowBorder]}>
                         <View style={styles.flex}>
                           <Text style={styles.rowTitle} numberOfLines={1}>
-                            {m.user.firstName} {m.user.lastName}{m.userId === me.id ? ' (Moi)' : ''}
+                            {fullName}{m.userId === me.id ? ' (Moi)' : ''}
                           </Text>
                           <View style={styles.memberMetaRow}>
-                            {badge && (
-                              <View style={[styles.roleTag, { backgroundColor: badge.bg }]}>
-                                <Text style={[styles.roleTagText, { color: badge.color }]}>{roleLabel[m.role]}</Text>
+                            {isFounderRole(m.role) && (
+                              <View style={styles.roleTag}>
+                                <Text style={styles.roleTagText}>Fondateur</Text>
                               </View>
                             )}
                             <Text style={styles.rowSubInline}>Membre depuis {formatMonthYear(m.joinedAt)}</Text>
                           </View>
                         </View>
+                        <ChevronRight size={18} color={colors.muted} />
                       </View>
-                    </View>
+                    </TouchableOpacity>
                   );
                 })}
               </View>
@@ -581,34 +530,28 @@ export default function TontineScreen() {
               {pendingMembership.length === 0 ? (
                 <EmptyState icon={UserPlus} title="Aucune demande" text="Aucune demande d'adhésion en attente." />
               ) : (
-                <View style={styles.stack}>
-                  {pendingMembership.map((r) => (
-                    <View key={r.id} style={[styles.card, styles.requestCard]}>
-                      <View style={styles.requestHeaderRow}>
-                        <View style={styles.requestAvatar}>
-                          <Text style={styles.requestAvatarText}>{initials(r.fullName)}</Text>
-                        </View>
+                <View style={styles.card}>
+                  {pendingMembership.map((r, idx) => (
+                    <TouchableOpacity
+                      key={r.id}
+                      style={styles.row}
+                      activeOpacity={0.6}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Voir le dossier de ${r.fullName}`}
+                      onPress={() => openMembershipRequest(r.id)}
+                    >
+                      <Avatar name={r.fullName} uri={r.user?.avatarUrl} size={40} />
+                      <View style={[styles.rowBody, idx < pendingMembership.length - 1 && styles.rowBorder]}>
                         <View style={styles.flex}>
-                          <Text style={styles.rowTitle}>{r.fullName}</Text>
-                          <Text style={styles.rowSub}>{r.phoneNumber}</Text>
+                          <Text style={styles.rowTitle} numberOfLines={1}>
+                            {r.fullName}
+                          </Text>
+                          <Text style={styles.rowSub}>Demande du {formatShortDate(r.createdAt)}</Text>
                         </View>
+                        <Text style={styles.requestLink}>Voir le dossier</Text>
+                        <ChevronRight size={18} color={colors.primary.DEFAULT} />
                       </View>
-                      <View style={styles.decisionRow}>
-                        <Button
-                          title="Refuser"
-                          variant="secondary"
-                          size="sm"
-                          onPress={() => handleDecideMembership(r.id, false)}
-                          style={styles.flex}
-                        />
-                        <Button
-                          title="Valider"
-                          size="sm"
-                          onPress={() => handleDecideMembership(r.id, true)}
-                          style={styles.flex}
-                        />
-                      </View>
-                    </View>
+                    </TouchableOpacity>
                   ))}
                 </View>
               )}
@@ -624,9 +567,7 @@ export default function TontineScreen() {
                   return (
                     <View key={m.userId} style={[styles.card, styles.gestionCard]}>
                       <View style={styles.requestHeaderRow}>
-                        <View style={[styles.avatar, { backgroundColor: avatarColor(m.userId) }]}>
-                          <Text style={styles.avatarText}>{initials(fullName)}</Text>
-                        </View>
+                        <Avatar name={fullName} uri={m.user.avatarUrl} size={40} />
                         <View style={styles.flex}>
                           <Text style={styles.rowTitle} numberOfLines={1}>
                             {fullName}{m.userId === me.id ? ' (Moi)' : ''}
@@ -710,24 +651,13 @@ export default function TontineScreen() {
             name={selectedTx.memberName}
             amount={formatXOF(selectedTx.amount).replace(' F CFA', ' F')}
             fields={[
-              { label: 'Type', value: selectedTx.type === TransactionType.PAYOUT ? 'Cagnotte reçue' : 'Cotisation' },
+              { label: 'Type', value: selectedTx.type === TransactionType.PAYOUT ? (isNature ? 'Bien remis' : 'Cagnotte reçue') : 'Cotisation' },
               { label: 'Membre', value: selectedTx.memberName },
               { label: 'Tour', value: `Tour ${getTurnNumber(selectedTx)}` },
               ...(selectedTx.providerReference ? [{ label: 'Référence', value: selectedTx.providerReference }] : []),
               { label: 'Statut', value: txStatusLabel(selectedTx) },
               { label: 'Date', value: formatDate(selectedTx.createdAt) },
             ]}
-          />
-        )}
-
-        {viewedProfile && (
-          <AvatarViewerModal
-            visible={!!viewedProfile}
-            onClose={() => setViewedProfile(null)}
-            name={viewedProfile.name}
-            photoUrl={viewedProfile.photoUrl}
-            initials={viewedProfile.initials}
-            color={viewedProfile.color}
           />
         )}
 
@@ -759,25 +689,6 @@ export default function TontineScreen() {
   );
 }
 
-function TabButton({ label, active, badge, onPress }: { label: string; active: boolean; badge?: number; onPress: () => void }) {
-  return (
-    <TouchableOpacity
-      style={[styles.tabBtn, active && styles.tabBtnActive]}
-      activeOpacity={0.7}
-      accessibilityRole="tab"
-      accessibilityState={{ selected: active }}
-      onPress={onPress}
-    >
-      <Text style={[styles.tabBtnText, active && styles.tabBtnTextActive]}>{label}</Text>
-      {!!badge && (
-        <View style={styles.tabBadge}>
-          <Text style={styles.tabBadgeText}>{badge}</Text>
-        </View>
-      )}
-    </TouchableOpacity>
-  );
-}
-
 function EmptyState({ icon: Icon, title, text }: { icon: typeof Receipt; title: string; text: string }) {
   return (
     <View style={styles.empty}>
@@ -795,95 +706,10 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
   flex: { flex: 1 },
 
-  /* ── En-tête ── */
-  header: {
-    height: 56,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    gap: 4,
-    backgroundColor: colors.bg,
-  },
-  headerText: { flex: 1, alignItems: 'center' },
-  headerTitle: { ...typography.headline, color: colors.ink },
-  headerSub: { ...typography.caption, fontWeight: '400', color: colors.muted },
-  headerSpacer: { width: 40 },
-
-  /* ── Onglets ── */
-  tabBar: {
-    backgroundColor: colors.bg,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.line,
-  },
-  tabRow: { paddingHorizontal: 12, gap: 4 },
-  tabBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    height: 44,
-    paddingHorizontal: 10,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-  },
-  tabBtnActive: { borderBottomColor: colors.primary.DEFAULT },
-  tabBtnText: { ...typography.callout, fontWeight: '500', color: colors.muted },
-  tabBtnTextActive: { color: colors.primary.DEFAULT, fontWeight: '600' },
-  tabBadge: {
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: colors.danger.DEFAULT,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-  },
-  tabBadgeText: { fontSize: 11, lineHeight: 14, fontWeight: '700', color: '#FFFFFF' },
-
   contentScroll: { flex: 1, backgroundColor: colors.fill },
   scrollContent: { padding: 16, paddingBottom: 48 },
 
-  /* ── Carte du prochain versement ── */
-  dueCard: { backgroundColor: colors.primary.dark, borderRadius: 24, padding: 20 },
-  dueTop: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  dueLabel: { ...typography.footnote, color: 'rgba(255,255,255,0.72)', flexShrink: 1 },
-  dueAmount: { ...typography.display, color: '#FFFFFF', marginTop: 6 },
-  dueBottom: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginTop: 16,
-    paddingTop: 14,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(255,255,255,0.2)',
-  },
-  dueMeta: { ...typography.footnote, color: '#FFFFFF', flex: 1 },
-  payBtn: { borderWidth: 0, paddingHorizontal: 24 },
-
-  /* ── Sections ── */
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 28,
-    marginBottom: 10,
-    paddingHorizontal: 4,
-  },
-  sectionTitle: { ...typography.headline, color: colors.ink },
   groupTitle: { ...typography.footnote, fontWeight: '600', color: colors.muted, marginBottom: 8, marginLeft: 4 },
-  filterBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    height: 32,
-    paddingHorizontal: 12,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.bg,
-  },
-  filterBtnActive: { borderColor: colors.primary.soft, backgroundColor: colors.primary.tint },
-  filterBtnText: { ...typography.footnote, fontWeight: '600', color: colors.muted },
-  filterBtnTextActive: { color: colors.primary.DEFAULT },
   monthList: { flexGrow: 0 },
 
   card: {
@@ -911,24 +737,13 @@ const styles = StyleSheet.create({
   txStatus: { ...typography.caption, color: colors.muted, marginTop: 2 },
 
   /* ── Membres ── */
-  avatar: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
-  avatarText: { ...typography.footnote, fontWeight: '700', color: '#FFFFFF' },
   memberMetaRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 4 },
-  roleTag: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.pill },
-  roleTagText: { ...typography.caption },
+  roleTag: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.pill, backgroundColor: colors.accent.tint },
+  roleTagText: { ...typography.caption, color: colors.accent.deep },
 
   /* ── Demandes et gestion ── */
-  requestCard: { padding: 14, gap: 14 },
+  requestLink: { ...typography.footnote, fontWeight: '600', color: colors.primary.DEFAULT },
   requestHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  requestAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.accent.tint,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  requestAvatarText: { ...typography.footnote, fontWeight: '700', color: colors.accent.deep },
   decisionRow: { flexDirection: 'row', gap: 8 },
   gestionCard: { padding: 14, gap: 14 },
   actionBtn: {
@@ -947,51 +762,31 @@ const styles = StyleSheet.create({
   actionBtnText: { ...typography.footnote, fontWeight: '600', color: colors.inkSoft },
   settingsGroup: { marginTop: 24 },
 
-  /* ── Tour (anneau de profils autour de la jauge) ── */
-  tourCard: { alignItems: 'center', paddingTop: 16, paddingBottom: 16 },
-  tourTitle: { ...typography.headline, color: colors.ink, alignSelf: 'flex-start', marginLeft: 16, marginBottom: 8 },
-  tourRingWrap: { position: 'relative' },
-  tourAvatarWrap: { position: 'absolute', width: ARC_AVATAR_SIZE, height: ARC_AVATAR_SIZE },
-  tourAvatar: {
-    width: ARC_AVATAR_SIZE,
-    height: ARC_AVATAR_SIZE,
-    borderRadius: ARC_AVATAR_SIZE / 2,
-    backgroundColor: colors.primary.tint,
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
-  },
-  tourAvatarActive: { borderWidth: 3, borderColor: colors.accent.DEFAULT },
-  tourAvatarImage: { width: '100%', height: '100%' },
-  tourAvatarDoneBadge: {
-    position: 'absolute',
-    bottom: -2,
-    right: -2,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: colors.primary.DEFAULT,
-    borderWidth: 2,
-    borderColor: colors.bg,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  tourAvatarText: { ...typography.bodyStrong, color: '#FFFFFF' },
-  tourGaugeWrap: { position: 'absolute', width: GAUGE_SIZE, height: GAUGE_SIZE, alignItems: 'center', justifyContent: 'center' },
-  tourGaugeCenter: { position: 'absolute', alignItems: 'center' },
-  tourGaugeLabel: { ...typography.footnote, color: colors.muted },
-  tourGaugeNumber: { ...typography.display, color: colors.ink },
-  ringNavRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, marginTop: 8 },
-  tourPanHint: { ...typography.footnote, color: colors.muted, textAlign: 'center', flex: 1 },
-  tourProgress: {
-    alignSelf: 'stretch',
+  /* ── Bien en nature ── */
+  itemCard: { padding: 12 },
+  itemImage: { width: '100%', height: 180, borderRadius: radius.lg, backgroundColor: colors.fill },
+  itemImagePlaceholder: { justifyContent: 'center', alignItems: 'center' },
+  itemBody: { paddingHorizontal: 4, paddingTop: 12, paddingBottom: 2 },
+  itemEyebrow: { ...typography.footnote, color: colors.muted },
+  itemName: { ...typography.headline, color: colors.ink, marginTop: 2 },
+  itemDetails: { ...typography.callout, color: colors.inkSoft, marginTop: 6 },
+  itemFacts: {
+    flexDirection: 'row',
+    gap: 16,
     marginTop: 12,
-    marginHorizontal: 16,
     paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.line,
   },
+  itemFact: { flex: 1, minWidth: 0 },
+  itemFactLabel: { ...typography.caption, fontWeight: '400', color: colors.muted },
+  itemFactValue: { ...typography.bodyStrong, color: colors.ink, marginTop: 2 },
+
+  /* ── Tour ── */
   tourProgressText: { ...typography.callout, fontWeight: '600', color: colors.primary.DEFAULT, textAlign: 'center' },
+  tourDueText: { ...typography.footnote, color: colors.muted, textAlign: 'center', marginTop: -4 },
+  tourListTitle: { marginTop: 24 },
+  turnStatus: { ...typography.footnote, fontWeight: '600', color: colors.muted },
 
   /* ── État vide ── */
   empty: { alignItems: 'center', paddingVertical: 32, paddingHorizontal: 24 },

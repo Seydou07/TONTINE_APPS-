@@ -10,13 +10,12 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
-import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Send, Smile, Paperclip } from 'lucide-react-native';
 import { colors, radius, typography } from '@venega/design-tokens';
 import { mockCircles, mockChatMessages, mockUsers, mockCurrentUser } from '@venega/types';
-import { IconButton } from '../../../components/ui';
+import { Avatar, IconButton } from '../../../components/ui';
 
 type ChatMsg = {
   id: string;
@@ -125,7 +124,7 @@ export default function CircleChatScreen() {
         ]}
       >
         {showAvatar && !isGrouped ? (
-          <Image source={{ uri: msg.senderAvatar }} style={styles.msgAvatar} contentFit="cover" />
+          <Avatar name={msg.senderName} uri={msg.senderAvatar} size={32} style={styles.msgAvatar} />
         ) : showAvatar ? (
           <View style={styles.msgAvatarPlaceholder} />
         ) : null}
@@ -143,7 +142,7 @@ export default function CircleChatScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <StatusBar barStyle="dark-content" />
       <SafeAreaView style={styles.flex} edges={['top', 'bottom']}>
         {/* En-tête */}
         <View style={styles.header}>
@@ -158,11 +157,12 @@ export default function CircleChatScreen() {
 
           <View style={styles.headerAvatarGroup}>
             {mockUsers.slice(0, 3).map((u, i) => (
-              <Image
+              <Avatar
                 key={u.id}
-                source={{ uri: u.avatarUrl }}
+                name={`${u.firstName} ${u.lastName}`}
+                uri={u.avatarUrl}
+                size={32}
                 style={[styles.headerMiniAvatar, { marginLeft: i === 0 ? 0 : -8, zIndex: 3 - i }]}
-                contentFit="cover"
               />
             ))}
           </View>
@@ -249,14 +249,7 @@ const styles = StyleSheet.create({
   headerTitle: { ...typography.headline, color: colors.ink },
   headerSub: { ...typography.caption, fontWeight: '400', color: colors.muted },
   headerAvatarGroup: { flexDirection: 'row', alignItems: 'center' },
-  headerMiniAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: colors.bg,
-    backgroundColor: colors.fill,
-  },
+  headerMiniAvatar: { borderWidth: 2, borderColor: colors.bg },
 
   list: { flex: 1, backgroundColor: colors.bg },
   messagesContainer: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 12 },
@@ -268,8 +261,8 @@ const styles = StyleSheet.create({
   msgRowGrouped: { marginTop: 2 },
   msgRowMe: { alignSelf: 'flex-end', flexDirection: 'row-reverse' },
   msgRowOther: { alignSelf: 'flex-start' },
-  msgAvatar: { width: 28, height: 28, borderRadius: 14, marginRight: 8, backgroundColor: colors.fill },
-  msgAvatarPlaceholder: { width: 28, marginRight: 8 },
+  msgAvatar: { marginRight: 8 },
+  msgAvatarPlaceholder: { width: 32, marginRight: 8 },
 
   bubbleCol: { flexShrink: 1 },
   senderName: { ...typography.caption, color: colors.muted, marginBottom: 3, marginLeft: 12 },

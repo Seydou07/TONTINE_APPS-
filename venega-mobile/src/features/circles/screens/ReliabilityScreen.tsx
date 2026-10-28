@@ -50,7 +50,7 @@ export default function ReliabilityScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <StatusBar barStyle="dark-content" />
       <SafeAreaView style={styles.safe} edges={['top']}>
         {/* ── En-tête ── */}
         <View style={styles.header}>

@@ -11,27 +11,32 @@ import {
   Check,
   HeartHandshake,
   Wallet,
-  Calendar,
   Plus,
   UserPlus,
-  SlidersHorizontal,
   Receipt,
-  Users,
   Inbox,
 } from 'lucide-react-native';
 import { colors, radius, typography } from '@venega/design-tokens';
 import TransactionDetailModal from '../../../components/TransactionDetailModal';
 import AvatarViewerModal from '../../../components/AvatarViewerModal';
-import { Button, Chip, IconButton, Sheet, TextField } from '../../../components/ui';
+import { Avatar, Button, Chip, IconButton, Sheet, TextField, initialsOf } from '../../../components/ui';
 import {
-  Avatar,
   Badge,
   EmptyState,
   RoleBadge,
   ScreenHeader,
-  avatarColor,
   cardStyle,
 } from '../components/SolidarityParts';
+import {
+  ActionCard,
+  CircleTab,
+  CircleTabBar,
+  DueCard,
+  HistoryFilterButton,
+  OverviewSectionHeader,
+  OverviewStack,
+  OverviewSummaryCard,
+} from '../components/CircleOverview';
 import {
   getCircle,
   getCircles,
@@ -62,7 +67,7 @@ const eventTypeLabel: Record<EventType, string> = {
   [EventType.AUTRE]: 'Autre',
 };
 
-const formatXOF = (n: number) => new Intl.NumberFormat('fr-FR').format(n) + ' F';
+const formatXOF = (n: number) => new Intl.NumberFormat('fr-FR').format(n) + ' F CFA';
 
 const formatDate = (iso: string) => {
   const d = new Date(iso);
@@ -74,12 +79,6 @@ const formatDate = (iso: string) => {
 };
 
 const monthLabels = ['Janv', 'Févr', 'Mars', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'];
-
-const initials = (name?: string) => {
-  if (!name) return '?';
-  const parts = name.trim().split(/\s+/);
-  return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase();
-};
 
 const roleLabel: Record<Role, string> = {
   [Role.PRESIDENT]: 'Présidente',
@@ -190,7 +189,7 @@ export default function SolidarityScreen() {
   };
 
   const handlePayNow = () => {
-    router.push(`/payment?circleId=${circle.id}&amount=${circle.solidarityAmount || 5000}&type=SOLIDARITY` as any);
+    router.push(`/payment?circleId=${circle.id}&amount=${circle.solidarityAmount || 1000}&type=SOLIDARITY` as any);
   };
 
 
@@ -199,77 +198,62 @@ export default function SolidarityScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
-      <SafeAreaView style={styles.flex} edges={['top', 'bottom']}>
+      <StatusBar barStyle="dark-content" />
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <ScreenHeader
-          title="Caisse de solidarité"
-          subtitle={circle.name}
+          title={circle.name}
+          subtitle={`Solidarité · ${isFounder ? 'Vous êtes fondateur' : `Vous êtes ${roleLabel[myMembership?.role ?? Role.MEMBER].toLowerCase()}`}`}
           onBack={() => router.back()}
           right={<IconButton icon={UserPlus} variant="plain" accessibilityLabel="Inviter un membre" onPress={handleInvite} />}
         />
 
         {/* Onglets */}
-        <View style={styles.tabBar}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabRow}>
-            <TabButton label="Aperçu" active={tab === 'apercu'} onPress={() => setTab('apercu')} />
-            <TabButton label="Décaissements" active={tab === 'decaissements'} onPress={() => setTab('decaissements')} />
-            <TabButton label="Membres" active={tab === 'membres'} onPress={() => setTab('membres')} />
-            <TabButton label="Demandes" active={tab === 'demandes'} badge={pendingMembership.length} onPress={() => setTab('demandes')} />
-          </ScrollView>
-        </View>
+        <CircleTabBar>
+          <CircleTab label="Aperçu" active={tab === 'apercu'} onPress={() => setTab('apercu')} />
+          <CircleTab label="Décaissements" active={tab === 'decaissements'} onPress={() => setTab('decaissements')} />
+          <CircleTab label="Membres" active={tab === 'membres'} onPress={() => setTab('membres')} />
+          <CircleTab label="Demandes" active={tab === 'demandes'} badge={pendingMembership.length} onPress={() => setTab('demandes')} />
+        </CircleTabBar>
 
-        <ScrollView style={styles.flex} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView style={styles.contentScroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {tab === 'apercu' && (
-            <>
-              {/* Solde */}
-              <View style={styles.balanceCard}>
-                <Text style={styles.balanceLabel}>Solde de la caisse</Text>
-                <Text style={[styles.balanceValue, totals.balance < 0 && styles.balanceValueNegative]}>
-                  {totals.balance < 0 ? '−' : ''}{formatXOF(Math.abs(totals.balance))}
-                </Text>
-                <View style={styles.balanceRow}>
-                  <View style={styles.balanceItem}>
-                    <Text style={styles.balanceItemLabel}>Cotisé</Text>
-                    <Text style={styles.balanceItemValue}>{formatXOF(totals.totalCredits)}</Text>
-                  </View>
-                  <View style={styles.balanceDivider} />
-                  <View style={styles.balanceItem}>
-                    <Text style={styles.balanceItemLabel}>Versé</Text>
-                    <Text style={styles.balanceItemValue}>{formatXOF(totals.totalDebits)}</Text>
-                  </View>
-                </View>
-              </View>
+            <View>
+              <OverviewStack>
+                <OverviewSummaryCard
+                  label="Solde de la caisse"
+                  amount={`${totals.balance < 0 ? '−' : ''}${formatXOF(Math.abs(totals.balance))}`}
+                  negative={totals.balance < 0}
+                  stats={[
+                    { label: 'Cotisé', value: formatXOF(totals.totalCredits) },
+                    { label: 'Versé', value: formatXOF(totals.totalDebits) },
+                  ]}
+                />
 
-              {/* Prochain versement */}
-              <View style={[cardStyle, styles.dueCard]}>
-                <View style={[styles.iconTile, { backgroundColor: colors.primary.tint }]}>
-                  <Calendar size={20} color={colors.primary.DEFAULT} strokeWidth={1.8} />
-                </View>
-                <View style={styles.flexShrink}>
-                  <Text style={styles.rowSub}>Prochain versement</Text>
-                  <Text style={styles.dueAmount}>{formatXOF(circle.solidarityAmount || 1000)}</Text>
-                </View>
-                <Button title="Payer" size="sm" onPress={handlePayNow} />
-              </View>
+                <DueCard amount={formatXOF(circle.solidarityAmount || 1000)} onPay={handlePayNow} />
 
-              {/* Historique */}
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Historique</Text>
-                {monthsWithActivity.length > 1 && (
-                  <TouchableOpacity
-                    style={[styles.filterBtn, monthFilter !== null && styles.filterBtnActive]}
-                    activeOpacity={0.75}
-                    accessibilityRole="button"
-                    accessibilityLabel="Filtrer par mois"
-                    onPress={() => setShowMonthFilter((v) => !v)}
-                  >
-                    <SlidersHorizontal size={14} color={monthFilter !== null ? colors.primary.DEFAULT : colors.muted} />
-                    <Text style={[styles.filterBtnText, monthFilter !== null && styles.filterBtnTextActive]}>
-                      {monthFilter !== null ? `${monthLabels[monthFilter]} 2026` : 'Filtrer'}
-                    </Text>
-                  </TouchableOpacity>
+                {isFounder && (
+                  <ActionCard
+                    icon={HeartHandshake}
+                    title="Un membre traverse un coup dur ?"
+                    sub="Initiez une aide, validée par les approbateurs."
+                    actionLabel="Initier"
+                    onPress={openRequestModal}
+                  />
                 )}
-              </View>
+              </OverviewStack>
+
+              <OverviewSectionHeader
+                title="Historique"
+                right={
+                  monthsWithActivity.length > 1 ? (
+                    <HistoryFilterButton
+                      label={monthFilter !== null ? `${monthLabels[monthFilter]} 2026` : 'Filtrer'}
+                      active={monthFilter !== null}
+                      onPress={() => setShowMonthFilter((v) => !v)}
+                    />
+                  ) : null
+                }
+              />
 
               {filteredEntries.length === 0 ? (
                 <View style={cardStyle}>
@@ -315,7 +299,7 @@ export default function SolidarityScreen() {
                 La caisse est transparente : chaque cotisation et chaque déboursement est tracé et visible
                 de tous les membres du cercle.
               </Text>
-            </>
+            </View>
           )}
 
           {tab === 'decaissements' && (
@@ -351,9 +335,11 @@ export default function SolidarityScreen() {
                     style={[cardStyle, styles.requestCard]}
                   >
                     <View style={styles.requestTop}>
-                      <View style={[styles.iconTile, { backgroundColor: colors.accent.tint }]}>
-                        <HeartHandshake size={18} color={colors.accent.deep} strokeWidth={1.8} />
-                      </View>
+                      <Avatar
+                        name={r.requesterName}
+                        uri={members.find((m) => m.userId === r.userId)?.user.avatarUrl}
+                        size={40}
+                      />
                       <View style={styles.flex}>
                         <Text style={styles.rowTitle} numberOfLines={1}>{r.requesterName}</Text>
                         <Text style={styles.rowSub}>{eventTypeLabel[r.eventType]} · {formatXOF(r.amountRequested)}</Text>
@@ -426,8 +412,7 @@ export default function SolidarityScreen() {
               <View style={[cardStyle, styles.listCard]}>
                 {sortedMembers.map((m, idx) => {
                   const fullName = `${m.user.firstName} ${m.user.lastName}`;
-                  const initialsText = initials(fullName);
-                  const color = avatarColor(m.userId);
+                  const initialsText = initialsOf(fullName);
                   return (
                     <TouchableOpacity
                       key={m.userId}
@@ -438,9 +423,9 @@ export default function SolidarityScreen() {
                       <TouchableOpacity
                         activeOpacity={0.8}
                         accessibilityLabel={`Voir la photo de ${fullName}`}
-                        onPress={() => setViewedProfile({ name: m.userId === me.id ? 'Moi' : fullName, photoUrl: m.user.avatarUrl, initials: initialsText, color })}
+                        onPress={() => setViewedProfile({ name: m.userId === me.id ? 'Moi' : fullName, photoUrl: m.user.avatarUrl, initials: initialsText, color: colors.primary.DEFAULT })}
                       >
-                        <Avatar name={fullName} userId={m.userId} photoUrl={m.user.avatarUrl} size={40} />
+                        <Avatar name={fullName} uri={m.user.avatarUrl} size={40} />
                       </TouchableOpacity>
                       <View style={[styles.rowBody, idx < sortedMembers.length - 1 && styles.rowBorder]}>
                         <View style={styles.flex}>
@@ -472,7 +457,7 @@ export default function SolidarityScreen() {
                 pendingMembership.map((r) => (
                   <View key={r.id} style={[cardStyle, styles.requestCard]}>
                     <View style={styles.requestTop}>
-                      <Avatar name={r.fullName} size={40} tone="soft" />
+                      <Avatar name={r.fullName} size={40} />
                       <View style={styles.flex}>
                         <Text style={styles.rowTitle} numberOfLines={1}>{r.fullName}</Text>
                         <Text style={styles.rowSub}>{r.phoneNumber}</Text>
@@ -491,7 +476,7 @@ export default function SolidarityScreen() {
 
         {showFooter && (
           <View style={styles.footer}>
-            <Button title="Initier une demande d'aide" icon={Plus} onPress={openRequestModal} />
+            <Button title="Initier une aide" icon={Plus} onPress={openRequestModal} />
           </View>
         )}
 
@@ -537,11 +522,7 @@ export default function SolidarityScreen() {
                     accessibilityLabel={fullName}
                     onPress={() => setReqBeneficiaryId(m.userId)}
                   >
-                    <View style={[styles.beneficiaryAvatar, active && styles.beneficiaryAvatarActive]}>
-                      <Text style={[styles.beneficiaryAvatarText, active && styles.beneficiaryAvatarTextActive]}>
-                        {initials(fullName)}
-                      </Text>
-                    </View>
+                    <Avatar name={fullName} uri={m.user.avatarUrl} size={40} highlighted={active} />
                     <Text style={[styles.beneficiaryName, active && styles.beneficiaryNameActive]} numberOfLines={1}>
                       {m.user.firstName}
                     </Text>
@@ -612,25 +593,6 @@ export default function SolidarityScreen() {
   );
 }
 
-function TabButton({ label, active, badge, onPress }: { label: string; active: boolean; badge?: number; onPress: () => void }) {
-  return (
-    <TouchableOpacity
-      style={[styles.tabBtn, active && styles.tabBtnActive]}
-      activeOpacity={0.7}
-      accessibilityRole="tab"
-      accessibilityState={{ selected: active }}
-      onPress={onPress}
-    >
-      <Text style={[styles.tabBtnText, active && styles.tabBtnTextActive]}>{label}</Text>
-      {!!badge && (
-        <View style={styles.tabBadge}>
-          <Text style={styles.tabBadgeText}>{badge}</Text>
-        </View>
-      )}
-    </TouchableOpacity>
-  );
-}
-
 function StatusPill({ status }: { status: AidRequestStatus }) {
   const meta: Record<AidRequestStatus, { label: string; bg: string; fg: string }> = {
     [AidRequestStatus.PENDING]: { label: 'En attente', bg: colors.accent.tint, fg: colors.accent.deep },
@@ -646,87 +608,11 @@ function StatusPill({ status }: { status: AidRequestStatus }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.fill },
   flex: { flex: 1 },
-  flexShrink: { flex: 1, flexShrink: 1 },
-
-  /* Onglets */
-  tabBar: {
-    backgroundColor: colors.bg,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.line,
-  },
-  tabRow: { paddingHorizontal: 12, gap: 4 },
-  tabBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    minHeight: 44,
-    paddingHorizontal: 10,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-  },
-  tabBtnActive: { borderBottomColor: colors.primary.DEFAULT },
-  tabBtnText: { ...typography.callout, fontWeight: '500', color: colors.muted },
-  tabBtnTextActive: { color: colors.ink, fontWeight: '600' },
-  tabBadge: {
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    paddingHorizontal: 5,
-    backgroundColor: colors.danger.DEFAULT,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  tabBadgeText: { fontSize: 11, lineHeight: 14, fontWeight: '700', color: '#FFFFFF' },
+  safe: { flex: 1, backgroundColor: colors.bg },
+  contentScroll: { flex: 1, backgroundColor: colors.fill },
+  sectionTitle: { ...typography.bodyStrong, color: colors.ink, marginTop: 4 },
 
   scrollContent: { padding: 16, paddingBottom: 40, gap: 12 },
-
-  /* Solde */
-  balanceCard: {
-    backgroundColor: colors.primary.dark,
-    borderRadius: 24,
-    padding: 20,
-  },
-  balanceLabel: { ...typography.footnote, color: 'rgba(255,255,255,0.72)' },
-  balanceValue: { ...typography.display, color: '#FFFFFF', marginTop: 4 },
-  balanceValueNegative: { color: colors.danger.tint },
-  balanceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 16,
-    paddingTop: 14,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(255,255,255,0.2)',
-  },
-  balanceItem: { flex: 1 },
-  balanceItemLabel: { ...typography.caption, fontWeight: '400', color: 'rgba(255,255,255,0.72)' },
-  balanceItemValue: { ...typography.bodyStrong, color: '#FFFFFF', marginTop: 2 },
-  balanceDivider: { width: 1, height: 28, backgroundColor: 'rgba(255,255,255,0.2)', marginHorizontal: 16 },
-
-  dueCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
-  dueAmount: { ...typography.headline, color: colors.ink, marginTop: 2 },
-
-  /* Sections */
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 8,
-  },
-  sectionTitle: { ...typography.bodyStrong, color: colors.ink, marginTop: 4 },
-  filterBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    minHeight: 36,
-    paddingHorizontal: 12,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.bg,
-  },
-  filterBtnActive: { borderColor: colors.primary.soft, backgroundColor: colors.primary.tint },
-  filterBtnText: { ...typography.footnote, fontWeight: '600', color: colors.muted },
-  filterBtnTextActive: { color: colors.primary.DEFAULT },
 
   /* Listes */
   listCard: { overflow: 'hidden' },
@@ -746,7 +632,7 @@ const styles = StyleSheet.create({
   amount: { ...typography.callout, fontWeight: '600' },
   memberMeta: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 3 },
 
-  hintText: { ...typography.footnote, color: colors.muted, textAlign: 'center', marginTop: 4, paddingHorizontal: 8 },
+  hintText: { ...typography.footnote, color: colors.muted, textAlign: 'center', marginTop: 16, paddingHorizontal: 8 },
   hintTextLeft: { ...typography.footnote, color: colors.muted },
   notice: {
     backgroundColor: colors.info.tint,
@@ -786,19 +672,6 @@ const styles = StyleSheet.create({
   formLabel: { ...typography.callout, fontWeight: '600', color: colors.inkSoft, marginTop: 16, marginBottom: 10 },
   beneficiaryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   beneficiary: { alignItems: 'center', gap: 6, width: 60 },
-  beneficiaryAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.fill,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  beneficiaryAvatarActive: { backgroundColor: colors.primary.DEFAULT, borderColor: colors.primary.DEFAULT },
-  beneficiaryAvatarText: { ...typography.callout, fontWeight: '600', color: colors.inkSoft },
-  beneficiaryAvatarTextActive: { color: '#FFFFFF' },
   beneficiaryName: { ...typography.caption, fontWeight: '400', color: colors.muted },
   beneficiaryNameActive: { fontWeight: '600', color: colors.primary.DEFAULT },
   fields: { gap: 20, marginTop: 20, paddingBottom: 8 },

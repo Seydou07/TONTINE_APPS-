@@ -1,33 +1,13 @@
 import React from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { ArrowLeft } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
 import { colors, radius, typography } from '@venega/design-tokens';
 import { Role } from '@venega/types';
-import { IconButton } from '../../../components/ui';
+import { Avatar as UiAvatar, IconButton } from '../../../components/ui';
 
 /* Éléments de présentation partagés par les écrans de la caisse de solidarité. */
-
-const avatarPalette: string[] = [
-  colors.accent.DEFAULT,
-  colors.primary.DEFAULT,
-  colors.purple.DEFAULT,
-  colors.info.DEFAULT,
-  colors.accent.dark,
-  colors.danger.DEFAULT,
-];
-
-export const avatarColor = (userId: string) => {
-  const sum = userId.split('').reduce((s, ch) => s + ch.charCodeAt(0), 0);
-  return avatarPalette[sum % avatarPalette.length] ?? colors.primary.DEFAULT;
-};
-
-export const nameInitials = (name?: string) => {
-  if (!name) return '?';
-  const parts = name.trim().split(/\s+/);
-  return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase() || '?';
-};
 
 /** En-tête blanc de 56 px : retour, titre centré (et sous-titre), action facultative. */
 export function ScreenHeader({
@@ -61,41 +41,25 @@ export function ScreenHeader({
   );
 }
 
-/** Avatar rond : photo, ou initiales sur fond de couleur stable. */
+/**
+ * Avatar des écrans de solidarité — délègue à l'`Avatar` unique de l'application
+ * (photo si disponible, sinon initiales vert foncé sur vert clair).
+ * `userId` et `tone` sont conservés pour compatibilité mais n'influencent plus le rendu.
+ */
 export function Avatar({
   name,
-  userId,
   photoUrl,
   size = 40,
-  tone = 'solid',
+  highlighted,
 }: {
   name?: string;
   userId?: string;
   photoUrl?: string;
   size?: number;
   tone?: 'solid' | 'soft';
+  highlighted?: boolean;
 }) {
-  const dims = { width: size, height: size, borderRadius: size / 2 };
-  if (photoUrl) return <Image source={{ uri: photoUrl }} style={[styles.avatar, dims]} />;
-  const soft = tone === 'soft';
-  return (
-    <View
-      style={[
-        styles.avatar,
-        dims,
-        { backgroundColor: soft ? colors.primary.tint : avatarColor(userId ?? name ?? '') },
-      ]}
-    >
-      <Text
-        style={[
-          styles.avatarText,
-          { fontSize: Math.round(size * 0.34), color: soft ? colors.primary.DEFAULT : '#FFFFFF' },
-        ]}
-      >
-        {nameInitials(name)}
-      </Text>
-    </View>
-  );
+  return <UiAvatar name={name ?? '?'} uri={photoUrl} size={size} highlighted={highlighted} />;
 }
 
 const roleTone: Partial<Record<Role, { bg: string; fg: string }>> = {
@@ -162,9 +126,6 @@ const styles = StyleSheet.create({
   headerTitle: { ...typography.headline, color: colors.ink, textAlign: 'center' },
   headerSub: { ...typography.caption, fontWeight: '400', color: colors.muted, textAlign: 'center' },
   headerRight: { width: 40, alignItems: 'center' },
-
-  avatar: { justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
-  avatarText: { fontWeight: '600' },
 
   badge: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
   badgeText: { ...typography.caption, fontWeight: '600' },

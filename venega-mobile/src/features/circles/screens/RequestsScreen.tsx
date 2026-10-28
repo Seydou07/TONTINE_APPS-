@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,16 +6,12 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
-  Modal,
 } from 'react-native';
-import { Image } from 'expo-image';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ArrowLeft,
   UserCheck,
-  ShieldCheck,
-  FileText,
   CheckCircle2,
   XCircle,
   Check,
@@ -23,9 +19,12 @@ import {
   ChevronRight,
   X,
   BadgeCheck,
+  Eye,
 } from 'lucide-react-native';
 import { colors, radius, typography } from '@venega/design-tokens';
-import { Button, Chip, IconButton, Sheet, TextField } from '../../../components/ui';
+import { Avatar, Button, Chip, IconButton, Sheet, TextField } from '../../../components/ui';
+import { MemberDocuments } from '../components/MemberDocuments';
+import type { MemberDocumentKind } from '../components/MemberDocuments';
 import {
   getCircle,
   getCircles,
@@ -62,7 +61,7 @@ const statusInfo = (s: MembershipRequestStatus) => {
 
 export default function RequestsScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ id: string }>();
+  const params = useLocalSearchParams<{ id: string; requestId?: string }>();
   const circleId = params.id ?? 'c1';
 
   const circle = getCircle(circleId) ?? getCircles()[0]!;
@@ -71,21 +70,28 @@ export default function RequestsScreen() {
     getMembershipRequests(circle.id)
   );
   const [filter, setFilter] = useState<'pending' | 'all'>('pending');
-  const [selected, setSelected] = useState<MembershipRequest | null>(null);
-  const [cnibFace, setCnibFace] = useState<'front' | 'back' | null>(null);
-  const [showSelfie, setShowSelfie] = useState(false);
+  const [selected, setSelected] = useState<MembershipRequest | null>(
+    () => (params.requestId ? requests.find((r) => r.id === params.requestId) ?? null : null)
+  );
+  /** Documents consultés, par demande : le fondateur doit voir la CNIB avant de valider. */
+  const [viewedDocs, setViewedDocs] = useState<Record<string, Partial<Record<MemberDocumentKind, boolean>>>>({});
   const [showRefuse, setShowRefuse] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
 
+  // Ouverture directe d'une demande (ex. depuis l'onglet Demandes de la tontine).
+  useEffect(() => {
+    if (!params.requestId) return;
+    const target = getMembershipRequests(circle.id).find((r) => r.id === params.requestId);
+    if (target) setSelected(target);
+  }, [params.requestId, circle.id]);
+
+  const markViewed = (requestId: string, kind: MemberDocumentKind) =>
+    setViewedDocs((prev) => ({ ...prev, [requestId]: { ...prev[requestId], [kind]: true } }));
+
   const pendingRequests = requests.filter((r) => r.status === MembershipRequestStatus.PENDING);
   const visibleRequests = filter === 'pending' ? pendingRequests : requests;
   const pendingCount = pendingRequests.length;
-
-  const initials = (name: string) => {
-    const parts = name.trim().split(/\s+/);
-    return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase();
-  };
 
   /** Un paiement est requis quand le candidat doit verser une somme (rachat + dépôt). */
   const paymentRequired = (r: MembershipRequest) => r.joiningFee + r.depositAmount > 0;
@@ -93,6 +99,8 @@ export default function RequestsScreen() {
   const paymentReceived = (r: MembershipRequest) => r.paymentStatus === AdhesionPaymentStatus.PAID;
   /** L'approbation est bloquée tant que le paiement requis n'est pas reçu. */
   const approveBlocked = (r: MembershipRequest) => paymentRequired(r) && !paymentReceived(r);
+  /** La CNIB recto (si fournie) doit avoir été ouverte avant de pouvoir valider. */
+  const docsChecked = (r: MembershipRequest) => !r.cnibFrontUrl || !!viewedDocs[r.id]?.front;
 
   const handleApprove = (r: MembershipRequest) => {
     setActionLoading(true);
@@ -124,7 +132,7 @@ export default function RequestsScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <StatusBar barStyle="dark-content" />
       <SafeAreaView style={styles.flex} edges={['top']}>
         {/* En-tête */}
         <View style={styles.header}>
@@ -177,13 +185,7 @@ export default function RequestsScreen() {
                       accessibilityRole="button"
                       accessibilityLabel={`Demande de ${r.fullName}`}
                     >
-                      {r.user?.avatarUrl ? (
-                        <Image source={{ uri: r.user.avatarUrl }} style={styles.avatar} contentFit="cover" />
-                      ) : (
-                        <View style={styles.avatarFallback}>
-                          <Text style={styles.avatarFallbackText}>{initials(r.fullName)}</Text>
-                        </View>
-                      )}
+                      <Avatar name={r.fullName} uri={r.user?.avatarUrl} size={40} />
                       <View style={styles.rowInfo}>
                         <Text style={styles.rowName} numberOfLines={1}>{r.fullName}</Text>
                         <Text style={styles.rowPhone}>{r.phoneNumber}</Text>
@@ -204,7 +206,7 @@ export default function RequestsScreen() {
             )}
 
             <Text style={styles.hintText}>
-              Touchez une demande pour vérifier l'identité (CNIB) puis approuver ou refuser.
+              Touchez une demande pour vérifier l'identité (CNIB) puis valider ou refuser.
             </Text>
           </ScrollView>
         </View>
@@ -216,13 +218,7 @@ export default function RequestsScreen() {
           <>
             {/* En-tête candidat */}
             <View style={styles.detailHeader}>
-              {selected.user?.avatarUrl ? (
-                <Image source={{ uri: selected.user.avatarUrl }} style={styles.detailAvatar} contentFit="cover" />
-              ) : (
-                <View style={[styles.avatarFallback, styles.detailAvatar]}>
-                  <Text style={styles.avatarFallbackText}>{initials(selected.fullName)}</Text>
-                </View>
-              )}
+              <Avatar name={selected.fullName} uri={selected.user?.avatarUrl} size={56} />
               <View style={styles.flexShrink}>
                 <Text style={styles.detailName}>{selected.fullName}</Text>
                 <Text style={styles.detailSub}>Demande reçue le {formatDate(selected.createdAt)}</Text>
@@ -241,19 +237,17 @@ export default function RequestsScreen() {
                 <InfoRow label="Numéro de dépôt (MM)" value={selected.depositNumber} />
               </View>
 
-              {/* 2. Pièce d'identité CNIB */}
-              <Text style={styles.sectionLabel}>Pièce d'identité (CNIB)</Text>
-              <View style={styles.card}>
-                <DocRow icon={FileText} title="Voir le recto" sub="Vérifier la pièce" onPress={() => setCnibFace('front')} />
-                <View style={styles.docRowDivider} />
-                <DocRow icon={FileText} title="Voir le verso" sub="Vérifier la pièce" onPress={() => setCnibFace('back')} />
-                {selected.selfieUrl ? (
-                  <>
-                    <View style={styles.docRowDivider} />
-                    <DocRow icon={UserCheck} title="Voir le selfie" sub="Vérification faciale" onPress={() => setShowSelfie(true)} />
-                  </>
-                ) : null}
-              </View>
+              {/* 2. Documents d'identité */}
+              <MemberDocuments
+                fullName={selected.fullName}
+                phoneNumber={selected.phoneNumber}
+                avatarUrl={selected.user?.avatarUrl}
+                cnibFrontUrl={selected.cnibFrontUrl}
+                cnibBackUrl={selected.cnibBackUrl}
+                selfieUrl={selected.selfieUrl}
+                viewed={viewedDocs[selected.id]}
+                onOpen={(kind) => markViewed(selected.id, kind)}
+              />
 
               {/* 3. Paiement de l'adhésion */}
               <Text style={styles.sectionLabel}>Paiement de l'adhésion</Text>
@@ -333,12 +327,23 @@ export default function RequestsScreen() {
                       </Text>
                     </View>
                   ) : (
-                    <Button
-                      title="Approuver l'adhésion"
-                      icon={BadgeCheck}
-                      loading={actionLoading}
-                      onPress={() => handleApprove(selected)}
-                    />
+                    <>
+                      {!docsChecked(selected) ? (
+                        <View style={[styles.notice, styles.noticeFlat, { backgroundColor: colors.fill }]}>
+                          <Eye size={16} color={colors.muted} />
+                          <Text style={[styles.noticeText, { color: colors.inkSoft }]}>
+                            Consultez les documents avant de valider.
+                          </Text>
+                        </View>
+                      ) : null}
+                      <Button
+                        title="Valider l'adhésion"
+                        icon={BadgeCheck}
+                        loading={actionLoading}
+                        disabled={!docsChecked(selected)}
+                        onPress={() => handleApprove(selected)}
+                      />
+                    </>
                   )}
                   <Button
                     title="Refuser"
@@ -361,69 +366,6 @@ export default function RequestsScreen() {
             </View>
           </>
         )}
-
-        {/* VISIONNEUSE CNIB PLEIN ÉCRAN (imbriquée pour s'afficher au-dessus de la feuille) */}
-        <Modal visible={!!cnibFace} animationType="fade" transparent onRequestClose={() => setCnibFace(null)}>
-          <View style={styles.viewerOverlay}>
-            <View style={styles.viewerHeader}>
-              <Text style={styles.viewerHeaderText}>
-                CNIB — {cnibFace === 'front' ? 'Recto' : 'Verso'}
-              </Text>
-              <IconButton icon={X} color="#FFFFFF" style={styles.viewerClose} accessibilityLabel="Fermer" onPress={() => setCnibFace(null)} />
-            </View>
-            <View style={styles.docFrame}>
-              <View style={styles.docCard}>
-                <View style={styles.docTopRow}>
-                  <ShieldCheck size={24} color={colors.primary.dark} />
-                  <Text style={styles.docTitle}>RÉPUBLIQUE DE BURKINA FASO</Text>
-                </View>
-                <View style={styles.docPhotoRow}>
-                  <View style={styles.docPhoto}>
-                    <Text style={styles.docPhotoText}>{initials(selected?.fullName ?? '')}</Text>
-                  </View>
-                  <View style={styles.flexShrink}>
-                    <Text style={styles.docName}>{selected?.fullName ?? '—'}</Text>
-                    <Text style={styles.docMeta}>N° BFA-CNIB-00945271</Text>
-                    <Text style={styles.docMeta}>Né(e) le 12/04/1990</Text>
-                  </View>
-                </View>
-                <View style={styles.docDivider} />
-                <Text style={styles.docFoot}>
-                  {cnibFace === 'front'
-                    ? 'Recto — Photo, identité et numéro'
-                    : 'Verso — Adresse et détails biométriques'}
-                </Text>
-              </View>
-              <Text style={styles.docHint}>Aperçu du document simulé pour la démo</Text>
-            </View>
-          </View>
-        </Modal>
-
-        {/* VISIONNEUSE SELFIE PLEIN ÉCRAN */}
-        <Modal visible={showSelfie} animationType="fade" transparent onRequestClose={() => setShowSelfie(false)}>
-          <View style={styles.viewerOverlay}>
-            <View style={styles.viewerHeader}>
-              <Text style={styles.viewerHeaderText}>Selfie du candidat</Text>
-              <IconButton icon={X} color="#FFFFFF" style={styles.viewerClose} accessibilityLabel="Fermer" onPress={() => setShowSelfie(false)} />
-            </View>
-            <View style={styles.docFrame}>
-              <View style={styles.selfieCard}>
-                <Image
-                  source={{ uri: selected?.user?.avatarUrl }}
-                  style={styles.selfieImage}
-                  contentFit="cover"
-                />
-                <View style={styles.selfieLabel}>
-                  <ShieldCheck size={15} color="#FFFFFF" />
-                  <Text style={styles.selfieLabelText}>
-                    {selected?.fullName ?? 'Candidat'} — {selected?.phoneNumber ?? ''}
-                  </Text>
-                </View>
-              </View>
-              <Text style={styles.docHint}>Aperçu du selfie simulé pour la démo</Text>
-            </View>
-          </View>
-        </Modal>
 
         {/* FEUILLE MOTIF DE REFUS */}
         <Sheet visible={showRefuse} onClose={() => setShowRefuse(false)} title="Refuser l'adhésion">
@@ -459,31 +401,6 @@ function InfoRow({ label, value }: { label: string; value: string }) {
       <Text style={styles.infoLabel}>{label}</Text>
       <Text style={styles.infoValue}>{value}</Text>
     </View>
-  );
-}
-
-function DocRow({
-  icon: Icon,
-  title,
-  sub,
-  onPress,
-}: {
-  icon: typeof FileText;
-  title: string;
-  sub: string;
-  onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity style={styles.docRow} activeOpacity={0.6} onPress={onPress} accessibilityRole="button" accessibilityLabel={title}>
-      <View style={styles.docIcon}>
-        <Icon size={19} color={colors.primary.DEFAULT} />
-      </View>
-      <View style={styles.flexShrink}>
-        <Text style={styles.docRowTitle}>{title}</Text>
-        <Text style={styles.docRowSub}>{sub}</Text>
-      </View>
-      <ChevronRight size={18} color={colors.subtle} />
-    </TouchableOpacity>
   );
 }
 
@@ -556,24 +473,6 @@ const styles = StyleSheet.create({
   rowDivider: {
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.line,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-  },
-  avatarFallback: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.primary.tint,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarFallbackText: {
-    ...typography.callout,
-    fontWeight: '600',
-    color: colors.primary.dark,
   },
   rowInfo: {
     flex: 1,
@@ -653,11 +552,6 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 4,
   },
-  detailAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-  },
   detailName: {
     ...typography.headline,
     color: colors.ink,
@@ -716,35 +610,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.danger.DEFAULT,
   },
-  docRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    gap: 12,
-  },
-  docRowDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.line,
-    marginLeft: 64,
-  },
-  docIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: colors.primary.tint,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  docRowTitle: {
-    ...typography.callout,
-    fontWeight: '600',
-    color: colors.ink,
-  },
-  docRowSub: {
-    ...typography.footnote,
-    color: colors.muted,
-  },
   notice: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -777,119 +642,5 @@ const styles = StyleSheet.create({
     ...typography.callout,
     color: colors.muted,
     marginBottom: 16,
-  },
-
-  /* ── Visionneuses plein écran ── */
-  viewerOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(22, 24, 29, 0.96)',
-    paddingTop: 56,
-    paddingHorizontal: 20,
-  },
-  viewerHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  viewerHeaderText: {
-    ...typography.headline,
-    color: '#FFFFFF',
-  },
-  viewerClose: {
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-  },
-  docFrame: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  docCard: {
-    backgroundColor: colors.bg,
-    borderRadius: radius.md,
-    padding: 20,
-    aspectRatio: 1.6,
-    justifyContent: 'center',
-    gap: 14,
-  },
-  docTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  docTitle: {
-    ...typography.caption,
-    fontWeight: '700',
-    color: colors.primary.dark,
-  },
-  docPhotoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
-  docPhoto: {
-    width: 72,
-    height: 88,
-    borderRadius: 8,
-    backgroundColor: colors.fill,
-    borderWidth: 1,
-    borderColor: colors.line,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  docPhotoText: {
-    ...typography.title,
-    color: colors.subtle,
-  },
-  docName: {
-    ...typography.bodyStrong,
-    color: colors.ink,
-  },
-  docMeta: {
-    ...typography.caption,
-    fontWeight: '400',
-    color: colors.inkSoft,
-    marginTop: 3,
-  },
-  docDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.line,
-  },
-  docFoot: {
-    ...typography.caption,
-    color: colors.muted,
-    textAlign: 'center',
-  },
-  docHint: {
-    ...typography.caption,
-    fontWeight: '400',
-    color: 'rgba(255, 255, 255, 0.6)',
-    textAlign: 'center',
-    marginTop: 16,
-  },
-  selfieCard: {
-    backgroundColor: colors.bg,
-    borderRadius: radius.lg,
-    overflow: 'hidden',
-    alignSelf: 'center',
-    width: '86%',
-    aspectRatio: 0.85,
-  },
-  selfieImage: {
-    flex: 1,
-  },
-  selfieLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 7,
-    backgroundColor: colors.primary.dark,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-  },
-  selfieLabelText: {
-    ...typography.footnote,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    flexShrink: 1,
   },
 });

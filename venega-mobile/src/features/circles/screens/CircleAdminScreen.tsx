@@ -36,7 +36,7 @@ import {
   getLedgerEntries,
   getCurrentUser,
 } from '../circleStore';
-import { Button, IconButton } from '../../../components/ui';
+import { Avatar, Button, IconButton } from '../../../components/ui';
 
 const frequencyLabel: Record<string, string> = {
   DAILY: 'Journalière',
@@ -56,11 +56,6 @@ const eventTypeLabel: Record<EventType, string> = {
   [EventType.NAISSANCE]: 'Naissance',
   [EventType.AUTRE]: 'Autre',
 };
-
-function initials(name: string) {
-  const parts = name.trim().split(/\s+/);
-  return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? parts[parts.length - 1]?.[0] ?? '' : '')).toUpperCase();
-}
 
 type Tab = 'overview' | 'members' | 'requests' | 'treasury';
 
@@ -112,7 +107,7 @@ export default function CircleAdminScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <StatusBar barStyle="dark-content" />
       <SafeAreaView style={styles.flex} edges={['top']}>
         <View style={styles.headerWrap}>
           <View style={styles.header}>
@@ -193,9 +188,7 @@ export default function CircleAdminScreen() {
             <View style={styles.listCard}>
               {members.map((m, idx) => (
                 <View key={m.userId} style={styles.row}>
-                  <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>{initials(`${m.user.firstName} ${m.user.lastName}`)}</Text>
-                  </View>
+                  <Avatar name={`${m.user.firstName} ${m.user.lastName}`} uri={m.user.avatarUrl} size={40} />
                   <View style={[styles.rowBody, idx < members.length - 1 && styles.rowBorder]}>
                     <View style={styles.flex}>
                       <Text style={styles.rowTitle} numberOfLines={1}>
@@ -221,9 +214,7 @@ export default function CircleAdminScreen() {
                   {pendingMembership.map((r) => (
                     <View key={r.id} style={styles.requestCard}>
                       <View style={styles.requestHeader}>
-                        <View style={[styles.avatar, styles.avatarTint]}>
-                          <Text style={[styles.avatarText, styles.avatarTintText]}>{initials(r.fullName)}</Text>
-                        </View>
+                        <Avatar name={r.fullName} uri={r.user?.avatarUrl} size={40} />
                         <View style={styles.flex}>
                           <Text style={styles.rowTitle} numberOfLines={1}>
                             {r.fullName}
@@ -277,11 +268,7 @@ export default function CircleAdminScreen() {
                     return (
                       <View key={r.id} style={styles.requestCard}>
                         <View style={styles.requestHeader}>
-                          <View style={[styles.avatar, styles.avatarDanger]}>
-                            <Text style={[styles.avatarText, styles.avatarDangerText]}>
-                              {initials(r.requesterName)}
-                            </Text>
-                          </View>
+                          <Avatar name={r.requesterName} uri={r.requesterAvatar} size={40} />
                           <View style={styles.flex}>
                             <Text style={styles.rowTitle} numberOfLines={1}>
                               {r.requesterName}
@@ -486,7 +473,7 @@ const styles = StyleSheet.create({
   tabBtn: { minHeight: 44, justifyContent: 'center' },
   tabInner: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   tabText: { ...typography.callout, fontWeight: '500', color: colors.muted },
-  tabTextActive: { fontWeight: '600', color: colors.ink },
+  tabTextActive: { fontWeight: '600', color: colors.primary.DEFAULT },
   tabUnderline: {
     position: 'absolute',
     bottom: 0,
@@ -561,19 +548,6 @@ const styles = StyleSheet.create({
   rowSub: { ...typography.footnote, color: colors.muted, marginTop: 2 },
   amount: { ...typography.callout, fontWeight: '700' },
 
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.fill,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: { ...typography.footnote, fontWeight: '700', color: colors.inkSoft },
-  avatarTint: { backgroundColor: colors.primary.tint },
-  avatarTintText: { color: colors.primary.dark },
-  avatarDanger: { backgroundColor: colors.danger.tint },
-  avatarDangerText: { color: colors.danger.DEFAULT },
 
   ledgerIcon: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
   ledgerIconIn: { backgroundColor: colors.primary.tint },

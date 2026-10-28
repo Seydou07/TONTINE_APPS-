@@ -12,11 +12,8 @@ import {
   getSolidarityValidators,
   toggleSolidarityValidator,
 } from '../circleStore';
+import { Avatar } from '../../../components/ui';
 import { ScreenHeader, SectionTitle, Notice, actionStyles } from '../components/ActionScreenParts';
-
-function getInitials(firstName: string, lastName: string): string {
-  return `${firstName?.[0] ?? ''}${lastName?.[0] ?? ''}`.toUpperCase();
-}
 
 export default function GovernanceScreen() {
   const router = useRouter();
@@ -69,11 +66,11 @@ export default function GovernanceScreen() {
             <View style={styles.group}>
               {president && (
                 <View style={[styles.row, eligibleForTreasurer.length > 0 && styles.rowBorder]}>
-                  <View style={[styles.avatar, styles.avatarPresident]}>
-                    <Text style={[styles.avatarText, styles.avatarTextPresident]}>
-                      {getInitials(president.user.firstName, president.user.lastName)}
-                    </Text>
-                  </View>
+                  <Avatar
+                    name={`${president.user.firstName} ${president.user.lastName}`}
+                    uri={president.user.avatarUrl}
+                    size={40}
+                  />
                   <View style={styles.rowText}>
                     <Text style={styles.name} numberOfLines={1}>
                       {president.user.firstName} {president.user.lastName}
@@ -96,11 +93,7 @@ export default function GovernanceScreen() {
                     accessibilityRole="button"
                     onPress={() => !isTreasurer && handleSetTreasurer(m.userId, `${m.user.firstName} ${m.user.lastName}`)}
                   >
-                    <View style={[styles.avatar, isTreasurer && styles.avatarTreasurer]}>
-                      <Text style={[styles.avatarText, isTreasurer && styles.avatarTextTreasurer]}>
-                        {getInitials(m.user.firstName, m.user.lastName)}
-                      </Text>
-                    </View>
+                    <Avatar name={`${m.user.firstName} ${m.user.lastName}`} uri={m.user.avatarUrl} size={40} />
                     <View style={styles.rowText}>
                       <Text style={styles.name} numberOfLines={1}>
                         {m.user.firstName} {m.user.lastName}
@@ -147,9 +140,7 @@ export default function GovernanceScreen() {
                           refresh();
                         }}
                       >
-                        <View style={styles.avatar}>
-                          <Text style={styles.avatarText}>{getInitials(m.user.firstName, m.user.lastName)}</Text>
-                        </View>
+                        <Avatar name={`${m.user.firstName} ${m.user.lastName}`} uri={m.user.avatarUrl} size={40} />
                         <Text style={[styles.name, styles.rowText]} numberOfLines={1}>
                           {m.user.firstName} {m.user.lastName}
                         </Text>
@@ -184,20 +175,6 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 12, minHeight: 64 },
   rowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
   rowText: { flex: 1 },
-
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.fill,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarPresident: { backgroundColor: colors.accent.tint },
-  avatarTreasurer: { backgroundColor: colors.primary.tint },
-  avatarText: { ...typography.footnote, fontWeight: '600', color: colors.inkSoft },
-  avatarTextPresident: { color: colors.accent.deep },
-  avatarTextTreasurer: { color: colors.primary.dark },
 
   name: { ...typography.callout, fontWeight: '600', color: colors.ink },
   role: { ...typography.footnote, color: colors.muted, marginTop: 1 },

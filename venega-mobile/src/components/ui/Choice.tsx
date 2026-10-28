@@ -181,8 +181,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   chipSelected: {
-    backgroundColor: colors.ink,
-    borderColor: colors.ink,
+    backgroundColor: colors.primary.DEFAULT,
+    borderColor: colors.primary.DEFAULT,
   },
   chipText: {
     ...typography.callout,
@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
   },
   segmentTextSelected: {
     fontWeight: '600',
-    color: colors.ink,
+    color: colors.primary.DEFAULT,
   },
 
   stepper: {

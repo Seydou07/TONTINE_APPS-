@@ -5,7 +5,7 @@ import { colors, radius, typography } from '@venega/design-tokens';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { AlertTriangle, Check, Info, Upload, UserPlus } from 'lucide-react-native';
 import { mockCircles, mockMemberships, mockCycles } from '@venega/types';
-import { Button, TextField } from '../../../components/ui';
+import { Avatar, Button, TextField } from '../../../components/ui';
 import {
   ScreenHeader,
   ScreenFooter,
@@ -81,11 +81,7 @@ export default function ReplacementScreen() {
                         accessibilityRole="radio"
                         accessibilityState={{ selected }}
                       >
-                        <View style={styles.avatar}>
-                          <Text style={styles.avatarText}>
-                            {`${m.user.firstName?.[0] ?? ''}${m.user.lastName?.[0] ?? ''}`.toUpperCase()}
-                          </Text>
-                        </View>
+                        <Avatar name={`${m.user.firstName} ${m.user.lastName}`} uri={m.user.avatarUrl} size={40} />
                         <View style={styles.rowText}>
                           <Text style={styles.name} numberOfLines={1}>
                             {m.user.firstName} {m.user.lastName}
@@ -225,15 +221,6 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 12, minHeight: 64 },
   rowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
   rowText: { flex: 1 },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.fill,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: { ...typography.footnote, fontWeight: '600', color: colors.inkSoft },
   name: { ...typography.callout, fontWeight: '600', color: colors.ink },
   meta: { ...typography.footnote, color: colors.muted, marginTop: 1 },
   radio: {

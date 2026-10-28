@@ -1,319 +1,346 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Share } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-  ArrowLeft,
-  HeartHandshake,
-  CalendarDays,
-  Users,
-  ShieldCheck,
-  Check,
-  Wallet,
-  EyeOff,
-} from 'lucide-react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ArrowLeft, HeartHandshake, ShieldCheck, Check, EyeOff, Share2 } from 'lucide-react-native';
 import { colors, radius, typography } from '@venega/design-tokens';
+import { mockAidAppeal, mockAidContributions, PaymentMethod, ContributorVisibility } from '@venega/types';
+import { Avatar, Button, Chip, IconButton, Sheet, SettingRow, TextField, Toggle } from '../../src/components/ui';
+import { getAidAppeal, getAidShareLink, getCircle } from '../../src/features/circles/circleStore';
+import OperatorPicker, { operatorLogos } from '../../src/features/circles/components/OperatorPicker';
 import {
-  mockAidAppeal,
-  mockAidContributions,
-  PaymentMethod,
-  ContributorVisibility,
-} from '@venega/types';
-import { Button, Chip, IconButton, Sheet, SettingRow, TextField, Toggle } from '../../src/components/ui';
+  PAYMENT_OPERATORS,
+  PaymentConfirmSheet,
+  operatorName,
+  payButtonTitle,
+  useUssdPayment,
+} from '../../src/features/circles/components/PaymentFlow';
 
 const PAGE_SIZE = 15;
 const QUICK_AMOUNTS = [500, 1000, 2000, 5000, 10000, 25000];
+const COVER_HEIGHT = 220;
 
-const OPERATORS = [
-  { id: PaymentMethod.ORANGE_MONEY, name: 'Orange Money', color: '#FF7900', short: 'OM' },
-  { id: PaymentMethod.MOOV_MONEY, name: 'Moov Money', color: '#005CA9', short: 'Moov' },
-  { id: PaymentMethod.WAVE, name: 'Wave', color: '#1DC3F6', short: 'Wave' },
-  { id: PaymentMethod.MTN_MOBILE_MONEY, name: 'MTN MoMo', color: '#FFCC00', short: 'MTN' },
-];
+/** Libellé court de l'opérateur d'une contribution (l'énum de l'API garde encore MTN). */
+const METHOD_LABEL: Partial<Record<PaymentMethod, string>> = {
+  [PaymentMethod.ORANGE_MONEY]: 'Orange Money',
+  [PaymentMethod.MOOV_MONEY]: 'Moov Money',
+  [PaymentMethod.WAVE]: 'Wave',
+};
 
 const formatXOF = (n: number) => new Intl.NumberFormat('fr-FR').format(n) + ' F CFA';
+const formatShort = (n: number) => new Intl.NumberFormat('fr-FR').format(n) + ' F';
 
 export default function AidAppealScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ id: string }>();
 
-  const appeal = mockAidAppeal;
+  const circle = getCircle(params.id);
+  const appeal = getAidAppeal(params.id) ?? mockAidAppeal;
+  // Les contributions de démonstration n'existent que pour la cagnotte mockée.
+  const contributions = appeal.id === mockAidAppeal.id ? mockAidContributions : [];
+
+  const shareLink = () => {
+    if (!circle) return;
+    Share.share({
+      message: `${circle.name}
+Aidez en contribuant à cette cagnotte, avec votre nom ou anonymement :
+${getAidShareLink(circle)}`,
+    }).catch(() => {});
+  };
 
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [showContribute, setShowContribute] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [contributed, setContributed] = useState(false);
+  const [contributionCount, setContributionCount] = useState(0);
   const [localCollected, setLocalCollected] = useState(0);
 
   // Formulaire de contribution (sans compte)
   const [anonymous, setAnonymous] = useState(false);
   const [contributorName, setContributorName] = useState('');
   const [contributorPhone, setContributorPhone] = useState('');
-  const [amount, setAmount] = useState(2000);
-  const [operator, setOperator] = useState<PaymentMethod>(PaymentMethod.ORANGE_MONEY);
+  const [quickAmount, setQuickAmount] = useState(2000);
+  const [customAmount, setCustomAmount] = useState('');
+  const [operator, setOperator] = useState<string | null>(null);
+
+  const amount = customAmount ? parseInt(customAmount, 10) || 0 : quickAmount;
+  const phoneDigits = contributorPhone.replace(/\D/g, '');
+  const canPay = amount > 0 && !!operator && phoneDigits.length >= 8;
+
+  const { dial } = useUssdPayment(() => {
+    setLocalCollected((prev) => prev + amount);
+    setContributionCount((n) => n + 1);
+    setContributed(true);
+  });
 
   const goal = appeal.goalAmount;
   const collected = appeal.collectedAmount + localCollected;
-  const progress = Math.min(collected / goal, 1);
+  const progress = goal > 0 ? Math.min(collected / goal, 1) : 0;
+  const percent = Math.round(progress * 100);
   const remaining = Math.max(goal - collected, 0);
+  const isActive = appeal.status === 'ACTIVE';
 
-  const visibleContributions = mockAidContributions.slice(0, visibleCount);
-  const hasMore = visibleCount < mockAidContributions.length;
-  const totalContributors = appeal.contributorCount + (contributed ? 1 : 0);
+  const visibleContributions = contributions.slice(0, visibleCount);
+  const hasMore = visibleCount < contributions.length;
+  const totalContributors = appeal.contributorCount + contributionCount;
 
-  const deadlineLabel = appeal.deadline
-    ? new Date(appeal.deadline).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
-    : '';
-
-  const handleContribute = () => {
-    setShowContribute(false);
-    setContributed(true);
-    setLocalCollected((prev) => prev + amount);
-  };
-
-  const amountDisplay = (n: number) =>
-    new Intl.NumberFormat('fr-FR').format(n) + ' F';
+  const daysLeft = appeal.deadline
+    ? Math.max(Math.ceil((new Date(appeal.deadline).getTime() - Date.now()) / 86_400_000), 0)
+    : null;
 
   const stats = [
-    { icon: Users, value: String(totalContributors), label: 'Contributeurs' },
-    { icon: Wallet, value: amountDisplay(appeal.collectedAmount), label: 'Déjà collecté' },
-    { icon: CalendarDays, value: deadlineLabel || '—', label: 'Date limite' },
+    { value: String(totalContributors), label: totalContributors > 1 ? 'contributeurs' : 'contributeur' },
+    { value: daysLeft === null ? '—' : String(daysLeft), label: daysLeft === 1 ? 'jour restant' : 'jours restants' },
+    { value: formatShort(remaining), label: 'reste à collecter' },
   ];
+
+  const openContribute = () => {
+    setShowContribute(true);
+  };
+
+  const goToConfirm = () => {
+    setShowContribute(false);
+    setShowConfirm(true);
+  };
+
+  const confirmPayment = () => {
+    if (!operator) return;
+    setShowConfirm(false);
+    dial(operator, amount);
+  };
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
-      <SafeAreaView style={styles.flex} edges={['top', 'bottom']}>
-        {/* En-tête */}
-        <View style={styles.header}>
-          <IconButton icon={ArrowLeft} variant="plain" accessibilityLabel="Retour" onPress={() => router.back()} />
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            Appel à l'aide
-          </Text>
-          <View style={styles.headerSpacer} />
-        </View>
-
+      <StatusBar barStyle={appeal.beneficiaryPhoto ? 'light-content' : 'dark-content'} />
+      <SafeAreaView style={styles.flex} edges={['bottom']}>
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          {/* Bénéficiaire */}
-          <View style={styles.beneficiaryRow}>
-            <Image source={{ uri: appeal.beneficiaryPhoto }} style={styles.avatar} contentFit="cover" />
-            <View style={styles.beneficiaryInfo}>
-              <Text style={styles.beneficiaryName}>{appeal.beneficiaryName}</Text>
-              <Text style={styles.beneficiaryMeta}>Bénéficiaire · {appeal.beneficiaryNumber}</Text>
-            </View>
-            <View style={styles.liveBadge}>
-              <View style={styles.liveDot} />
-              <Text style={styles.liveBadgeText}>En cours</Text>
+          {/* Couverture */}
+          <View style={styles.cover}>
+            {appeal.beneficiaryPhoto ? (
+              <Image source={{ uri: appeal.beneficiaryPhoto }} style={StyleSheet.absoluteFill} contentFit="cover" />
+            ) : (
+              <View style={styles.coverFallback}>
+                <HeartHandshake size={64} color={colors.primary.DEFAULT} strokeWidth={1.5} />
+              </View>
+            )}
+            <View style={[styles.coverActions, { top: insets.top + 8 }]}>
+              <IconButton icon={ArrowLeft} accessibilityLabel="Retour" onPress={() => router.back()} style={styles.coverButton} />
+              {circle ? (
+                <IconButton icon={Share2} accessibilityLabel="Partager le lien" onPress={shareLink} style={styles.coverButton} />
+              ) : null}
             </View>
           </View>
 
-          <Text style={styles.reasonText}>{appeal.reason}</Text>
-
-          {/* Cagnotte */}
-          <View style={styles.potCard}>
-            <Text style={styles.potLabel}>Collecté</Text>
-            <Text style={styles.potAmount}>{formatXOF(collected)}</Text>
-            <Text style={styles.potGoal}>sur un objectif de {formatXOF(goal)}</Text>
-            <View style={styles.progressTrack}>
-              <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` }]} />
-            </View>
-            <View style={styles.progressFooter}>
-              <Text style={styles.potFootText}>{Math.round(progress * 100)}% atteint</Text>
-              <Text style={styles.potFootText}>
-                {remaining > 0 ? `Reste ${formatXOF(remaining)}` : 'Objectif atteint'}
+          <View style={styles.content}>
+            {/* Titre */}
+            <View style={[styles.statusPill, !isActive && styles.statusPillDone]}>
+              <View style={[styles.statusDot, !isActive && styles.statusDotDone]} />
+              <Text style={[styles.statusText, !isActive && styles.statusTextDone]}>
+                {isActive ? 'En cours' : 'Terminée'}
               </Text>
             </View>
-          </View>
+            <Text style={styles.title}>{circle?.name ?? 'Cagnotte d’aide'}</Text>
+            <View style={styles.forRow}>
+              <Avatar name={appeal.beneficiaryName} uri={appeal.beneficiaryPhoto} size={32} />
+              <Text style={styles.forText}>
+                Pour <Text style={styles.forName}>{appeal.beneficiaryName}</Text>
+              </Text>
+            </View>
 
-          {/* Chiffres */}
-          <View style={styles.statsCard}>
-            {stats.map((s, i) => {
-              const Icon = s.icon;
-              return (
-                <React.Fragment key={s.label}>
-                  {i > 0 && <View style={styles.statDivider} />}
-                  <View style={styles.statCol}>
-                    <Icon size={18} color={colors.muted} strokeWidth={1.8} />
-                    <Text style={styles.statValue}>{s.value}</Text>
-                    <Text style={styles.statLabel}>{s.label}</Text>
-                  </View>
-                </React.Fragment>
-              );
-            })}
-          </View>
-
-          {/* Confiance */}
-          <View style={styles.trustCard}>
-            <ShieldCheck size={18} color={colors.primary.DEFAULT} />
-            <Text style={styles.trustText}>
-              Collecte vérifiée : les fonds sont bloqués sur le compte sécurisé Venega et reversés uniquement au
-              bénéficiaire après vérification.
-            </Text>
-          </View>
-
-          {/* Contributeurs */}
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Contributeurs récents</Text>
-            <Text style={styles.sectionCount}>{appeal.contributorCount}+</Text>
-          </View>
-
-          <View style={styles.card}>
-            {visibleContributions.map((c, idx) => {
-              const op = OPERATORS.find((o) => o.id === c.paymentMethod);
-              const isAnon = c.visibility === ContributorVisibility.ANONYMOUS;
-              return (
-                <View key={c.id} style={styles.contribRow}>
-                  <View style={styles.contribAvatar}>
-                    {isAnon ? (
-                      <EyeOff size={16} color={colors.muted} />
-                    ) : (
-                      <Text style={styles.contribInitial}>{(c.contributorName ?? '?').charAt(0).toUpperCase()}</Text>
-                    )}
-                  </View>
-                  <View style={[styles.contribBody, idx < visibleContributions.length - 1 && styles.rowBorder]}>
-                    <View style={styles.flex}>
-                      <Text style={styles.contribName} numberOfLines={1}>
-                        {isAnon ? 'Anonyme' : c.contributorName}
-                      </Text>
-                      <Text style={styles.contribMeta} numberOfLines={1}>
-                        {new Date(c.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })} ·{' '}
-                        {op?.short ?? 'Mobile Money'}
-                      </Text>
+            {/* Collecte */}
+            <View style={styles.collectBlock}>
+              <Text style={styles.collected}>{formatXOF(collected)}</Text>
+              <Text style={styles.goal}>collectés sur {formatXOF(goal)}</Text>
+              <View style={styles.progressRow}>
+                <View style={styles.progressTrack}>
+                  <View style={[styles.progressFill, { width: `${percent}%` }]} />
+                </View>
+                <Text style={styles.percent}>{percent} %</Text>
+              </View>
+              <View style={styles.statsRow}>
+                {stats.map((s, i) => (
+                  <React.Fragment key={s.label}>
+                    {i > 0 && <View style={styles.statDivider} />}
+                    <View style={styles.statCol}>
+                      <Text style={styles.statValue}>{s.value}</Text>
+                      <Text style={styles.statLabel}>{s.label}</Text>
                     </View>
-                    <Text style={styles.contribAmount}>+{amountDisplay(c.amount)}</Text>
+                  </React.Fragment>
+                ))}
+              </View>
+            </View>
+
+            {/* Paiement accepté */}
+            <View style={styles.payRow}>
+              <Text style={styles.payLabel}>Paiement accepté</Text>
+              <View style={styles.logos}>
+                {PAYMENT_OPERATORS.map((op) => (
+                  <Image
+                    key={op.id}
+                    source={operatorLogos[op.id]}
+                    style={styles.logo}
+                    contentFit="contain"
+                    accessibilityLabel={op.name}
+                  />
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.separator} />
+
+            {/* Histoire */}
+            <Text style={styles.sectionTitle}>L’histoire</Text>
+            <Text style={styles.story}>{appeal.reason}</Text>
+
+            <View style={styles.trust}>
+              <ShieldCheck size={18} color={colors.primary.DEFAULT} strokeWidth={2} />
+              <Text style={styles.trustText}>
+                Les fonds sont conservés sur le compte sécurisé Venega et reversés à {appeal.beneficiaryName} uniquement
+                après validation des approbateurs du cercle.
+              </Text>
+            </View>
+
+            <View style={styles.separator} />
+
+            {/* Contributeurs */}
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitleInline}>Contributeurs</Text>
+              <Text style={styles.sectionCount}>{totalContributors}</Text>
+            </View>
+
+            {contributions.length === 0 && (
+              <Text style={styles.emptyContrib}>
+                Aucune contribution pour l’instant. Partagez le lien pour lancer la collecte.
+              </Text>
+            )}
+            {visibleContributions.map((c, idx) => {
+              const isAnon = c.visibility === ContributorVisibility.ANONYMOUS;
+              const name = isAnon ? 'Anonyme' : c.contributorName ?? 'Contributeur';
+              return (
+                <View key={c.id} style={[styles.contribRow, idx > 0 && styles.rowBorder]}>
+                  {isAnon ? (
+                    <View style={styles.anonAvatar}>
+                      <EyeOff size={18} color={colors.muted} strokeWidth={1.8} />
+                    </View>
+                  ) : (
+                    <Avatar name={name} size={40} />
+                  )}
+                  <View style={styles.flex}>
+                    <Text style={styles.contribName} numberOfLines={1}>
+                      {name}
+                    </Text>
+                    <Text style={styles.contribMeta}>
+                      {new Date(c.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })} ·{' '}
+                      {METHOD_LABEL[c.paymentMethod] ?? 'Mobile Money'}
+                    </Text>
                   </View>
+                  <Text style={styles.contribAmount}>{formatShort(c.amount)}</Text>
                 </View>
               );
             })}
 
-            <View style={styles.listFooter}>
-              {hasMore ? (
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  style={styles.loadMore}
-                  accessibilityRole="button"
-                  onPress={() => setVisibleCount((v) => v + PAGE_SIZE)}
-                >
-                  <Text style={styles.loadMoreText}>
-                    Charger plus ({mockAidContributions.length - visibleCount} autres)
-                  </Text>
-                </TouchableOpacity>
-              ) : (
-                <Text style={styles.listEndText}>Toutes les contributions sont affichées</Text>
-              )}
-            </View>
+            {hasMore && (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                style={styles.loadMore}
+                accessibilityRole="button"
+                onPress={() => setVisibleCount((v) => v + PAGE_SIZE)}
+              >
+                <Text style={styles.loadMoreText}>Voir plus</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </ScrollView>
 
-        {/* Footer CTA */}
+        {/* Action principale */}
         <View style={styles.footer}>
-          <View style={styles.footerInfo}>
-            <Text style={styles.footerTitle} numberOfLines={1}>
-              Soutenez {appeal.beneficiaryName.split(' ')[0]}
-            </Text>
-            <Text style={styles.footerSub}>À partir de {amountDisplay(500)}</Text>
-          </View>
-          <Button title="Contribuer" icon={HeartHandshake} onPress={() => setShowContribute(true)} />
+          <Button title="Contribuer" icon={HeartHandshake} onPress={openContribute} disabled={!isActive} />
         </View>
       </SafeAreaView>
 
       {/* Contribution (sans compte) */}
-      <Sheet visible={showContribute} onClose={() => setShowContribute(false)} title="Contribuer à la collecte">
+      <Sheet visible={showContribute} onClose={() => setShowContribute(false)} title="Contribuer">
         <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          <Text style={styles.sheetSub}>
-            Pour {appeal.beneficiaryName} · {appeal.beneficiaryNumber}
-          </Text>
+          <Text style={styles.sheetSub}>Pour {appeal.beneficiaryName}</Text>
+
+          <Text style={styles.fieldLabel}>Montant</Text>
+          <View style={styles.wrapRow}>
+            {QUICK_AMOUNTS.map((a) => (
+              <Chip
+                key={a}
+                label={formatShort(a)}
+                selected={!customAmount && quickAmount === a}
+                onPress={() => {
+                  setCustomAmount('');
+                  setQuickAmount(a);
+                }}
+              />
+            ))}
+          </View>
+          <TextField
+            placeholder="Autre montant"
+            suffix="F CFA"
+            keyboardType="number-pad"
+            value={customAmount}
+            onChangeText={(t) => setCustomAmount(t.replace(/\D/g, ''))}
+            containerStyle={styles.fieldTight}
+          />
 
           <View style={styles.settingBox}>
-            <SettingRow title="Rester anonyme" description="Votre nom n'apparaîtra pas dans la liste" last>
+            <SettingRow title="Rester anonyme" description="Votre nom n’apparaîtra pas dans la liste" last>
               <Toggle value={anonymous} onValueChange={setAnonymous} />
             </SettingRow>
           </View>
 
           {!anonymous && (
-            <>
-              <TextField
-                label="Nom complet"
-                placeholder="Votre nom complet"
-                value={contributorName}
-                onChangeText={setContributorName}
-                containerStyle={styles.field}
-              />
-              <TextField
-                label="Numéro de téléphone"
-                prefix="+226"
-                placeholder="Facultatif"
-                keyboardType="phone-pad"
-                value={contributorPhone}
-                onChangeText={setContributorPhone}
-                containerStyle={styles.field}
-              />
-            </>
+            <TextField
+              label="Nom complet"
+              placeholder="Votre nom complet"
+              value={contributorName}
+              onChangeText={setContributorName}
+              containerStyle={styles.field}
+            />
           )}
-
-          <Text style={styles.fieldLabel}>Montant de votre contribution</Text>
-          <View style={styles.wrapRow}>
-            {QUICK_AMOUNTS.map((a) => (
-              <Chip key={a} label={amountDisplay(a)} selected={amount === a} onPress={() => setAmount(a)} />
-            ))}
-          </View>
+          <TextField
+            label="Numéro Mobile Money"
+            prefix="+226"
+            placeholder="70 00 00 00"
+            keyboardType="phone-pad"
+            value={contributorPhone}
+            onChangeText={setContributorPhone}
+            containerStyle={styles.field}
+          />
 
           <Text style={styles.fieldLabel}>Moyen de paiement</Text>
-          <View style={styles.operatorGrid}>
-            {OPERATORS.map((op) => {
-              const selected = operator === op.id;
-              return (
-                <TouchableOpacity
-                  key={op.id}
-                  style={[styles.operator, selected && styles.operatorSelected]}
-                  activeOpacity={0.8}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected }}
-                  onPress={() => setOperator(op.id)}
-                >
-                  <View style={[styles.operatorDot, { backgroundColor: op.color }]} />
-                  <Text style={[styles.operatorText, selected && styles.operatorTextSelected]} numberOfLines={1}>
-                    {op.name}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+          <OperatorPicker operators={PAYMENT_OPERATORS} value={operator} onChange={setOperator} />
 
-          <Button
-            title={`Donner ${amountDisplay(amount)}`}
-            icon={HeartHandshake}
-            onPress={handleContribute}
-            style={styles.sheetCta}
-          />
+          <Button title={payButtonTitle(amount)} onPress={goToConfirm} disabled={!canPay} style={styles.sheetCta} />
         </ScrollView>
       </Sheet>
 
-      {/* Confirmation */}
+      <PaymentConfirmSheet
+        visible={showConfirm}
+        onClose={() => setShowConfirm(false)}
+        onConfirm={confirmPayment}
+        amount={amount}
+        operatorId={operator}
+        phone={`+226 ${contributorPhone.trim()}`}
+        detail={`Contribution pour ${appeal.beneficiaryName}`}
+      />
+
+      {/* Remerciement */}
       <Sheet visible={contributed} onClose={() => setContributed(false)}>
         <View style={styles.successIcon}>
           <Check size={28} color={colors.primary.DEFAULT} strokeWidth={2.5} />
         </View>
         <Text style={styles.successTitle}>Merci pour votre générosité</Text>
         <Text style={styles.successSub}>
-          Votre contribution de {amountDisplay(amount)} est en attente de validation. Un message sera envoyé au numéro
-          indiqué pour confirmer le paiement.
+          Votre contribution de {formatXOF(amount)} pour {appeal.beneficiaryName} a été prise en compte. Vous recevrez
+          un SMS de confirmation de {operatorName(operator)}.
         </Text>
-        <View style={styles.recap}>
-          <View style={styles.recapRow}>
-            <Text style={styles.recapLabel}>Bénéficiaire</Text>
-            <Text style={styles.recapValue}>{appeal.beneficiaryName}</Text>
-          </View>
-          <View style={[styles.recapRow, styles.recapBorder]}>
-            <Text style={styles.recapLabel}>Moyen de paiement</Text>
-            <Text style={styles.recapValue}>{OPERATORS.find((o) => o.id === operator)?.name}</Text>
-          </View>
-          <View style={[styles.recapRow, styles.recapBorder]}>
-            <Text style={styles.recapLabel}>Référence</Text>
-            <Text style={styles.recapValue}>TX-{Math.floor(100000 + Math.random() * 900000)}</Text>
-          </View>
-        </View>
-        <Button title="Fermer" variant="secondary" onPress={() => setContributed(false)} />
+        <Button title="Fermer" variant="secondary" onPress={() => setContributed(false)} style={styles.successCta} />
       </Sheet>
     </View>
   );
@@ -322,96 +349,106 @@ export default function AidAppealScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   flex: { flex: 1 },
+  scroll: { paddingBottom: 32 },
 
-  header: { height: 56, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8 },
-  headerTitle: { flex: 1, ...typography.headline, color: colors.ink, textAlign: 'center' },
-  headerSpacer: { width: 40 },
+  /* Couverture */
+  cover: {
+    height: COVER_HEIGHT,
+    backgroundColor: colors.primary.tint,
+    borderBottomLeftRadius: radius.lg,
+    borderBottomRightRadius: radius.lg,
+    overflow: 'hidden',
+  },
+  coverFallback: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  coverActions: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  coverButton: { backgroundColor: colors.bg },
 
-  scroll: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 32 },
+  content: { paddingHorizontal: 20, paddingTop: 20 },
 
-  beneficiaryRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  avatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.fill },
-  beneficiaryInfo: { flex: 1 },
-  beneficiaryName: { ...typography.headline, color: colors.ink },
-  beneficiaryMeta: { ...typography.footnote, color: colors.muted, marginTop: 2 },
-  liveBadge: {
+  /* Titre */
+  statusPill: {
+    alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: colors.accent.tint,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: radius.pill,
+    backgroundColor: colors.primary.tint,
   },
-  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.accent.DEFAULT },
-  liveBadgeText: { ...typography.caption, fontWeight: '600', color: colors.accent.deep },
-  reasonText: { ...typography.body, color: colors.inkSoft, marginTop: 16 },
+  statusPillDone: { backgroundColor: colors.fill },
+  statusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary.DEFAULT },
+  statusDotDone: { backgroundColor: colors.muted },
+  statusText: { ...typography.caption, fontWeight: '600', color: colors.primary.dark },
+  statusTextDone: { color: colors.muted },
+  title: { ...typography.title, color: colors.ink, marginTop: 10 },
+  forRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 },
+  forText: { flexShrink: 1, ...typography.body, color: colors.muted },
+  forName: { fontWeight: '600', color: colors.ink },
 
-  potCard: {
-    marginTop: 20,
-    backgroundColor: colors.primary.dark,
-    borderRadius: 24,
+  /* Collecte */
+  collectBlock: {
+    marginTop: 24,
     padding: 20,
-  },
-  potLabel: { ...typography.footnote, color: '#FFFFFF', opacity: 0.8 },
-  potAmount: { ...typography.title, color: '#FFFFFF', marginTop: 4 },
-  potGoal: { ...typography.footnote, color: '#FFFFFF', opacity: 0.8, marginTop: 2 },
-  progressTrack: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    overflow: 'hidden',
-    marginTop: 16,
-  },
-  progressFill: { height: '100%', borderRadius: 3, backgroundColor: colors.accent.DEFAULT },
-  progressFooter: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, marginTop: 8 },
-  potFootText: { ...typography.caption, color: '#FFFFFF', opacity: 0.85, flexShrink: 1 },
-
-  statsCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 12,
-    backgroundColor: colors.bg,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.line,
-    paddingVertical: 14,
+    backgroundColor: colors.bg,
   },
-  statCol: { flex: 1, alignItems: 'center', paddingHorizontal: 6, gap: 4 },
+  collected: { ...typography.display, color: colors.ink },
+  goal: { ...typography.callout, color: colors.muted, marginTop: 2 },
+  progressRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16 },
+  progressTrack: { flex: 1, height: 8, borderRadius: 4, backgroundColor: colors.fill, overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: 4, backgroundColor: colors.primary.DEFAULT },
+  percent: { ...typography.callout, fontWeight: '700', color: colors.primary.DEFAULT },
+  statsRow: {
+    flexDirection: 'row',
+    marginTop: 18,
+    paddingTop: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.line,
+  },
+  statCol: { flex: 1, alignItems: 'center', paddingHorizontal: 4 },
   statDivider: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch', backgroundColor: colors.line },
-  statValue: { ...typography.callout, fontWeight: '700', color: colors.ink, textAlign: 'center' },
-  statLabel: { ...typography.caption, fontWeight: '400', color: colors.muted, textAlign: 'center' },
+  statValue: { ...typography.headline, color: colors.ink, textAlign: 'center' },
+  statLabel: { ...typography.caption, fontWeight: '400', color: colors.muted, textAlign: 'center', marginTop: 2 },
 
-  trustCard: {
+  /* Paiement accepté */
+  payRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 20 },
+  payLabel: { flexShrink: 1, ...typography.callout, fontWeight: '600', color: colors.inkSoft },
+  logos: { flexDirection: 'row', gap: 8 },
+  logo: { width: 32, height: 32, borderRadius: 8 },
+
+  separator: { height: StyleSheet.hairlineWidth, backgroundColor: colors.line, marginVertical: 24 },
+
+  /* Histoire */
+  sectionTitle: { ...typography.headline, color: colors.ink, marginBottom: 8 },
+  story: { ...typography.body, color: colors.inkSoft },
+  trust: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
-    marginTop: 12,
-    backgroundColor: colors.primary.tint,
-    borderRadius: radius.md,
+    marginTop: 16,
     padding: 14,
+    borderRadius: radius.md,
+    backgroundColor: colors.primary.tint,
   },
   trustText: { flex: 1, ...typography.footnote, color: colors.primary.dark },
 
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 28,
-    marginBottom: 10,
-  },
-  sectionTitle: { ...typography.headline, color: colors.ink },
+  /* Contributeurs */
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  sectionTitleInline: { ...typography.headline, color: colors.ink },
   sectionCount: { ...typography.footnote, fontWeight: '600', color: colors.muted },
-
-  card: {
-    backgroundColor: colors.bg,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.line,
-    overflow: 'hidden',
-  },
-  contribRow: { flexDirection: 'row', alignItems: 'center', paddingLeft: 14, gap: 12 },
-  contribAvatar: {
+  emptyContrib: { ...typography.callout, color: colors.muted, paddingVertical: 16 },
+  contribRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
+  rowBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line },
+  anonAvatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -419,67 +456,45 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  contribInitial: { ...typography.callout, fontWeight: '700', color: colors.inkSoft },
-  contribBody: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingRight: 14 },
-  rowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
   contribName: { ...typography.callout, fontWeight: '600', color: colors.ink },
   contribMeta: { ...typography.footnote, color: colors.muted, marginTop: 2 },
-  contribAmount: { ...typography.callout, fontWeight: '700', color: colors.primary.DEFAULT },
-  listFooter: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.line,
+  contribAmount: { ...typography.callout, fontWeight: '700', color: colors.ink },
+  loadMore: {
+    minHeight: 48,
+    marginTop: 8,
+    justifyContent: 'center',
     alignItems: 'center',
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.line,
   },
-  loadMore: { minHeight: 48, justifyContent: 'center', alignSelf: 'stretch', alignItems: 'center' },
   loadMoreText: { ...typography.callout, fontWeight: '600', color: colors.primary.DEFAULT },
-  listEndText: { ...typography.footnote, color: colors.subtle, paddingVertical: 14 },
 
+  /* Pied */
   footer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.line,
     backgroundColor: colors.bg,
   },
-  footerInfo: { flex: 1 },
-  footerTitle: { ...typography.callout, fontWeight: '600', color: colors.ink },
-  footerSub: { ...typography.footnote, color: colors.muted, marginTop: 2 },
 
   /* Feuille de contribution */
-  sheetSub: { ...typography.footnote, color: colors.muted, marginTop: -6, marginBottom: 16 },
+  sheetSub: { ...typography.footnote, color: colors.muted, marginTop: -6 },
   settingBox: {
+    marginTop: 20,
     borderWidth: 1,
     borderColor: colors.line,
     borderRadius: radius.md,
     paddingHorizontal: 14,
   },
-  field: { marginTop: 20 },
+  field: { marginTop: 16 },
+  fieldTight: { marginTop: 10 },
   fieldLabel: { ...typography.footnote, fontWeight: '600', color: colors.inkSoft, marginTop: 20, marginBottom: 8 },
   wrapRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  operatorGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  operator: {
-    flexBasis: '48%',
-    flexGrow: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    minHeight: 48,
-    paddingHorizontal: 14,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.lineStrong,
-    backgroundColor: colors.bg,
-  },
-  operatorSelected: { borderColor: colors.primary.DEFAULT, borderWidth: 1.5, backgroundColor: colors.primary.tint },
-  operatorDot: { width: 10, height: 10, borderRadius: 5 },
-  operatorText: { flex: 1, ...typography.callout, color: colors.inkSoft },
-  operatorTextSelected: { fontWeight: '600', color: colors.primary.dark },
   sheetCta: { marginTop: 24 },
 
-  /* Confirmation */
+  /* Remerciement */
   successIcon: {
     alignSelf: 'center',
     width: 56,
@@ -492,16 +507,5 @@ const styles = StyleSheet.create({
   },
   successTitle: { ...typography.headline, color: colors.ink, textAlign: 'center', marginTop: 14 },
   successSub: { ...typography.callout, color: colors.muted, textAlign: 'center', marginTop: 6 },
-  recap: {
-    marginTop: 20,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: radius.md,
-    paddingHorizontal: 14,
-  },
-  recapRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, paddingVertical: 12 },
-  recapBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line },
-  recapLabel: { ...typography.footnote, color: colors.muted },
-  recapValue: { ...typography.callout, fontWeight: '600', color: colors.ink, flexShrink: 1, textAlign: 'right' },
+  successCta: { marginTop: 24 },
 });

@@ -22,7 +22,12 @@ import {
   mockMemberships,
   mockSolidarityRequests,
   mockReliabilityEvents,
+  mockAidAppeal,
   CircleType,
+  ContributionMode,
+  Frequency,
+  RefundRule,
+  UnlockRule,
   ReplacementRule,
   KycRequirement,
   KycStatus,
@@ -30,6 +35,7 @@ import {
   AidRequestStatus,
   ReliabilityEventType,
   Role,
+  MembershipRequestStatus,
 } from '@venega/types';
 import type {
   Circle,
@@ -42,6 +48,7 @@ import type {
   User,
   SolidarityRequest,
   EventType,
+  AidAppeal,
 } from '@venega/types';
 
 /** Phase de vie d'un cercle : constitution (nouveau) ou rotation démarrée (en cours) */
@@ -143,6 +150,34 @@ export function getActiveCycle(circle: Circle): Cycle | undefined {
 
 export function getMembershipRequests(circleId?: string): MembershipRequest[] {
   return circleId ? membershipRequests.filter((r) => r.circleId === circleId) : membershipRequests;
+}
+
+/** Pièces fournies par un membre lors de sa demande d'adhésion. */
+export interface MemberDocumentsData {
+  cnibFrontUrl: string;
+  cnibBackUrl: string;
+  selfieUrl?: string;
+  depositNumber: string;
+  submittedAt: string;
+}
+
+/**
+ * Documents d'un membre dans un cercle, issus de sa demande d'adhésion
+ * (approuvée en priorité, sinon la plus récente). `undefined` si le membre
+ * n'a jamais déposé de demande (fondateur, membres d'origine).
+ */
+export function getMemberDocuments(circleId: string, userId: string): MemberDocumentsData | undefined {
+  const own = membershipRequests.filter((r) => r.circleId === circleId && r.userId === userId);
+  if (own.length === 0) return undefined;
+  const latestFirst = [...own].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const req = latestFirst.find((r) => r.status === MembershipRequestStatus.APPROVED) ?? latestFirst[0]!;
+  return {
+    cnibFrontUrl: req.cnibFrontUrl,
+    cnibBackUrl: req.cnibBackUrl,
+    selfieUrl: req.selfieUrl,
+    depositNumber: req.depositNumber,
+    submittedAt: req.createdAt,
+  };
 }
 
 /** Demandes de départ d'un cercle (triées, plus récentes en premier). */
@@ -650,3 +685,86 @@ export function disburseSolidarityRequest(requestId: string): void {
 }
 
 const fmt = (n: number) => new Intl.NumberFormat('fr-FR').format(n) + ' F CFA';
+
+// ── Cagnottes d'aide publiques (AID_APPEAL) ──
+
+let aidAppeals: AidAppeal[] = [mockAidAppeal];
+
+/** Adresse publique d'une cagnotte : ouverte dans le navigateur par ceux qui n'ont pas l'application. */
+// TODO: domaine définitif à confirmer avec l'équipe web (page venega-web /c/[code]).
+export const AID_PUBLIC_BASE_URL = 'https://venega.app/c/';
+
+export function getAidShareLink(circle: Circle): string {
+  return AID_PUBLIC_BASE_URL + circle.inviteCode;
+}
+
+export function getAidAppeal(circleId: string): AidAppeal | undefined {
+  return aidAppeals.find((a) => a.circleId === circleId);
+}
+
+/**
+ * Lance une cagnotte d'aide : crée le cercle public (sans adhésion) et la fiche de l'appel.
+ * Les fonds restent bloqués jusqu'à l'approbation des approbateurs (même règle que le mock c5).
+ */
+export function createAidAppeal(params: {
+  title: string;
+  beneficiaryName: string;
+  beneficiaryNumber: string;
+  reason: string;
+  goalAmount: number;
+  deadline?: string;
+  beneficiaryPhoto?: string;
+}): { circle: Circle; appeal: AidAppeal } {
+  const now = new Date().toISOString();
+  const id = 'c' + Date.now().toString(36);
+  const code = 'AID-' + Math.random().toString(36).slice(2, 8).toUpperCase();
+  const circle: Circle = {
+    id,
+    name: params.title,
+    type: CircleType.AID_APPEAL,
+    tontineAmount: 0,
+    solidarityAmount: 0,
+    frequency: Frequency.MONTHLY,
+    contributionMode: ContributionMode.CASH,
+    beneficiariesPerTurn: 0,
+    inviteCode: code,
+    memberCount: 0,
+    createdAt: now,
+    rules: {
+      refundRule: RefundRule.IMMEDIATE,
+      replacementRule: ReplacementRule.NONE,
+      unlockRule: UnlockRule.ALL_APPROVERS,
+      approversRequired: 3,
+      reservePercent: 0,
+      allowPublicContributions: true,
+      minContribution: 500,
+      goalAmount: params.goalAmount,
+      kycRequirement: KycRequirement.NONE,
+    },
+    managementFee: 0,
+    depositRequired: false,
+    recalculateOnLeave: false,
+    exclusionThreshold: 0,
+    nextPaymentRequired: false,
+    conditions:
+      "Contribution libre et ouverte à tous, sans adhésion. L'argent est débloqué uniquement après approbation des approbateurs désignés.",
+    isActive: true,
+  };
+  const appeal: AidAppeal = {
+    id: 'aa' + Date.now().toString(36),
+    circleId: id,
+    beneficiaryName: params.beneficiaryName,
+    beneficiaryPhoto: params.beneficiaryPhoto,
+    beneficiaryNumber: params.beneficiaryNumber,
+    reason: params.reason,
+    goalAmount: params.goalAmount,
+    collectedAmount: 0,
+    contributorCount: 0,
+    deadline: params.deadline,
+    status: 'ACTIVE',
+    createdAt: now,
+  };
+  addCircle(circle);
+  aidAppeals = [appeal, ...aidAppeals];
+  return { circle, appeal };
+}

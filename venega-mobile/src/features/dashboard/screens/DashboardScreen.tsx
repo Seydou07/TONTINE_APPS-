@@ -1,33 +1,20 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
-import {
-  ArrowDownLeft,
-  ArrowUpRight,
-  Bell,
-  ChevronRight,
-  Gift,
-  HeartHandshake,
-  History,
-  Plus,
-  UserPlus,
-  Users,
-} from 'lucide-react-native';
+import { Bell, ChevronRight, Gift, HandHeart, HeartHandshake, Plus, UserPlus, Users } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
 import { colors, radius, typography } from '@venega/design-tokens';
-import { mockCurrentUser, mockTransactions, CircleType, TransactionStatus, TransactionType } from '@venega/types';
+import { mockCurrentUser, CircleType } from '@venega/types';
 import type { Circle } from '@venega/types';
 import { getCircles } from '../../circles/circleStore';
+import { HeroHeader, HeroStatusBar, heroColors } from '../../../components/ui';
+import PromoCarousel from '../components/PromoCarousel';
 
 const formatXOF = (amount: number) => new Intl.NumberFormat('fr-FR').format(amount) + ' F';
 
-const formatDay = (iso: string) =>
-  new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-
-const isContribution = (type: string) =>
-  type === TransactionType.TONTINE_CONTRIBUTION || type === TransactionType.SOLIDARITY_CONTRIBUTION;
+/** Hauteur dont le diaporama chevauche le bandeau vert. */
+const CARD_OVERLAP = 64;
 
 function circleMeta(c: Circle): { icon: LucideIcon; subtitle: string } {
   if (c.type === CircleType.AID_APPEAL) {
@@ -53,38 +40,27 @@ export default function DashboardScreen() {
   );
 
   const me = mockCurrentUser;
-  const mine = mockTransactions.filter((t) => t.userId === me.id && t.status === TransactionStatus.COMPLETED);
-  const totalPaid = mine.filter((t) => isContribution(t.type)).reduce((s, t) => s + t.amount, 0);
-  const totalReceived = mine.filter((t) => t.type === TransactionType.PAYOUT).reduce((s, t) => s + t.amount, 0);
-
-  const circleIds = new Set(circles.map((c) => c.id));
-  const recent = mockTransactions
-    .filter((t) => circleIds.has(t.circleId))
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .slice(0, 4);
+  const fullName = [me.firstName, me.lastName].filter(Boolean).join(' ');
 
   const openCircle = (c: Circle) => {
     if (c.type === CircleType.AID_APPEAL) router.push(`/aid/${c.id}` as any);
     else if (c.type === CircleType.SOLIDARITY_ONLY) router.push(`/circle/${c.id}/solidarity` as any);
-    else if (c.type === CircleType.TONTINE_ONLY) router.push(`/circle/${c.id}/tontine` as any);
+    else if (c.type === CircleType.TONTINE_ONLY || c.type === CircleType.NATURE) router.push(`/circle/${c.id}/tontine` as any);
     else router.push(`/circle/${c.id}` as any);
   };
 
-  const actions: { label: string; icon: LucideIcon; route: string }[] = [
-    { label: 'Créer', icon: Plus, route: '/circles/create' },
-    { label: 'Rejoindre', icon: UserPlus, route: '/circles/join' },
-    { label: 'Cercles', icon: Users, route: '/(tabs)/circles' },
-    { label: 'Historique', icon: History, route: '/activity' },
-  ];
-
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
-      <SafeAreaView style={styles.flex} edges={['top']}>
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          {/* ── En-tête ── */}
+      <HeroStatusBar />
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* ── Section verte : salutation ── */}
+        <HeroHeader overlap={CARD_OVERLAP}>
           <View style={styles.header}>
-            <TouchableOpacity onPress={() => router.push('/(tabs)/profile')} activeOpacity={0.8}>
+            <TouchableOpacity
+              onPress={() => router.push('/(tabs)/profile')}
+              activeOpacity={0.8}
+              accessibilityLabel="Mon profil"
+            >
               {me.avatarUrl ? (
                 <Image source={{ uri: me.avatarUrl }} style={styles.avatar} contentFit="cover" transition={200} />
               ) : (
@@ -94,9 +70,9 @@ export default function DashboardScreen() {
               )}
             </TouchableOpacity>
             <View style={styles.flex}>
-              <Text style={styles.greeting}>Bonjour,</Text>
+              <Text style={styles.greeting}>Bonjour</Text>
               <Text style={styles.userName} numberOfLines={1}>
-                {me.firstName}
+                {fullName}
               </Text>
             </View>
             <TouchableOpacity
@@ -105,49 +81,32 @@ export default function DashboardScreen() {
               activeOpacity={0.7}
               accessibilityLabel="Notifications"
             >
-              <Bell size={22} color={colors.ink} strokeWidth={1.8} />
+              <Bell size={22} color={heroColors.accent} strokeWidth={1.9} />
               <View style={styles.bellDot} />
             </TouchableOpacity>
           </View>
+        </HeroHeader>
 
-          {/* ── Synthèse ── */}
-          <View style={styles.balanceCard}>
-            <Text style={styles.balanceLabel}>Total cotisé</Text>
-            <Text style={styles.balanceValue}>{formatXOF(totalPaid)}</Text>
-            <View style={styles.balanceRow}>
-              <View style={styles.balanceItem}>
-                <Text style={styles.balanceItemLabel}>Cagnottes reçues</Text>
-                <Text style={styles.balanceItemValue}>{formatXOF(totalReceived)}</Text>
-              </View>
-              <View style={styles.balanceDivider} />
-              <View style={styles.balanceItem}>
-                <Text style={styles.balanceItemLabel}>Cercles actifs</Text>
-                <Text style={styles.balanceItemValue}>{circles.filter((c) => !!c.activatedAt).length}</Text>
-              </View>
-            </View>
-          </View>
+        {/* ── Diaporama (chevauche le vert) ── */}
+        <PromoCarousel style={styles.promo} />
 
-          {/* ── Actions rapides ── */}
+        <View style={styles.body}>
+          {/* ── Actions ── */}
           <View style={styles.actions}>
-            {actions.map(({ label, icon: Icon, route }) => (
-              <TouchableOpacity
-                key={label}
-                style={styles.action}
-                activeOpacity={0.7}
-                onPress={() => router.push(route as any)}
-              >
-                <View style={styles.actionIcon}>
-                  <Icon size={22} color={colors.primary.dark} strokeWidth={1.8} />
-                </View>
-                <Text style={styles.actionLabel}>{label}</Text>
-              </TouchableOpacity>
-            ))}
+            <ActionTile icon={Plus} label="Créer un cercle" onPress={() => router.push('/circles/create')} />
+            <ActionTile icon={UserPlus} label="Rejoindre un cercle" onPress={() => router.push('/circles/join')} />
+            <ActionTile icon={HandHeart} label="Lancer une cagnotte" onPress={() => router.push('/aid/create' as any)} />
           </View>
 
           {/* ── Mes cercles ── */}
-          <SectionHeader title="Mes cercles" onSeeAll={() => router.push('/(tabs)/circles')} />
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Mes cercles</Text>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/circles')} hitSlop={8} activeOpacity={0.6}>
+              <Text style={styles.seeAll}>Voir tout</Text>
+            </TouchableOpacity>
+          </View>
           <View style={styles.card}>
-            {circles.slice(0, 4).map((c, i, list) => {
+            {circles.slice(0, 5).map((c, i, list) => {
               const { icon: Icon, subtitle } = circleMeta(c);
               const active = !!c.activatedAt;
               return (
@@ -170,131 +129,80 @@ export default function DashboardScreen() {
               );
             })}
           </View>
-
-          {/* ── Activité récente ── */}
-          <SectionHeader title="Activité récente" onSeeAll={() => router.push('/activity' as any)} />
-          <View style={styles.card}>
-            {recent.map((t, i) => {
-              const credit = isContribution(t.type);
-              const pending = t.status === TransactionStatus.PENDING;
-              const Icon = credit ? ArrowUpRight : ArrowDownLeft;
-              const circleName = circles.find((c) => c.id === t.circleId)?.name ?? '';
-              const label = credit ? `Cotisation de ${t.memberName.split(' ')[0]}` : `Cagnotte versée à ${t.memberName.split(' ')[0]}`;
-              return (
-                <View key={t.id} style={styles.row}>
-                  <View
-                    style={[
-                      styles.rowIcon,
-                      styles.rowIconRound,
-                      { backgroundColor: pending ? colors.accent.tint : credit ? colors.primary.tint : colors.fill },
-                    ]}
-                  >
-                    <Icon size={18} color={pending ? colors.accent.dark : credit ? colors.primary.DEFAULT : colors.inkSoft} />
-                  </View>
-                  <View style={[styles.rowBody, i < recent.length - 1 && styles.rowBorder]}>
-                    <View style={styles.flex}>
-                      <Text style={styles.rowTitle} numberOfLines={1}>
-                        {label}
-                      </Text>
-                      <Text style={styles.rowSub} numberOfLines={1}>
-                        {circleName} · {formatDay(t.createdAt)}
-                      </Text>
-                    </View>
-                    <View style={styles.amountCol}>
-                      <Text style={[styles.amount, { color: credit ? colors.primary.DEFAULT : colors.ink }]}>
-                        {credit ? '+' : '−'}
-                        {formatXOF(t.amount)}
-                      </Text>
-                      {pending && <Text style={styles.pending}>En attente</Text>}
-                    </View>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-        </ScrollView>
-      </SafeAreaView>
+        </View>
+      </ScrollView>
     </View>
   );
 }
 
-function SectionHeader({ title, onSeeAll }: { title: string; onSeeAll: () => void }) {
+function ActionTile({ icon: Icon, label, onPress }: { icon: LucideIcon; label: string; onPress: () => void }) {
   return (
-    <View style={styles.sectionHeader}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      <TouchableOpacity onPress={onSeeAll} hitSlop={8} activeOpacity={0.6}>
-        <Text style={styles.seeAll}>Voir tout</Text>
-      </TouchableOpacity>
-    </View>
+    <TouchableOpacity style={styles.action} onPress={onPress} activeOpacity={0.7}>
+      <View style={styles.actionIcon}>
+        <Icon size={20} color={colors.primary.dark} strokeWidth={2} />
+      </View>
+      <Text style={styles.actionLabel} numberOfLines={2}>
+        {label}
+      </Text>
+    </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.fill },
   flex: { flex: 1 },
-  scroll: { paddingHorizontal: 16, paddingBottom: 32 },
+  scroll: { paddingBottom: 32 },
 
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 12, paddingBottom: 20 },
-  avatar: { width: 44, height: 44, borderRadius: 22 },
-  avatarFallback: { backgroundColor: colors.primary.tint, justifyContent: 'center', alignItems: 'center' },
-  avatarInitial: { ...typography.headline, color: colors.primary.dark },
-  greeting: { ...typography.footnote, color: colors.muted },
-  userName: { ...typography.headline, fontSize: 18, fontWeight: '700', color: colors.ink },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  avatar: { width: 52, height: 52, borderRadius: 26, borderWidth: 2, borderColor: heroColors.accent },
+  avatarFallback: { backgroundColor: heroColors.button, justifyContent: 'center', alignItems: 'center' },
+  avatarInitial: { ...typography.headline, color: heroColors.accent },
+  greeting: { ...typography.callout, fontWeight: '600', color: heroColors.accent },
+  userName: { ...typography.headline, fontSize: 18, color: heroColors.text, marginTop: 2 },
   bell: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: colors.bg,
-    borderWidth: 1,
-    borderColor: colors.line,
+    backgroundColor: heroColors.button,
     justifyContent: 'center',
     alignItems: 'center',
   },
   bellDot: {
     position: 'absolute',
-    top: 11,
-    right: 12,
+    top: 10,
+    right: 11,
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: colors.danger.DEFAULT,
     borderWidth: 1.5,
-    borderColor: colors.bg,
+    borderColor: colors.primary.dark,
   },
 
-  balanceCard: {
-    backgroundColor: colors.primary.dark,
-    borderRadius: 24,
-    padding: 20,
-  },
-  balanceLabel: { ...typography.footnote, color: 'rgba(255,255,255,0.72)' },
-  balanceValue: { ...typography.display, color: '#FFFFFF', marginTop: 4 },
-  balanceRow: {
-    flexDirection: 'row',
+  promo: { marginTop: -CARD_OVERLAP },
+
+  body: { paddingHorizontal: 16 },
+  actions: { flexDirection: 'row', gap: 10, marginTop: 20 },
+  action: {
+    flex: 1,
     alignItems: 'center',
-    marginTop: 20,
-    paddingTop: 16,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(255,255,255,0.2)',
-  },
-  balanceItem: { flex: 1 },
-  balanceItemLabel: { ...typography.caption, fontWeight: '400', color: 'rgba(255,255,255,0.72)' },
-  balanceItemValue: { ...typography.bodyStrong, color: '#FFFFFF', marginTop: 2 },
-  balanceDivider: { width: 1, height: 28, backgroundColor: 'rgba(255,255,255,0.2)', marginHorizontal: 16 },
-
-  actions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 },
-  action: { flex: 1, alignItems: 'center', gap: 8 },
-  actionIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
     backgroundColor: colors.bg,
+    borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.line,
+  },
+  actionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primary.tint,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  actionLabel: { ...typography.footnote, fontWeight: '500', color: colors.ink },
+  actionLabel: { ...typography.footnote, fontWeight: '600', color: colors.ink, textAlign: 'center' },
 
   sectionHeader: {
     flexDirection: 'row',
@@ -323,13 +231,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  rowIconRound: { borderRadius: 20 },
   rowIconOff: { backgroundColor: colors.fill },
   rowBody: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 14, paddingRight: 14 },
   rowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
   rowTitle: { ...typography.callout, fontWeight: '600', color: colors.ink },
   rowSub: { ...typography.footnote, color: colors.muted, marginTop: 2 },
-  amountCol: { alignItems: 'flex-end' },
-  amount: { ...typography.callout, fontWeight: '700' },
-  pending: { ...typography.caption, color: colors.accent.dark, marginTop: 2 },
 });

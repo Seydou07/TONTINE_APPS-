@@ -10,6 +10,7 @@ import {
   StatusBar,
   ScrollView,
 } from 'react-native';
+import type { TextInputInstance } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft } from 'lucide-react-native';
@@ -33,7 +34,7 @@ export default function OtpScreen() {
   const [resendCooldown, setResendCooldown] = useState(RESEND_DURATION);
   const [error, setError] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(0);
-  const inputsRef = useRef<(TextInput | null)[]>([]);
+  const inputsRef = useRef<(TextInputInstance | null)[]>([]);
   const shake = useSharedValue(0);
 
   useEffect(() => {
@@ -107,7 +108,7 @@ export default function OtpScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <StatusBar barStyle="dark-content" />
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={styles.topBar}>
           <IconButton

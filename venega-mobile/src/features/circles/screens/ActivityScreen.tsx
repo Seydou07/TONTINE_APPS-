@@ -5,9 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  StatusBar,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ArrowUpRight,
   ArrowDownLeft,
@@ -17,7 +15,10 @@ import {
   Clock,
 } from 'lucide-react-native';
 import { colors, radius, typography } from '@venega/design-tokens';
-import { Chip } from '../../../components/ui';
+import { Chip, HeroHeader, HeroStatusBar, HeroTitle } from '../../../components/ui';
+
+/** Hauteur dont la carte Entrées / Sorties chevauche le bandeau vert. */
+const SUMMARY_OVERLAP = 40;
 import { mockTransactions, mockCircles, mockCycles } from '@venega/types';
 import { TransactionType, TransactionStatus } from '@venega/types';
 import { getLedgerEntries } from '../circleStore';
@@ -215,10 +216,12 @@ export default function ActivityScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
-      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+      <HeroStatusBar />
+      <View style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-          <Text style={styles.headerTitle}>Activité</Text>
+          <HeroHeader overlap={SUMMARY_OVERLAP} style={styles.hero}>
+            <HeroTitle title="Historique" subtitle="Toutes vos cotisations et cagnottes" />
+          </HeroHeader>
 
           {/* Entrées / sorties de la période */}
           <View style={styles.summary}>
@@ -328,7 +331,7 @@ export default function ActivityScreen() {
             ))
           )}
         </ScrollView>
-      </SafeAreaView>
+      </View>
 
       {selectedTx && (
         <TransactionDetailModal
@@ -353,9 +356,11 @@ export default function ActivityScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.fill },
   scroll: { paddingHorizontal: 16, paddingBottom: 32 },
-  headerTitle: { ...typography.title, color: colors.ink, paddingHorizontal: 4, paddingTop: 12, paddingBottom: 16 },
+  // Le bandeau occupe toute la largeur malgré le padding horizontal du ScrollView.
+  hero: { marginHorizontal: -16 },
 
   summary: {
+    marginTop: -SUMMARY_OVERLAP,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.bg,

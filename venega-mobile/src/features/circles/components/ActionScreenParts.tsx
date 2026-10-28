@@ -11,7 +11,7 @@ import { IconButton } from '../../../components/ui';
 export function ScreenHeader({ title, subtitle, onBack }: { title: string; subtitle?: string; onBack: () => void }) {
   return (
     <>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <StatusBar barStyle="dark-content" />
       <View style={styles.header}>
         <IconButton icon={ArrowLeft} variant="plain" accessibilityLabel="Retour" onPress={onBack} />
         <View style={styles.headerText}>

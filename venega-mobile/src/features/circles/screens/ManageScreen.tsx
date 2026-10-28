@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
-import { Image } from 'expo-image';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -40,7 +39,7 @@ import {
   UnlockRule,
   PaymentStatus,
 } from '@venega/types';
-import { Button, IconButton, ListGroup, ListRow, Sheet } from '../../../components/ui';
+import { Avatar, Button, IconButton, ListGroup, ListRow, Sheet } from '../../../components/ui';
 
 const formatXOF = (n: number) => new Intl.NumberFormat('fr-FR').format(n) + ' F CFA';
 
@@ -134,11 +133,9 @@ export default function ManageScreen() {
 
   const pendingLabel = (n: number) => (n > 0 ? `${n} en attente` : undefined);
 
-  const initials = `${beneficiary?.user?.firstName?.[0] ?? ''}${beneficiary?.user?.lastName?.[0] ?? ''}`.toUpperCase();
-
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <StatusBar barStyle="dark-content" />
       <SafeAreaView style={styles.flex} edges={['top']}>
         {/* En-tête */}
         <View style={styles.header}>
@@ -164,13 +161,14 @@ export default function ManageScreen() {
                 {orderedMembers.length} membre(s)
               </Text>
             </View>
-            {beneficiary?.user?.avatarUrl ? (
-              <Image source={{ uri: beneficiary.user.avatarUrl }} style={styles.summaryAvatar} contentFit="cover" />
-            ) : (
-              <View style={[styles.summaryAvatar, styles.avatarFallback]}>
-                <Text style={styles.avatarInitials}>{initials || '—'}</Text>
-              </View>
-            )}
+            {beneficiary?.user ? (
+              <Avatar
+                name={`${beneficiary.user.firstName} ${beneficiary.user.lastName}`}
+                uri={beneficiary.user.avatarUrl}
+                size={40}
+                highlighted
+              />
+            ) : null}
           </View>
 
           <ListGroup title="Tour et versements" style={styles.group}>
@@ -339,7 +337,7 @@ export default function ManageScreen() {
                     accessibilityRole="checkbox"
                     accessibilityState={{ checked: isChecked }}
                   >
-                    <Image source={{ uri: m.user?.avatarUrl }} style={styles.lateAvatar} contentFit="cover" />
+                    <Avatar name={`${m.user?.firstName ?? ''} ${m.user?.lastName ?? ''}`} uri={m.user?.avatarUrl} size={40} />
                     <View style={[styles.lateBody, !last && styles.lateBorder]}>
                       <View style={styles.lateInfo}>
                         <Text style={styles.lateName} numberOfLines={1}>
@@ -425,9 +423,6 @@ const styles = StyleSheet.create({
   summaryText: { flex: 1 },
   summaryName: { ...typography.headline, color: colors.ink },
   summaryMeta: { ...typography.footnote, color: colors.muted, marginTop: 4 },
-  summaryAvatar: { width: 44, height: 44, borderRadius: 22 },
-  avatarFallback: { backgroundColor: colors.primary.tint, justifyContent: 'center', alignItems: 'center' },
-  avatarInitials: { ...typography.callout, fontWeight: '700', color: colors.primary.dark },
 
   rulesCard: {
     marginTop: 12,
@@ -456,7 +451,6 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
   },
   lateRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 14 },
-  lateAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.fill },
   lateBody: {
     flex: 1,
     flexDirection: 'row',

@@ -6,7 +6,8 @@ import { ChevronRight } from 'lucide-react-native';
 import { colors, typography } from '@venega/design-tokens';
 import { getCircle, getCircles, getCircleMembers, getCurrentUser } from '../circleStore';
 import { Role } from '@venega/types';
-import { Avatar, RoleBadge, ScreenHeader, cardStyle } from '../components/SolidarityParts';
+import { Avatar } from '../../../components/ui';
+import { RoleBadge, ScreenHeader, cardStyle } from '../components/SolidarityParts';
 
 const roleLabel: Record<Role, string> = {
   [Role.PRESIDENT]: 'Présidente',
@@ -35,7 +36,7 @@ export default function SolidarityMembersScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <StatusBar barStyle="dark-content" />
       <SafeAreaView style={styles.flex} edges={['top']}>
         <ScreenHeader title="Membres" subtitle={`${members.length} membres · ${circle.name}`} onBack={() => router.back()} />
 
@@ -51,7 +52,7 @@ export default function SolidarityMembersScreen() {
                   accessibilityRole="button"
                   onPress={() => router.push({ pathname: '/circle/[id]/solidarity-member/[userId]', params: { id: circle.id, userId: m.userId } })}
                 >
-                  <Avatar name={fullName} userId={m.userId} photoUrl={m.user.avatarUrl} size={40} />
+                  <Avatar name={fullName} uri={m.user.avatarUrl} size={40} />
                   <View style={[styles.rowBody, idx < members.length - 1 && styles.rowBorder]}>
                     <View style={styles.flex}>
                       <Text style={styles.rowTitle} numberOfLines={1}>

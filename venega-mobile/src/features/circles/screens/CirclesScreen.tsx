@@ -1,6 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, StatusBar } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Users, Search, ChevronRight, HeartHandshake, Gift, Plus, Repeat, Clock, X } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
@@ -8,7 +7,7 @@ import { colors, radius, typography } from '@venega/design-tokens';
 import { CircleType } from '@venega/types';
 import type { Circle } from '@venega/types';
 import { getCircles, getFounderCircleIds, CIRCLE_CREATION_FEE } from '../circleStore';
-import { Button, Chip } from '../../../components/ui';
+import { Button, Chip, HeroHeader, HeroTitle, heroColors, HeroStatusBar } from '../../../components/ui';
 
 const formatXOF = (amount: number) => new Intl.NumberFormat('fr-FR').format(amount) + ' F CFA';
 
@@ -58,39 +57,37 @@ export default function CirclesScreen() {
     if (!circle.activatedAt) return openActivation(circle.id);
     if (circle.type === CircleType.AID_APPEAL) return router.push(`/aid/${circle.id}` as any);
     if (circle.type === CircleType.SOLIDARITY_ONLY) return router.push(`/circle/${circle.id}/solidarity` as any);
-    if (circle.type === CircleType.TONTINE_ONLY) return router.push(`/circle/${circle.id}/tontine` as any);
+    if (circle.type === CircleType.TONTINE_ONLY || circle.type === CircleType.NATURE) return router.push(`/circle/${circle.id}/tontine` as any);
     router.push(`/circle/${circle.id}` as any);
   };
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
-      <SafeAreaView style={styles.flex} edges={['top']}>
+      <HeroStatusBar />
+      <View style={styles.flex}>
         <ScrollView
           contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          stickyHeaderIndices={[1]}
         >
-          <View style={styles.header}>
-            <View style={styles.flex}>
-              <Text style={styles.title}>Mes cercles</Text>
-              <Text style={styles.subtitle}>
-                {activeCount} actif{activeCount > 1 ? 's' : ''}
-                {pendingCount > 0 ? ` · ${pendingCount} en attente` : ''}
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={styles.addBtn}
-              onPress={() => router.push('/circles/join')}
-              activeOpacity={0.7}
-              accessibilityLabel="Rejoindre un cercle"
-            >
-              <Plus size={22} color={colors.ink} />
-            </TouchableOpacity>
-          </View>
+          <HeroHeader>
+            <HeroTitle
+              title="Mes cercles"
+              subtitle={`${activeCount} actif${activeCount > 1 ? 's' : ''}${pendingCount > 0 ? ` · ${pendingCount} en attente` : ''}`}
+              right={
+                <TouchableOpacity
+                  style={styles.addBtn}
+                  onPress={() => router.push('/circles/join')}
+                  activeOpacity={0.7}
+                  accessibilityLabel="Rejoindre un cercle"
+                >
+                  <Plus size={22} color={heroColors.accent} />
+                </TouchableOpacity>
+              }
+            />
+          </HeroHeader>
 
-          {/* Recherche + filtres (restent visibles au défilement) */}
+          {/* Recherche + filtres */}
           <View style={styles.toolbar}>
             <View style={styles.search}>
               <Search size={18} color={colors.subtle} />
@@ -182,7 +179,7 @@ export default function CirclesScreen() {
             </View>
           )}
         </ScrollView>
-      </SafeAreaView>
+      </View>
     </View>
   );
 }
@@ -203,21 +200,16 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   scroll: { paddingBottom: 32 },
 
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 12 },
-  title: { ...typography.title, color: colors.ink },
-  subtitle: { ...typography.footnote, color: colors.muted, marginTop: 2 },
   addBtn: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: colors.bg,
-    borderWidth: 1,
-    borderColor: colors.line,
+    backgroundColor: heroColors.button,
     justifyContent: 'center',
     alignItems: 'center',
   },
 
-  toolbar: { backgroundColor: colors.fill, paddingHorizontal: 16, paddingTop: 4, paddingBottom: 12, gap: 12 },
+  toolbar: { backgroundColor: colors.fill, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, gap: 12 },
   search: {
     flexDirection: 'row',
     alignItems: 'center',

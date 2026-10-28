@@ -201,7 +201,7 @@ export default function CreateCircleScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <StatusBar barStyle="dark-content" />
       <SafeAreaView style={styles.flex} edges={['top', 'bottom']}>
         {/* ── En-tête + progression ── */}
         <View style={styles.header}>
@@ -620,7 +620,7 @@ function CreatedView({ circle, onDone }: { circle: Circle; onDone: () => void })
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <StatusBar barStyle="dark-content" />
       <SafeAreaView style={styles.flex} edges={['top', 'bottom']}>
         <ScrollView contentContainerStyle={styles.createdScroll} showsVerticalScrollIndicator={false}>
           <Animated.View entering={FadeIn.duration(300)} style={styles.createdHero}>

@@ -8,7 +8,6 @@ import {
   BadgeCheck,
   Clock,
   Heart,
-  Layers,
   Package,
   Minus,
   Plus,
@@ -32,14 +31,6 @@ const circleTypes = [
     icon: Heart,
     iconBg: 'bg-info-tint',
     iconColor: 'text-info',
-  },
-  {
-    key: 'HYBRID',
-    label: 'Hybride',
-    desc: 'Tontine et caisse de solidarité réunies dans un seul cercle',
-    icon: Layers,
-    iconBg: 'bg-purple-tint',
-    iconColor: 'text-purple',
   },
   {
     key: 'NATURE',
@@ -86,7 +77,7 @@ export default function CreateCirclePage() {
 
   const [step, setStep] = useState(1);
   const [name, setName] = useState('');
-  const [type, setType] = useState<string>('HYBRID');
+  const [type, setType] = useState<string>('TONTINE_ONLY');
   const [frequency, setFrequency] = useState<string>('MONTHLY');
   const [customDays, setCustomDays] = useState('3');
 
@@ -107,8 +98,8 @@ export default function CreateCirclePage() {
 
   const [created, setCreated] = useState<{ name: string; inviteCode: string } | null>(null);
 
-  const usesTontine = type === 'TONTINE_ONLY' || type === 'HYBRID' || type === 'NATURE';
-  const usesSolidarity = type === 'SOLIDARITY_ONLY' || type === 'HYBRID';
+  const usesTontine = type === 'TONTINE_ONLY' || type === 'NATURE';
+  const usesSolidarity = type === 'SOLIDARITY_ONLY';
 
   const tontine = usesTontine ? parseFloat(tontineAmount) || 0 : 0;
   const solidarity = usesSolidarity ? parseFloat(solidarityAmount) || 0 : 0;

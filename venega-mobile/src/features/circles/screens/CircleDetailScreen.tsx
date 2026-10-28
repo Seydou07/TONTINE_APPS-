@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,6 @@ import {
   Linking,
   Share,
 } from 'react-native';
-import { Image } from 'expo-image';
 import { useRouter, useLocalSearchParams, Redirect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -33,16 +32,8 @@ import {
   ArrowDownLeft,
   Settings2,
 } from 'lucide-react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withRepeat,
-  withSequence,
-  Easing,
-} from 'react-native-reanimated';
 import { colors, radius, typography, shadows } from '@venega/design-tokens';
-import { Button, IconButton, Sheet, ListRow, ListGroup, Chip } from '../../../components/ui';
+import { Avatar, Button, IconButton, Sheet, ListRow, ListGroup, Chip } from '../../../components/ui';
 import {
   getCircle,
   getCircles,
@@ -50,13 +41,9 @@ import {
   getCycles,
   getFounderCircleIds,
 } from '../circleStore';
+import RotationWheel from '../components/RotationWheel';
 import { mockMemberships, mockUsers, mockCurrentUser, mockTransactions } from '@venega/types';
 import { Role, PaymentStatus, TransactionType, PaymentMethod, CircleType } from '@venega/types';
-
-const WHEEL_SIZE = 240;
-const CENTER_SIZE = 116;
-const AVATAR_SIZE = 42;
-const AVATAR_RADIUS = 98;
 
 const formatXOF = (n: number) => new Intl.NumberFormat('fr-FR').format(n) + ' F CFA';
 
@@ -123,7 +110,6 @@ export default function CircleDetailScreen() {
   const inviteCode = circle.inviteCode || 'VENE2026';
   const inviteLink = `https://venega.app/join/${inviteCode}`;
 
-  const stepAngle = 360 / Math.max(orderedMembers.length, 1);
   const paidCount = orderedMembers.filter((m) => m.paymentStatus === PaymentStatus.PAID).length;
 
   // Modèle financier exact :
@@ -219,7 +205,7 @@ export default function CircleDetailScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <StatusBar barStyle="dark-content" />
       <SafeAreaView style={styles.flex} edges={['top']}>
         {/* En-tête */}
         <View style={styles.header}>
@@ -254,55 +240,17 @@ export default function CircleDetailScreen() {
             </View>
 
             {/* 1. Roue du tour actuel */}
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Tour actuel de rotation</Text>
-              <View style={styles.wheel}>
-                <View style={styles.wheelCenter}>
-                  <Text style={styles.centerLabel}>Bénéficiaire</Text>
-                  <Text style={styles.centerName} numberOfLines={1}>
-                    {beneficiary?.user?.firstName ?? '—'}
-                  </Text>
-                  <Text style={styles.centerCycle}>
-                    Tour {cycle?.currentTurn ?? 1} / {membersList.length}
-                  </Text>
-                </View>
-
-                {orderedMembers.map((member, index) => {
-                  const angle = (index * stepAngle - 90) * (Math.PI / 180);
-                  const cx = WHEEL_SIZE / 2 + AVATAR_RADIUS * Math.cos(angle);
-                  const cy = WHEEL_SIZE / 2 + AVATAR_RADIUS * Math.sin(angle);
-                  const isBeneficiary = member.userId === beneficiary?.userId;
-                  const hasReceived = member.hasReceivedPayout;
-
-                  return (
-                    <WheelAvatar
-                      key={member.userId}
-                      avatarUrl={member.user?.avatarUrl}
-                      cx={cx}
-                      cy={cy}
-                      isBeneficiary={isBeneficiary}
-                      hasReceived={hasReceived}
-                    />
-                  );
-                })}
-              </View>
-
-              {/* Légende */}
-              <View style={styles.legendRow}>
-                <View style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: colors.primary.DEFAULT }]} />
-                  <Text style={styles.legendText}>Bénéficiaire du tour</Text>
-                </View>
-                <View style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: colors.accent.DEFAULT }]} />
-                  <Text style={styles.legendText}>Déjà servi</Text>
-                </View>
-                <View style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: colors.lineStrong }]} />
-                  <Text style={styles.legendText}>En attente</Text>
-                </View>
-              </View>
-            </View>
+            <RotationWheel
+              members={orderedMembers.map((m) => ({
+                userId: m.userId,
+                name: `${m.user?.firstName ?? ''} ${m.user?.lastName ?? ''}`,
+                avatarUrl: m.user?.avatarUrl,
+                hasReceived: m.hasReceivedPayout,
+              }))}
+              beneficiaryUserId={beneficiary?.userId}
+              centerName={beneficiary?.user?.firstName ?? '—'}
+              centerCaption={`Tour ${cycle?.currentTurn ?? 1} / ${membersList.length}`}
+            />
 
             {/* 2. Actions */}
             <View style={styles.actions}>
@@ -351,7 +299,7 @@ export default function CircleDetailScreen() {
 
                   return (
                     <View key={m.userId} style={[styles.row, !isLast && styles.rowBorder]}>
-                      <Image source={{ uri: m.user?.avatarUrl }} style={styles.memberAvatar} contentFit="cover" />
+                      <Avatar name={memberName} uri={m.user?.avatarUrl} size={40} />
                       <View style={styles.rowBody}>
                         <View style={styles.nameLine}>
                           <Text style={styles.rowTitle} numberOfLines={1}>
@@ -566,59 +514,6 @@ function ShareAction({
   );
 }
 
-function WheelAvatar({
-  avatarUrl,
-  cx,
-  cy,
-  isBeneficiary,
-  hasReceived,
-}: {
-  avatarUrl?: string;
-  cx: number;
-  cy: number;
-  isBeneficiary: boolean;
-  hasReceived: boolean;
-}) {
-  const progress = useSharedValue(0);
-  const halo = useSharedValue(0);
-
-  useEffect(() => {
-    progress.value = withTiming(1, { duration: 300, easing: Easing.out(Easing.cubic) });
-    if (isBeneficiary) {
-      halo.value = withRepeat(
-        withSequence(withTiming(1, { duration: 1100 }), withTiming(0, { duration: 1100 })),
-        -1,
-        false
-      );
-    }
-  }, []);
-
-  const avatarStyle = useAnimatedStyle(() => ({
-    opacity: progress.value,
-    transform: [{ translateX: cx - AVATAR_SIZE / 2 }, { translateY: cy - AVATAR_SIZE / 2 }],
-  }));
-
-  const haloStyle = useAnimatedStyle(() => ({
-    opacity: (1 - halo.value) * 0.5,
-    transform: [
-      { translateX: cx - AVATAR_SIZE / 2 },
-      { translateY: cy - AVATAR_SIZE / 2 },
-      { scale: 1 + halo.value * 0.35 },
-    ],
-  }));
-
-  const borderColor = isBeneficiary ? colors.primary.DEFAULT : hasReceived ? colors.accent.DEFAULT : colors.lineStrong;
-
-  return (
-    <>
-      {isBeneficiary && <Animated.View pointerEvents="none" style={[styles.haloRing, haloStyle]} />}
-      <Animated.View style={[styles.avatarWrap, { borderColor }, avatarStyle]}>
-        <Image source={{ uri: avatarUrl }} style={styles.avatarImg} contentFit="cover" />
-      </Animated.View>
-    </>
-  );
-}
-
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
@@ -717,94 +612,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
 
-  /* Roue */
-  wheel: {
-    width: WHEEL_SIZE,
-    height: WHEEL_SIZE,
-    marginTop: 16,
-    marginBottom: 6,
-  },
-  wheelCenter: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    marginLeft: -CENTER_SIZE / 2,
-    marginTop: -CENTER_SIZE / 2,
-    width: CENTER_SIZE,
-    height: CENTER_SIZE,
-    borderRadius: CENTER_SIZE / 2,
-    backgroundColor: colors.primary.tint,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-  },
-  centerLabel: {
-    ...typography.caption,
-    color: colors.muted,
-  },
-  centerName: {
-    ...typography.headline,
-    color: colors.primary.dark,
-    marginTop: 2,
-  },
-  centerCycle: {
-    ...typography.caption,
-    color: colors.primary.DEFAULT,
-    marginTop: 2,
-  },
-  avatarWrap: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: AVATAR_SIZE,
-    height: AVATAR_SIZE,
-    borderRadius: AVATAR_SIZE / 2,
-    borderWidth: 2,
-    backgroundColor: colors.bg,
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
-  },
-  avatarImg: {
-    width: AVATAR_SIZE - 6,
-    height: AVATAR_SIZE - 6,
-    borderRadius: (AVATAR_SIZE - 6) / 2,
-  },
-  haloRing: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: AVATAR_SIZE,
-    height: AVATAR_SIZE,
-    borderRadius: AVATAR_SIZE / 2,
-    borderWidth: 2,
-    borderColor: colors.primary.soft,
-  },
-  legendRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 14,
-    marginTop: 10,
-    alignSelf: 'stretch',
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  legendText: {
-    ...typography.caption,
-    fontWeight: '400',
-    color: colors.muted,
-  },
-
   /* Actions */
   actions: {
     gap: 12,
@@ -872,12 +679,6 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     color: colors.subtle,
     marginTop: 2,
-  },
-  memberAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.fill,
   },
   statusTag: {
     flexDirection: 'row',

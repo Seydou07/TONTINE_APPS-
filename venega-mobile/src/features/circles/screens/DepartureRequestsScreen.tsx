@@ -20,10 +20,11 @@ import {
   X,
 } from 'lucide-react-native';
 import { colors, radius, typography } from '@venega/design-tokens';
-import { Button, Chip, IconButton, Sheet } from '../../../components/ui';
+import { Avatar, Button, Chip, IconButton, Sheet } from '../../../components/ui';
 import {
   getCircle,
   getCircles,
+  getCircleMembers,
   getDepartureRequests,
   approveDeparture,
   rejectDeparture,
@@ -54,9 +55,6 @@ const statusInfo = (s: DepartureRequestStatus) => {
   }
 };
 
-const initials = (name: string) =>
-  (name.trim().split(/\s+/)[0]?.[0] ?? '') + (name.trim().split(/\s+/)[1]?.[0] ?? '');
-
 export default function DepartureRequestsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id: string }>();
@@ -67,6 +65,8 @@ export default function DepartureRequestsScreen() {
   const [requests, setRequests] = useState<DepartureRequest[]>(() =>
     getDepartureRequests(circle.id)
   );
+  const avatarOf = (userId: string) =>
+    getCircleMembers(circle.id).find((m) => m.userId === userId)?.user?.avatarUrl;
   const [filter, setFilter] = useState<'pending' | 'all'>('pending');
   const [selected, setSelected] = useState<DepartureRequest | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -98,7 +98,7 @@ export default function DepartureRequestsScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <StatusBar barStyle="dark-content" />
       <SafeAreaView style={styles.flex} edges={['top']}>
         {/* En-tête */}
         <View style={styles.header}>
@@ -151,9 +151,7 @@ export default function DepartureRequestsScreen() {
                       accessibilityRole="button"
                       accessibilityLabel={`Demande de départ de ${r.memberName}`}
                     >
-                      <View style={styles.avatar}>
-                        <Text style={styles.avatarText}>{initials(r.memberName)}</Text>
-                      </View>
+                      <Avatar name={r.memberName} uri={avatarOf(r.userId)} size={40} />
                       <View style={styles.rowInfo}>
                         <Text style={styles.rowName} numberOfLines={1}>{r.memberName}</Text>
                         <Text style={styles.rowMeta}>
@@ -185,9 +183,7 @@ export default function DepartureRequestsScreen() {
           <>
             {/* En-tête */}
             <View style={styles.detailHeader}>
-              <View style={[styles.avatar, styles.detailAvatar]}>
-                <Text style={styles.avatarText}>{initials(selected.memberName)}</Text>
-              </View>
+              <Avatar name={selected.memberName} uri={avatarOf(selected.userId)} size={56} />
               <View style={styles.flexShrink}>
                 <Text style={styles.detailName}>{selected.memberName}</Text>
                 <Text style={styles.detailSub}>Demande reçue le {formatDate(selected.createdAt)}</Text>
@@ -383,19 +379,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.line,
   },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.primary.tint,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: {
-    ...typography.callout,
-    fontWeight: '600',
-    color: colors.primary.dark,
-  },
   rowInfo: {
     flex: 1,
     flexShrink: 1,
@@ -464,11 +447,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     marginBottom: 4,
-  },
-  detailAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
   },
   detailName: {
     ...typography.headline,

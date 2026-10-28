@@ -9,10 +9,10 @@
   --color-primary-light: #0F8563;
   --color-primary-tint: #E4F0EB;
   --color-primary-gradient: linear-gradient(135deg, #0F8563 0%, #0B6E4F 100%);
-  --color-accent: #D9A441;
-  --color-accent-dark: #B9852A;
-  --color-accent-tint: #FBF1DD;
-  --color-accent-gradient: linear-gradient(135deg, #FFD700 0%, #D9A441 100%);
+  --color-accent: #FCB031;
+  --color-accent-dark: #A86200;
+  --color-accent-tint: #FEF3DC;
+  --color-accent-gradient: linear-gradient(135deg, #FDC25A 0%, #FCB031 100%);
   --color-purple: #7A4E9C;
   --color-purple-tint: #EFE6F4;
 
@@ -28,8 +28,8 @@
   --color-success-gradient: linear-gradient(135deg, #0F8563 0%, #0B6E4F 100%);
   --color-danger: #E53E3E;
   --color-danger-tint: #FFECEC;
-  --color-warning: #D9A441;
-  --color-warning-tint: #FBF1DD;
+  --color-warning: #FCB031;
+  --color-warning-tint: #FEF3DC;
   --color-info: #3182CE;
   --color-info-tint: #EBF8FF;
 

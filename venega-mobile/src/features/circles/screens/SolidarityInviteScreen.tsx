@@ -41,7 +41,7 @@ export default function SolidarityInviteScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <StatusBar barStyle="dark-content" />
       <SafeAreaView style={styles.flex} edges={['top']}>
         <ScreenHeader title="Inviter un membre" subtitle={circle.name} onBack={() => router.back()} />
 
