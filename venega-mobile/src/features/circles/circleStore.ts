@@ -768,3 +768,42 @@ export function createAidAppeal(params: {
   aidAppeals = [appeal, ...aidAppeals];
   return { circle, appeal };
 }
+
+// ── Prochaine cotisation ──
+
+const DAY_MS = 86400000;
+
+/**
+ * Prochaine échéance de cotisation d'un cercle, déduite du début du cycle (ou de l'activation)
+ * et de la fréquence. Les cagnottes d'aide n'ont pas d'échéance.
+ * TODO: remplacer par la date d'échéance renvoyée par l'API quand elle existera.
+ */
+export function getNextContribution(circle: Circle): { date: Date; daysLeft: number } | undefined {
+  if (circle.type === CircleType.AID_APPEAL) return undefined;
+  const cycle = getActiveCycle(circle);
+  const start = new Date(cycle?.startDate ?? circle.activatedAt ?? circle.createdAt);
+  if (Number.isNaN(start.getTime())) return undefined;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const next = new Date(start);
+  next.setHours(0, 0, 0, 0);
+
+  const advance = () => {
+    if (circle.frequency === Frequency.DAILY) next.setDate(next.getDate() + 1);
+    else if (circle.frequency === Frequency.WEEKLY) next.setDate(next.getDate() + 7);
+    else if (circle.frequency === Frequency.BIWEEKLY) next.setDate(next.getDate() + 14);
+    else next.setMonth(next.getMonth() + 1);
+  };
+  // Borne de sécurité : au plus quelques années d'échéances quotidiennes.
+  for (let i = 0; next < today && i < 2000; i++) advance();
+
+  return { date: next, daysLeft: Math.round((next.getTime() - today.getTime()) / DAY_MS) };
+}
+
+/** « aujourd'hui », « demain », « dans 3 jours ». */
+export function formatDueIn(daysLeft: number): string {
+  if (daysLeft <= 0) return 'aujourd’hui';
+  if (daysLeft === 1) return 'demain';
+  return `dans ${daysLeft} jours`;
+}

@@ -1,12 +1,12 @@
 import React, { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { Users, Search, ChevronRight, HeartHandshake, Gift, Plus, Repeat, Clock, X } from 'lucide-react-native';
+import { Users, Search, ChevronRight, HeartHandshake, Gift, Plus, Repeat, Clock, X, Calendar } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
 import { colors, radius, typography } from '@venega/design-tokens';
 import { CircleType } from '@venega/types';
 import type { Circle } from '@venega/types';
-import { getCircles, getFounderCircleIds, CIRCLE_CREATION_FEE } from '../circleStore';
+import { getCircles, getFounderCircleIds, CIRCLE_CREATION_FEE, getNextContribution, formatDueIn } from '../circleStore';
 import { Button, Chip, HeroHeader, HeroTitle, heroColors, HeroStatusBar } from '../../../components/ui';
 
 const formatXOF = (amount: number) => new Intl.NumberFormat('fr-FR').format(amount) + ' F CFA';
@@ -128,6 +128,7 @@ export default function CirclesScreen() {
                 const isAid = circle.type === CircleType.AID_APPEAL;
                 const isFounder = createdCircleIds.includes(circle.id);
                 const pending = !circle.activatedAt;
+                const next = !pending && !isAid ? getNextContribution(circle) : undefined;
                 const amount = isAid
                   ? circle.rules?.goalAmount ?? 0
                   : (circle.tontineAmount || 0) + (circle.solidarityAmount || 0);
@@ -159,6 +160,13 @@ export default function CirclesScreen() {
                       <Stat label={isAid ? 'Contributeurs' : 'Membres'} value={`${circle.memberCount}`} />
                       <Stat label="Fréquence" value={isAid ? '—' : frequencyText[circle.frequency] ?? 'Régulière'} />
                     </View>
+
+                    {next && (
+                      <View style={styles.dueRow}>
+                        <Calendar size={15} color={colors.primary.DEFAULT} strokeWidth={2} />
+                        <Text style={styles.dueText}>Prochaine cotisation {formatDueIn(next.daysLeft)}</Text>
+                      </View>
+                    )}
 
                     {pending && (
                       <View style={styles.pendingBox}>
@@ -248,6 +256,16 @@ const styles = StyleSheet.create({
   statLabel: { ...typography.caption, fontWeight: '400', color: colors.muted },
   statValue: { ...typography.callout, fontWeight: '600', color: colors.ink, marginTop: 2 },
 
+  dueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.line,
+  },
+  dueText: { ...typography.footnote, fontWeight: '600', color: colors.primary.DEFAULT },
   pendingBox: {
     marginTop: 14,
     padding: 12,

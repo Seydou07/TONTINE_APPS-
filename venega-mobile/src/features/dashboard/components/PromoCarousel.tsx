@@ -2,9 +2,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import { FlatList, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import type { NativeScrollEvent, NativeSyntheticEvent, StyleProp, ViewStyle } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowRight, HandHeart, HeartHandshake, Smartphone, Users } from 'lucide-react-native';
+import { Image } from 'expo-image';
+import { HandHeart, HeartHandshake, Smartphone, Users } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
 import { colors, typography } from '@venega/design-tokens';
+import { operatorLogos } from '../../circles/components/OperatorPicker';
 
 type Slide = {
   id: string;
@@ -13,9 +15,20 @@ type Slide = {
   cta: string;
   route: string;
   icon: LucideIcon;
+  /**
+   * Bannière complète fournie en image (fond, personnage, textes, bouton dessinés dedans).
+   * Format : 1200 × 560 px (ratio BANNER_RATIO), PNG ou JPG < 200 Ko, dans assets/banners/.
+   * Si présente, elle remplace la carte dessinée. Pas de bouton : toute la bannière ouvre `route`.
+   */
+  image?: number;
+  /** Affiche les logos Orange / Moov / Wave sous le texte (bannière Mobile Money). */
+  showOperators?: boolean;
 };
 
-// TODO: remplacer les icônes par de vraies photos / visuels de campagne quand ils seront disponibles.
+/** Ratio des bannières image (1200 × 560). */
+const BANNER_RATIO = 1200 / 560;
+
+// Pour passer une bannière en image : ajouter `image: require('../../../../assets/banners/<nom>.png')`.
 const SLIDES: Slide[] = [
   {
     id: 'tontine',
@@ -24,6 +37,7 @@ const SLIDES: Slide[] = [
     cta: 'Créer un cercle',
     route: '/circles/create',
     icon: Users,
+    image: require('../../../../assets/banners/tontine.jpg'),
   },
   {
     id: 'mobile-money',
@@ -32,6 +46,8 @@ const SLIDES: Slide[] = [
     cta: 'Mes cercles',
     route: '/(tabs)/circles',
     icon: Smartphone,
+    image: require('../../../../assets/banners/mobile-money.jpg'),
+    showOperators: true,
   },
   {
     id: 'solidarite',
@@ -51,7 +67,7 @@ const SLIDES: Slide[] = [
   },
 ];
 
-const SIDE = 16;
+const SIDE = 12;
 const GAP = 12;
 const AUTOPLAY_MS = 4500;
 
@@ -61,6 +77,9 @@ export default function PromoCarousel({ style }: { style?: StyleProp<ViewStyle> 
   const { width } = useWindowDimensions();
   const cardWidth = width - SIDE * 2;
   const interval = cardWidth + GAP;
+  // Même hauteur pour toutes les bannières (image ou carte dessinée) : celle du format image.
+  // Un peu plus haute que le ratio de l'image : l'image est cadrée à gauche (texte intact), le bord droit est rogné.
+  const bannerHeight = Math.round((cardWidth / BANNER_RATIO) * 1.1);
 
   const listRef = useRef<FlatList<Slide>>(null);
   const [index, setIndex] = useState(0);
@@ -97,72 +116,99 @@ export default function PromoCarousel({ style }: { style?: StyleProp<ViewStyle> 
         onScrollBeginDrag={() => setDragging(true)}
         onMomentumScrollEnd={onMomentumEnd}
         renderItem={({ item }) => {
+          if (item.image) {
+            return (
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => router.push(item.route as any)}
+                accessibilityRole="button"
+                accessibilityLabel={`${item.title}. ${item.cta}`}
+                style={[styles.imageCard, { width: cardWidth, height: bannerHeight }]}
+              >
+                <Image source={item.image} style={styles.imageFill} contentFit="cover" contentPosition="left" />
+                {item.showOperators && (
+                  // Logos des opérateurs sous le texte de l'image, dans la zone jaune.
+                  <View style={styles.imageActions} pointerEvents="none">
+                    {['ORANGE', 'MOOV', 'WAVE'].map((op) => (
+                      <View key={op} style={styles.opBadge}>
+                        <Image source={operatorLogos[op]} style={styles.opLogo} contentFit="contain" />
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          }
           const Icon = item.icon;
           return (
-            <View style={[styles.card, { width: cardWidth }]}>
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => router.push(item.route as any)}
+              accessibilityRole="button"
+              accessibilityLabel={`${item.title}. ${item.cta}`}
+              style={[styles.card, { width: cardWidth, height: bannerHeight }]}
+            >
               <View style={styles.text}>
-                <Text style={styles.title}>{item.title}</Text>
-                <Text style={styles.body}>{item.text}</Text>
-                <TouchableOpacity
-                  style={styles.cta}
-                  onPress={() => router.push(item.route as any)}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.ctaText}>{item.cta}</Text>
-                  <ArrowRight size={16} color="#FFFFFF" strokeWidth={2.2} />
-                </TouchableOpacity>
+                <Text style={styles.title} numberOfLines={2}>
+                  {item.title}
+                </Text>
+                <Text style={styles.body} numberOfLines={2}>
+                  {item.text}
+                </Text>
               </View>
               <View style={styles.art}>
-                <Icon size={44} color={colors.primary.dark} strokeWidth={1.6} />
+                <Icon size={36} color={colors.primary.dark} strokeWidth={1.6} />
               </View>
-            </View>
+            </TouchableOpacity>
           );
         }}
       />
-      <View style={styles.dots}>
-        {SLIDES.map((s, i) => (
-          <View key={s.id} style={[styles.dot, i === index && styles.dotActive]} />
-        ))}
-      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   list: { paddingHorizontal: SIDE },
+  imageCard: { borderRadius: 24, overflow: 'hidden', backgroundColor: colors.accent.DEFAULT },
+  imageFill: { width: '100%', height: '100%' },
+  // Positions en % de la bannière : le texte des images s'arrête vers 60 % de la hauteur.
+  imageActions: {
+    position: 'absolute',
+    left: '5.5%',
+    top: '66%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  opBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  opLogo: { width: 28, height: 28 },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    minHeight: 168,
-    padding: 20,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    overflow: 'hidden',
     borderRadius: 24,
     backgroundColor: colors.accent.DEFAULT,
   },
   text: { flex: 1 },
-  title: { ...typography.headline, fontSize: 19, lineHeight: 24, fontWeight: '700', color: colors.primary.dark },
-  body: { ...typography.footnote, color: colors.primary.dark, opacity: 0.85, marginTop: 6 },
-  cta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 6,
-    marginTop: 14,
-    height: 38,
-    paddingHorizontal: 16,
-    borderRadius: 19,
-    backgroundColor: colors.primary.DEFAULT,
-  },
-  ctaText: { ...typography.footnote, fontWeight: '600', color: '#FFFFFF' },
+  title: { ...typography.headline, fontWeight: '700', color: colors.primary.dark },
+  body: { ...typography.footnote, color: colors.primary.dark, opacity: 0.85, marginTop: 4 },
   art: {
-    width: 92,
-    height: 92,
-    borderRadius: 46,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
     backgroundColor: 'rgba(255,255,255,0.45)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 12 },
-  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.lineStrong },
-  dotActive: { width: 18, backgroundColor: colors.primary.DEFAULT },
 });

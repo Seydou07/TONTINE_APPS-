@@ -47,3 +47,6 @@ lerna-debug.log*
 *.rar
 expo-server.log
 
+
+# Images sources des bannières (lourdes, non utilisées par l’app)
+venega-mobile/assets/images/PALETTES/

@@ -22,7 +22,6 @@ import {
   Role,
   TransactionType,
   TransactionStatus,
-  Frequency,
   MembershipRequestStatus,
   CircleType,
   ContributionMode,
@@ -52,6 +51,8 @@ import {
   getMembershipRequests,
   removeMember,
   setMemberTurnOrder,
+  getNextContribution,
+  formatDueIn,
 } from '../circleStore';
 
 // Dans une tontine il n'y a que deux statuts : le fondateur (rôle PRESIDENT) et les membres.
@@ -83,12 +84,6 @@ const formatDateHeader = (iso: string) => {
   const today = new Date();
   if (d.toDateString() === today.toDateString()) return "Aujourd'hui";
   return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
-};
-
-const daysUntilNextSaturday = () => {
-  const today = new Date();
-  const diff = (6 - today.getDay() + 7) % 7;
-  return diff === 0 ? 7 : diff;
 };
 
 export default function TontineScreen() {
@@ -202,7 +197,7 @@ export default function TontineScreen() {
     else groups.push({ dateLabel: label, items: [t] });
   });
 
-  const nextDueDays = circle.frequency === Frequency.WEEKLY ? daysUntilNextSaturday() : null;
+  const nextDueDays = getNextContribution(circle)?.daysLeft ?? null;
 
   const handlePayNow = () => {
     router.push(`/payment?circleId=${circle.id}&amount=${circle.tontineAmount}&type=TONTINE` as any);
@@ -302,6 +297,7 @@ export default function TontineScreen() {
                     { label: 'Cotisations', value: `${turnCompletedCount}/${members.length} ont cotisé` },
                   ]}
                   progress={turnProgress}
+                  dueInDays={nextDueDays ?? undefined}
                 />
 
                 {isNature && (
@@ -435,7 +431,7 @@ export default function TontineScreen() {
                 </Text>
                 {nextDueDays != null && (
                   <Text style={styles.tourDueText}>
-                    Prochaine cotisation dans {nextDueDays} jour{nextDueDays > 1 ? 's' : ''}
+                    Prochaine cotisation {formatDueIn(nextDueDays)}
                   </Text>
                 )}
                 <Button title={payButtonTitle(circle.tontineAmount)} onPress={handlePayNow} />

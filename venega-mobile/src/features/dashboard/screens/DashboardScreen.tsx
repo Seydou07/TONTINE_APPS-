@@ -7,7 +7,7 @@ import type { LucideIcon } from 'lucide-react-native';
 import { colors, radius, typography } from '@venega/design-tokens';
 import { mockCurrentUser, CircleType } from '@venega/types';
 import type { Circle } from '@venega/types';
-import { getCircles } from '../../circles/circleStore';
+import { getCircles, getNextContribution } from '../../circles/circleStore';
 import { HeroHeader, HeroStatusBar, heroColors } from '../../../components/ui';
 import PromoCarousel from '../components/PromoCarousel';
 
@@ -123,6 +123,7 @@ export default function DashboardScreen() {
                         {active ? subtitle : 'En attente d’activation'}
                       </Text>
                     </View>
+                    {active && <DueTag circle={c} />}
                     <ChevronRight size={18} color={colors.subtle} />
                   </View>
                 </TouchableOpacity>
@@ -131,6 +132,18 @@ export default function DashboardScreen() {
           </View>
         </View>
       </ScrollView>
+    </View>
+  );
+}
+
+/** Échéance courte à droite d'une ligne de cercle : « Aujourd’hui », « Demain », « Dans 3 j ». */
+function DueTag({ circle }: { circle: Circle }) {
+  const next = getNextContribution(circle);
+  if (!next) return null;
+  const label = next.daysLeft <= 0 ? 'Aujourd’hui' : next.daysLeft === 1 ? 'Demain' : `Dans ${next.daysLeft} j`;
+  return (
+    <View style={[styles.dueTag, next.daysLeft <= 1 && styles.dueTagSoon]}>
+      <Text style={[styles.dueTagText, next.daysLeft <= 1 && styles.dueTagTextSoon]}>{label}</Text>
     </View>
   );
 }
@@ -236,4 +249,8 @@ const styles = StyleSheet.create({
   rowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
   rowTitle: { ...typography.callout, fontWeight: '600', color: colors.ink },
   rowSub: { ...typography.footnote, color: colors.muted, marginTop: 2 },
+  dueTag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, backgroundColor: colors.primary.tint },
+  dueTagSoon: { backgroundColor: colors.accent.tint },
+  dueTagText: { ...typography.caption, fontWeight: '600', color: colors.primary.DEFAULT },
+  dueTagTextSoon: { color: colors.accent.dark },
 });

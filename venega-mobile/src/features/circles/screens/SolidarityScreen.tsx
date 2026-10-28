@@ -53,6 +53,7 @@ import {
   getCircleMembers,
   getMembershipRequests,
   updateMembershipRequest,
+  getNextContribution,
 } from '../circleStore';
 import { AidRequestStatus, EventType, Role, MembershipRequestStatus } from '@venega/types';
 import type { SolidarityRequest, LedgerEntry, MembershipRequest } from '@venega/types';
@@ -227,9 +228,14 @@ export default function SolidarityScreen() {
                     { label: 'Cotisé', value: formatXOF(totals.totalCredits) },
                     { label: 'Versé', value: formatXOF(totals.totalDebits) },
                   ]}
+                  dueInDays={getNextContribution(circle)?.daysLeft}
                 />
 
-                <DueCard amount={formatXOF(circle.solidarityAmount || 1000)} onPay={handlePayNow} />
+                <DueCard
+                  amount={formatXOF(circle.solidarityAmount || 1000)}
+                  daysLeft={getNextContribution(circle)?.daysLeft}
+                  onPay={handlePayNow}
+                />
 
                 {isFounder && (
                   <ActionCard

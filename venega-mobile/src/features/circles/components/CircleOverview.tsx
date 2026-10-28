@@ -4,6 +4,7 @@ import type { LucideIcon } from 'lucide-react-native';
 import { Calendar, SlidersHorizontal } from 'lucide-react-native';
 import { colors, radius, typography } from '@venega/design-tokens';
 import { Avatar, Button } from '../../../components/ui';
+import { formatDueIn } from '../circleStore';
 
 /*
  * Briques communes de l'onglet « Aperçu » et de la navigation des écrans de cercle
@@ -68,16 +69,25 @@ export function OverviewSummaryCard({
   negative,
   stats,
   progress,
+  dueInDays,
 }: {
   label: string;
   amount: string;
   negative?: boolean;
   stats: SummaryStat[];
+  /** Jours avant la prochaine cotisation (getNextContribution) — affiché en pastille ambre. */
+  dueInDays?: number;
   /** Entre 0 et 1 — fine barre de progression sous les statistiques. */
   progress?: number;
 }) {
   return (
     <View style={styles.summary}>
+      {dueInDays !== undefined && (
+        <View style={styles.duePill}>
+          <Calendar size={13} color={colors.accent.DEFAULT} strokeWidth={2} />
+          <Text style={styles.duePillText}>Prochaine cotisation {formatDueIn(dueInDays)}</Text>
+        </View>
+      )}
       <Text style={styles.summaryLabel}>{label}</Text>
       <Text style={[styles.summaryAmount, negative && styles.summaryAmountNegative]}>{amount}</Text>
       <View style={styles.summaryStats}>
@@ -114,14 +124,14 @@ export function StatRow({ stat }: { stat: SummaryStat }) {
 /* ── Carte « Prochain versement » ── */
 
 export function DueCard({ amount, daysLeft, onPay }: { amount: string; daysLeft?: number | null; onPay: () => void }) {
-  const when = daysLeft != null ? ` · dans ${daysLeft} jour${daysLeft > 1 ? 's' : ''}` : '';
+  const when = daysLeft != null ? ` · ${formatDueIn(daysLeft)}` : '';
   return (
     <View style={styles.card}>
       <View style={styles.iconTile}>
         <Calendar size={20} color={colors.primary.DEFAULT} strokeWidth={1.8} />
       </View>
       <View style={styles.cardBody}>
-        <Text style={styles.cardSub}>Prochain versement{when}</Text>
+        <Text style={styles.cardSub}>Prochaine cotisation{when}</Text>
         <Text style={styles.dueAmount}>{amount}</Text>
       </View>
       <Button title="Payer" size="sm" onPress={onPay} />
@@ -229,6 +239,18 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: 20,
   },
+  duePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    marginBottom: 12,
+  },
+  duePillText: { ...typography.caption, fontWeight: '600', color: colors.accent.DEFAULT },
   summaryLabel: { ...typography.footnote, color: 'rgba(255,255,255,0.72)' },
   summaryAmount: { ...typography.display, color: '#FFFFFF', marginTop: 4 },
   summaryAmountNegative: { color: colors.danger.tint },
