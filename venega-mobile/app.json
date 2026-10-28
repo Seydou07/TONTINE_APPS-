@@ -41,6 +41,17 @@
       ],
       "expo-status-bar",
       "expo-secure-store"
-    ]
+    ],
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "bbd58570-b17a-4f14-8fc2-af3978f294c1"
+      }
+    },
+    "owner": "geek2.0"
   }
 }
