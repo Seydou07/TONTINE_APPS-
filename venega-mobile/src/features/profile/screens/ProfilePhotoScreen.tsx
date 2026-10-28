@@ -1,10 +1,13 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert } from 'react-native';
+import { View, Text, StyleSheet, StatusBar, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { X, Camera } from 'lucide-react-native';
+import { ArrowLeft, Camera } from 'lucide-react-native';
+import { colors, typography } from '@venega/design-tokens';
+import { Button, IconButton } from '../../../components/ui';
 import { getProfile, setAvatarUrl } from '../profileStore';
 
 function getInitials(fullName: string): string {
@@ -47,115 +50,90 @@ export default function ProfilePhotoScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0B140F" />
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <SafeAreaView style={styles.flex} edges={['top', 'bottom']}>
+        <View style={styles.header}>
+          <IconButton icon={ArrowLeft} variant="plain" accessibilityLabel="Retour" onPress={() => router.back()} />
+          <Text style={styles.headerTitle}>Photo de profil</Text>
+          <View style={styles.headerSide} />
+        </View>
 
-      <View style={styles.topBar}>
-        <TouchableOpacity style={styles.closeBtn} onPress={() => router.back()}>
-          <X size={17} color="#FFFFFF" />
-        </TouchableOpacity>
-        <Text style={styles.nameText} numberOfLines={1}>{profile.name}</Text>
-        <View style={styles.closeBtnPlaceholder} />
-      </View>
+        <View style={styles.photoArea}>
+          {profile.avatarUrl ? (
+            <Image source={{ uri: profile.avatarUrl }} style={styles.photo} contentFit="cover" />
+          ) : (
+            <View style={[styles.photo, styles.photoInitials]}>
+              <Text style={styles.photoInitialsText}>{getInitials(profile.name)}</Text>
+            </View>
+          )}
+          <Text style={styles.name}>{profile.name}</Text>
+          <Text style={styles.hint}>Visible par les membres de vos cercles</Text>
+        </View>
 
-      <View style={styles.photoArea}>
-        {profile.avatarUrl ? (
-          <Image source={{ uri: profile.avatarUrl }} style={styles.photo} contentFit="cover" />
-        ) : (
-          <View style={styles.photoInitials}>
-            <Text style={styles.photoInitialsText}>{getInitials(profile.name)}</Text>
-          </View>
-        )}
-      </View>
-
-      <View style={styles.bottomArea}>
-        <TouchableOpacity style={styles.changeBtn} activeOpacity={0.88} onPress={handleChangePhoto}>
-          <Camera size={17} color="#074B36" />
-          <Text style={styles.changeBtnText}>Changer la photo</Text>
-        </TouchableOpacity>
-        <Text style={styles.hintText}>Visible par les membres de vos cercles</Text>
-      </View>
+        <View style={styles.footer}>
+          <Button title="Changer la photo" icon={Camera} onPress={handleChangePhoto} />
+        </View>
+      </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0B140F',
-  },
-  topBar: {
+  container: { flex: 1, backgroundColor: colors.bg },
+  flex: { flex: 1 },
+  header: {
+    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 56,
-    paddingHorizontal: 20,
+    paddingHorizontal: 8,
   },
-  closeBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  closeBtnPlaceholder: {
-    width: 38,
-  },
-  nameText: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 14,
-    color: '#FFFFFF',
+  headerTitle: {
     flex: 1,
+    ...typography.headline,
+    color: colors.ink,
     textAlign: 'center',
-    marginHorizontal: 12,
   },
+  headerSide: { width: 40 },
   photoArea: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
+    paddingHorizontal: 24,
   },
   photo: {
-    width: 280,
-    height: 280,
-    borderRadius: 140,
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: colors.fill,
   },
   photoInitials: {
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-    backgroundColor: '#D9A441',
+    backgroundColor: colors.primary.tint,
     justifyContent: 'center',
     alignItems: 'center',
   },
   photoInitialsText: {
-    fontFamily: 'SoraBold',
-    fontSize: 88,
-    color: '#FFFFFF',
+    fontSize: 72,
+    lineHeight: 84,
+    fontWeight: '600',
+    color: colors.primary.dark,
   },
-  bottomArea: {
-    paddingHorizontal: 24,
-    paddingBottom: 44,
-    gap: 12,
-  },
-  changeBtn: {
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 9,
-  },
-  changeBtnText: {
-    fontFamily: 'SoraBold',
-    fontSize: 14.5,
-    color: '#074B36',
-  },
-  hintText: {
-    fontFamily: 'WorkSans',
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.5)',
+  name: {
+    ...typography.headline,
+    color: colors.ink,
+    marginTop: 24,
     textAlign: 'center',
+  },
+  hint: {
+    ...typography.callout,
+    color: colors.muted,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  footer: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.line,
+    backgroundColor: colors.bg,
   },
 });

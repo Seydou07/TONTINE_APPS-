@@ -1,27 +1,10 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  StatusBar,
-  Alert,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import {
-  ArrowLeft,
-  Bell,
-  CheckCircle2,
-  Wallet,
-  UserPlus,
-  ShieldAlert,
-  Clock,
-  ChevronRight,
-  CheckCheck,
-} from 'lucide-react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import { ArrowLeft, Bell, CheckCircle2, UserPlus, Clock, CheckCheck } from 'lucide-react-native';
+import { colors, radius, typography } from '@venega/design-tokens';
+import { Chip, IconButton } from '../../../components/ui';
 
 const mockNotifications = [
   {
@@ -97,7 +80,7 @@ export default function NotificationsScreen() {
     if (notif.type === 'PAYMENT_RECEIVED') {
       Alert.alert(
         'Détail du paiement',
-        `Membre : ${notif.userName}\nCercle : ${notif.circleName}\nMontant : ${notif.amount ? formatXOF(notif.amount) : 'Paiement effectué'}\nStatut : Validé et encaissé sur votre compte Citney.`,
+        `Membre : ${notif.userName}\nCercle : ${notif.circleName}\nMontant : ${notif.amount ? formatXOF(notif.amount) : 'Paiement effectué'}\nStatut : Validé et encaissé sur votre compte Venega.`,
         [{ text: 'Fermer', style: 'cancel' }]
       );
     }
@@ -111,268 +94,166 @@ export default function NotificationsScreen() {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
+  // Regroupement par jour (d'après les libellés relatifs des notifications)
+  const dayOf = (time: string) => (time.startsWith('Hier') ? 'Hier' : "Aujourd'hui");
+  const groups: { day: string; items: typeof filteredNotifs }[] = [];
+  filteredNotifs.forEach((n) => {
+    const day = dayOf(n.time);
+    const g = groups.find((x) => x.day === day);
+    if (g) g.items.push(n);
+    else groups.push({ day, items: [n] });
+  });
+
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#074B36" />
-      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        {/* En-tête vert */}
-        <View style={styles.topSection}>
-          <View style={styles.topBar}>
-            <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-              <ArrowLeft size={20} color="#FFFFFF" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Notifications</Text>
-            <TouchableOpacity style={styles.markReadBtn} onPress={markAllAsRead}>
-              <CheckCheck size={18} color="#36E395" />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.heroTextGroup}>
-            <Text style={styles.heroTitle}>Activité & Paiements</Text>
-            <Text style={styles.heroSubtitle}>
-              {unreadCount > 0
-                ? `Vous avez ${unreadCount} notification${unreadCount > 1 ? 's' : ''} non lue${unreadCount > 1 ? 's' : ''}`
-                : 'Toutes vos notifications sont à jour'}
-            </Text>
-          </View>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <SafeAreaView style={styles.flex} edges={['top']}>
+        <View style={styles.header}>
+          <IconButton icon={ArrowLeft} variant="plain" accessibilityLabel="Retour" onPress={() => router.back()} />
+          <View style={styles.flex} />
+          <IconButton
+            icon={CheckCheck}
+            variant="plain"
+            color={unreadCount > 0 ? colors.primary.DEFAULT : colors.subtle}
+            accessibilityLabel="Tout marquer comme lu"
+            onPress={markAllAsRead}
+          />
         </View>
 
-        {/* Corps emboîté crème */}
-        <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.formCardSheet}>
-          {/* Filtres d'onglets */}
-          <View style={styles.filterRow}>
-            <TouchableOpacity
-              style={[styles.filterChip, filter === 'ALL' && styles.filterChipActive]}
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          <Text style={styles.title}>Notifications</Text>
+          <Text style={styles.subtitle}>
+            {unreadCount > 0
+              ? `${unreadCount} notification${unreadCount > 1 ? 's' : ''} non lue${unreadCount > 1 ? 's' : ''}`
+              : 'Toutes vos notifications sont lues'}
+          </Text>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.chipsScroll}
+            contentContainerStyle={styles.chips}
+          >
+            <Chip
+              label={`Toutes (${notifications.length})`}
+              selected={filter === 'ALL'}
               onPress={() => setFilter('ALL')}
-            >
-              <Text style={[styles.filterChipText, filter === 'ALL' && styles.filterChipTextActive]}>
-                Toutes ({notifications.length})
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.filterChip, filter === 'PAYMENTS' && styles.filterChipActive]}
-              onPress={() => setFilter('PAYMENTS')}
-            >
-              <Text style={[styles.filterChipText, filter === 'PAYMENTS' && styles.filterChipTextActive]}>
-                Paiements
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.filterChip, filter === 'REMINDERS' && styles.filterChipActive]}
-              onPress={() => setFilter('REMINDERS')}
-            >
-              <Text style={[styles.filterChipText, filter === 'REMINDERS' && styles.filterChipTextActive]}>
-                Rappels
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-            {filteredNotifs.map((notif) => {
-              const isPayment = notif.type === 'PAYMENT_RECEIVED';
-              const isReminder = notif.type === 'REMINDER';
-
-              return (
-                <TouchableOpacity
-                  key={notif.id}
-                  style={[styles.notifCard, !notif.read && styles.notifCardUnread]}
-                  activeOpacity={0.8}
-                  onPress={() => handleNotifClick(notif)}
-                >
-                  <View style={[styles.notifIconWrap, isPayment ? styles.iconPayment : isReminder ? styles.iconReminder : styles.iconMember]}>
-                    {isPayment ? (
-                      <CheckCircle2 size={20} color="#10B981" />
-                    ) : isReminder ? (
-                      <Clock size={20} color="#D9A441" />
-                    ) : (
-                      <UserPlus size={20} color="#074B36" />
-                    )}
-                  </View>
-
-                  <View style={styles.notifContentCol}>
-                    <View style={styles.notifHeaderLine}>
-                      <Text style={styles.notifTitle}>{notif.title}</Text>
-                      {!notif.read && <View style={styles.unreadDot} />}
-                    </View>
-                    <Text style={styles.notifMessage}>{notif.message}</Text>
-                    <View style={styles.notifFooterLine}>
-                      <Text style={styles.notifTime}>{notif.time}</Text>
-                      <ChevronRight size={16} color="#94A3B8" />
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
+            />
+            <Chip label="Paiements" selected={filter === 'PAYMENTS'} onPress={() => setFilter('PAYMENTS')} />
+            <Chip label="Rappels" selected={filter === 'REMINDERS'} onPress={() => setFilter('REMINDERS')} />
           </ScrollView>
-        </Animated.View>
+
+          {groups.length === 0 ? (
+            <View style={styles.empty}>
+              <View style={styles.emptyIcon}>
+                <Bell size={24} color={colors.subtle} strokeWidth={1.6} />
+              </View>
+              <Text style={styles.emptyTitle}>Aucune notification</Text>
+              <Text style={styles.emptyText}>Les paiements et rappels de vos cercles apparaîtront ici.</Text>
+            </View>
+          ) : (
+            groups.map((group) => (
+              <View key={group.day} style={styles.group}>
+                <Text style={styles.groupLabel}>{group.day}</Text>
+                <View style={styles.card}>
+                  {group.items.map((notif, i) => {
+                    const isPayment = notif.type === 'PAYMENT_RECEIVED';
+                    const isReminder = notif.type === 'REMINDER';
+                    const tone = isPayment
+                      ? { Icon: CheckCircle2, fg: colors.primary.DEFAULT, bg: colors.primary.tint }
+                      : isReminder
+                      ? { Icon: Clock, fg: colors.accent.dark, bg: colors.accent.tint }
+                      : { Icon: UserPlus, fg: colors.info.DEFAULT, bg: colors.info.tint };
+                    const Icon = tone.Icon;
+
+                    return (
+                      <TouchableOpacity
+                        key={notif.id}
+                        style={styles.row}
+                        activeOpacity={0.6}
+                        accessibilityRole="button"
+                        onPress={() => handleNotifClick(notif)}
+                      >
+                        <View style={[styles.rowIcon, { backgroundColor: tone.bg }]}>
+                          <Icon size={18} color={tone.fg} strokeWidth={2} />
+                        </View>
+                        <View style={[styles.rowBody, i < group.items.length - 1 && styles.rowBorder]}>
+                          <View style={styles.flex}>
+                            <View style={styles.rowTop}>
+                              <Text
+                                style={[styles.rowTitle, !notif.read && styles.rowTitleUnread]}
+                                numberOfLines={1}
+                              >
+                                {notif.title}
+                              </Text>
+                              <Text style={styles.rowTime}>{notif.time}</Text>
+                            </View>
+                            <Text style={styles.rowMessage}>{notif.message}</Text>
+                          </View>
+                          {!notif.read && <View style={styles.unreadDot} accessibilityLabel="Non lue" />}
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            ))
+          )}
+        </ScrollView>
       </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#074B36',
+  container: { flex: 1, backgroundColor: colors.fill },
+  flex: { flex: 1 },
+
+  header: { height: 56, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8 },
+  scroll: { paddingHorizontal: 16, paddingBottom: 40 },
+  title: { ...typography.title, color: colors.ink, paddingHorizontal: 4 },
+  subtitle: { ...typography.callout, color: colors.muted, paddingHorizontal: 4, marginTop: 2 },
+
+  chipsScroll: { marginTop: 16, marginHorizontal: -16 },
+  chips: { gap: 8, paddingHorizontal: 16 },
+
+  group: { marginTop: 24 },
+  groupLabel: { ...typography.footnote, fontWeight: '600', color: colors.muted, marginBottom: 8, marginLeft: 4 },
+  card: {
+    backgroundColor: colors.bg,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.line,
+    overflow: 'hidden',
   },
-  topSection: {
-    backgroundColor: '#074B36',
-    paddingHorizontal: 20,
-    paddingBottom: 30,
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 8,
-    marginBottom: 12,
-  },
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  row: { flexDirection: 'row', alignItems: 'flex-start', paddingLeft: 14, gap: 12 },
+  rowIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 14,
   },
-  markReadBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(54, 227, 149, 0.15)',
+  rowBody: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 14, paddingRight: 14 },
+  rowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
+  rowTop: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
+  rowTitle: { flex: 1, ...typography.callout, fontWeight: '500', color: colors.ink },
+  rowTitleUnread: { fontWeight: '700' },
+  rowTime: { ...typography.caption, fontWeight: '400', color: colors.subtle },
+  rowMessage: { ...typography.footnote, color: colors.muted, marginTop: 2 },
+  unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary.DEFAULT },
+
+  empty: { alignItems: 'center', paddingTop: 64, paddingHorizontal: 32 },
+  emptyIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.bg,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  headerTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 20,
-    color: '#FFFFFF',
-  },
-  heroTextGroup: {
-    marginTop: 4,
-  },
-  heroTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 26,
-    color: '#FFFFFF',
-  },
-  heroSubtitle: {
-    fontFamily: 'WorkSans',
-    fontSize: 13.5,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginTop: 2,
-  },
-  formCardSheet: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    marginTop: -20,
-    paddingTop: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -6 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  filterRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    gap: 8,
     marginBottom: 14,
   },
-  filterChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 18,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-  },
-  filterChipActive: {
-    backgroundColor: '#074B36',
-    borderColor: '#074B36',
-  },
-  filterChipText: {
-    fontFamily: 'WorkSansMedium',
-    fontSize: 12.5,
-    color: '#64748B',
-  },
-  filterChipTextActive: {
-    fontFamily: 'WorkSansSemiBold',
-    color: '#FFFFFF',
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 60,
-    gap: 12,
-  },
-  notifCard: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    gap: 12,
-  },
-  notifCardUnread: {
-    borderColor: '#36E395',
-    backgroundColor: 'rgba(54, 227, 149, 0.04)',
-  },
-  notifIconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  iconPayment: {
-    backgroundColor: 'rgba(16, 185, 129, 0.12)',
-  },
-  iconReminder: {
-    backgroundColor: 'rgba(217, 164, 65, 0.12)',
-  },
-  iconMember: {
-    backgroundColor: 'rgba(7, 75, 54, 0.08)',
-  },
-  notifContentCol: {
-    flex: 1,
-    gap: 3,
-  },
-  notifHeaderLine: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  notifTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 14,
-    color: '#0F172A',
-  },
-  unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#10B981',
-  },
-  notifMessage: {
-    fontFamily: 'WorkSans',
-    fontSize: 12.5,
-    color: '#475569',
-    lineHeight: 18,
-  },
-  notifFooterLine: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  notifTime: {
-    fontFamily: 'WorkSans',
-    fontSize: 11,
-    color: '#94A3B8',
-  },
+  emptyTitle: { ...typography.headline, color: colors.ink },
+  emptyText: { ...typography.callout, color: colors.muted, textAlign: 'center', marginTop: 6 },
 });

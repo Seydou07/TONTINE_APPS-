@@ -42,7 +42,7 @@ export interface User {
 }
 
 /**
- * Cercle (tontine, solidarité, ou hybride)
+ * Cercle (tontine ou solidarité)
  *
  * Le président configure TOUTES ces options à la création du cercle.
  * L'argent circule toujours via CinetPay — le président ne touche jamais les fonds.
@@ -132,6 +132,12 @@ export interface CircleRules {
    */
   goalItem?: string;
 
+  /** Tontine nature : composition détaillée du bien (marque, quantités…). */
+  goalDetails?: string;
+
+  /** Tontine nature : photo du bien remis à chaque tour. */
+  goalImageUrl?: string;
+
   /**
    * Exigences de documents pour les nouveaux membres :
    * REQUIRE_NONE = aucun document ;
@@ -143,7 +149,7 @@ export interface CircleRules {
 }
 
 /**
- * Cercle (tontine, solidarité, nature, hybride ou appel à l'aide)
+ * Cercle (tontine en espèces ou en nature, solidarité, ou appel à l'aide)
  *
  * Le fondateur configure TOUTES ces options à la création du cercle.
  * L'argent circule toujours via CityNet Pay — le fondateur ne touche jamais

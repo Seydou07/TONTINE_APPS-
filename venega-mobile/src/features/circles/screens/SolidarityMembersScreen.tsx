@@ -2,9 +2,11 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { ChevronRight } from 'lucide-react-native';
+import { colors, typography } from '@venega/design-tokens';
 import { getCircle, getCircles, getCircleMembers, getCurrentUser } from '../circleStore';
 import { Role } from '@venega/types';
+import { Avatar, RoleBadge, ScreenHeader, cardStyle } from '../components/SolidarityParts';
 
 const roleLabel: Record<Role, string> = {
   [Role.PRESIDENT]: 'Présidente',
@@ -13,24 +15,11 @@ const roleLabel: Record<Role, string> = {
   [Role.MEMBER]: 'Membre',
 };
 
-const roleBadgeStyle: Partial<Record<Role, { bg: string; color: string }>> = {
-  [Role.PRESIDENT]: { bg: '#FBF1DD', color: '#B9852A' },
-  [Role.TREASURER]: { bg: '#E4F0EB', color: '#0B6E4F' },
-  [Role.SECRETARY]: { bg: '#EBF8FF', color: '#3182CE' },
-};
-
 const rolePriority: Record<Role, number> = {
   [Role.PRESIDENT]: 0,
   [Role.TREASURER]: 1,
   [Role.SECRETARY]: 2,
   [Role.MEMBER]: 3,
-};
-
-const avatarPalette = ['#D9A441', '#0B6E4F', '#7A4E9C', '#3182CE', '#B9852A', '#E53E3E'];
-
-const avatarColor = (userId: string) => {
-  const sum = userId.split('').reduce((s, ch) => s + ch.charCodeAt(0), 0);
-  return avatarPalette[sum % avatarPalette.length];
 };
 
 const formatMonthYear = (iso: string) =>
@@ -44,53 +33,41 @@ export default function SolidarityMembersScreen() {
   const me = getCurrentUser();
   const members = [...getCircleMembers(circle.id)].sort((a, b) => rolePriority[a.role] - rolePriority[b.role]);
 
-  const initials = (first?: string, last?: string) =>
-    ((first?.[0] ?? '') + (last?.[0] ?? '')).toUpperCase() || '?';
-
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }} edges={['top']}>
-        <View style={styles.header}>
-          <View style={styles.headerRow}>
-            <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-              <ChevronLeft size={24} color="#1A202C" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Membres</Text>
-          </View>
-          <Text style={styles.headerSub}>{members.length} membres · {circle.name}</Text>
-        </View>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <SafeAreaView style={styles.flex} edges={['top']}>
+        <ScreenHeader title="Membres" subtitle={`${members.length} membres · ${circle.name}`} onBack={() => router.back()} />
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {members.map((m, idx) => {
-            const badge = roleBadgeStyle[m.role];
-            return (
-              <TouchableOpacity
-                key={m.userId}
-                activeOpacity={0.75}
-                style={[styles.memberRow, idx === members.length - 1 && styles.memberRowLast]}
-                onPress={() => router.push({ pathname: '/circle/[id]/solidarity-member/[userId]', params: { id: circle.id, userId: m.userId } })}
-              >
-                <View style={[styles.avatar, { backgroundColor: avatarColor(m.userId) }]}>
-                  <Text style={styles.avatarText}>{initials(m.user.firstName, m.user.lastName)}</Text>
-                </View>
-                <View style={styles.memberInfo}>
-                  <Text style={styles.memberName} numberOfLines={1}>
-                    {m.user.firstName} {m.user.lastName}{m.userId === me.id ? ' (Moi)' : ''}
-                  </Text>
-                  <View style={styles.memberMetaRow}>
-                    {badge && (
-                      <View style={[styles.roleBadge, { backgroundColor: badge.bg }]}>
-                        <Text style={[styles.roleBadgeText, { color: badge.color }]}>{roleLabel[m.role]}</Text>
+          <View style={[cardStyle, styles.listCard]}>
+            {members.map((m, idx) => {
+              const fullName = `${m.user.firstName} ${m.user.lastName}`;
+              return (
+                <TouchableOpacity
+                  key={m.userId}
+                  activeOpacity={0.6}
+                  style={styles.row}
+                  accessibilityRole="button"
+                  onPress={() => router.push({ pathname: '/circle/[id]/solidarity-member/[userId]', params: { id: circle.id, userId: m.userId } })}
+                >
+                  <Avatar name={fullName} userId={m.userId} photoUrl={m.user.avatarUrl} size={40} />
+                  <View style={[styles.rowBody, idx < members.length - 1 && styles.rowBorder]}>
+                    <View style={styles.flex}>
+                      <Text style={styles.rowTitle} numberOfLines={1}>
+                        {fullName}{m.userId === me.id ? ' (Moi)' : ''}
+                      </Text>
+                      <View style={styles.meta}>
+                        <RoleBadge role={m.role} label={roleLabel[m.role]} />
+                        <Text style={styles.rowSub}>Membre depuis {formatMonthYear(m.joinedAt)}</Text>
                       </View>
-                    )}
-                    <Text style={styles.memberSince}>Membre depuis {formatMonthYear(m.joinedAt)}</Text>
+                    </View>
+                    <ChevronRight size={18} color={colors.subtle} />
                   </View>
-                </View>
-                <ChevronRight size={18} color="#CBD5E1" />
-              </TouchableOpacity>
-            );
-          })}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -98,34 +75,21 @@ export default function SolidarityMembersScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 14, gap: 4 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  backBtn: { width: 32, height: 32, justifyContent: 'center', alignItems: 'center', marginLeft: -6 },
-  headerTitle: { fontFamily: 'SoraBold', fontSize: 20, color: '#1A202C' },
-  headerSub: { fontFamily: 'WorkSans', fontSize: 12.5, color: '#94A3B8', marginLeft: 32 },
-  scrollContent: { paddingHorizontal: 20, paddingBottom: 60 },
-  memberRow: {
+  container: { flex: 1, backgroundColor: colors.fill },
+  flex: { flex: 1 },
+  scrollContent: { padding: 16, paddingBottom: 48 },
+  listCard: { overflow: 'hidden' },
+  row: { flexDirection: 'row', alignItems: 'center', paddingLeft: 14, gap: 12 },
+  rowBody: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 13,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F3F6',
-    gap: 12,
+    gap: 10,
+    paddingVertical: 12,
+    paddingRight: 14,
   },
-  memberRowLast: { borderBottomWidth: 0 },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: { fontFamily: 'SoraBold', fontSize: 14, color: '#FFFFFF' },
-  memberInfo: { flex: 1, gap: 4 },
-  memberName: { fontFamily: 'SoraBold', fontSize: 14.5, color: '#0F172A' },
-  memberMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  roleBadge: { paddingHorizontal: 9, paddingVertical: 2.5, borderRadius: 7 },
-  roleBadgeText: { fontFamily: 'WorkSansSemiBold', fontSize: 10.5 },
-  memberSince: { fontFamily: 'WorkSans', fontSize: 11.5, color: '#94A3B8' },
+  rowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
+  rowTitle: { ...typography.callout, fontWeight: '600', color: colors.ink },
+  rowSub: { ...typography.footnote, color: colors.muted },
+  meta: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 3 },
 });

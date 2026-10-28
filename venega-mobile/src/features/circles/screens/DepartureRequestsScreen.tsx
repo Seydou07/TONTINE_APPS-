@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
-  Modal,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,10 +16,11 @@ import {
   Check,
   XCircle,
   CheckCircle2,
-  Loader,
   ChevronRight,
+  X,
 } from 'lucide-react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import { colors, radius, typography } from '@venega/design-tokens';
+import { Button, Chip, IconButton, Sheet } from '../../../components/ui';
 import {
   getCircle,
   getCircles,
@@ -46,13 +46,16 @@ const formatDate = (iso?: string) => {
 const statusInfo = (s: DepartureRequestStatus) => {
   switch (s) {
     case DepartureRequestStatus.PENDING:
-      return { label: 'En attente', color: '#B9852A', bg: 'rgba(217, 164, 65, 0.14)' };
+      return { label: 'En attente', color: colors.accent.dark, bg: colors.accent.tint };
     case DepartureRequestStatus.APPROVED:
-      return { label: 'Approuvé', color: '#0B6E4F', bg: 'rgba(11, 110, 79, 0.1)' };
+      return { label: 'Approuvé', color: colors.primary.DEFAULT, bg: colors.primary.tint };
     default:
-      return { label: 'Refusé', color: '#E53E3E', bg: 'rgba(229, 62, 62, 0.1)' };
+      return { label: 'Refusé', color: colors.danger.DEFAULT, bg: colors.danger.tint };
   }
 };
+
+const initials = (name: string) =>
+  (name.trim().split(/\s+/)[0]?.[0] ?? '') + (name.trim().split(/\s+/)[1]?.[0] ?? '');
 
 export default function DepartureRequestsScreen() {
   const router = useRouter();
@@ -95,49 +98,38 @@ export default function DepartureRequestsScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#074B36" />
-      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <SafeAreaView style={styles.flex} edges={['top']}>
         {/* En-tête */}
-        <View style={styles.topSection}>
-          <View style={styles.topBar}>
-            <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-              <ArrowLeft size={20} color="#FFFFFF" />
-            </TouchableOpacity>
+        <View style={styles.header}>
+          <IconButton icon={ArrowLeft} variant="plain" accessibilityLabel="Retour" onPress={() => router.back()} />
+          <View style={styles.headerText}>
             <Text style={styles.headerTitle} numberOfLines={1}>Demandes de départ</Text>
-            <View style={[styles.backBtn, styles.countPill]}>
-              <Text style={styles.countPillText}>{pendingCount}</Text>
-            </View>
+            <Text style={styles.headerSub} numberOfLines={1}>{circle.name}</Text>
           </View>
-          <Text style={styles.headerSub}>{circle.name}</Text>
+          <View style={styles.headerSide} />
         </View>
 
-        {/* Corps crème */}
-        <View style={styles.bodySheet}>
+        <View style={styles.body}>
           {/* Filtres */}
           <View style={styles.filterRow}>
-            <TouchableOpacity
-              style={[styles.filterChip, filter === 'pending' && styles.filterChipActive]}
+            <Chip
+              label={`En attente (${pendingCount})`}
+              selected={filter === 'pending'}
               onPress={() => setFilter('pending')}
-            >
-              <Text style={[styles.filterChipText, filter === 'pending' && styles.filterChipTextActive]}>
-                En attente ({pendingCount})
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.filterChip, filter === 'all' && styles.filterChipActive]}
+            />
+            <Chip
+              label={`Toutes (${requests.length})`}
+              selected={filter === 'all'}
               onPress={() => setFilter('all')}
-            >
-              <Text style={[styles.filterChipText, filter === 'all' && styles.filterChipTextActive]}>
-                Toutes ({requests.length})
-              </Text>
-            </TouchableOpacity>
+            />
           </View>
 
           <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
             {visibleRequests.length === 0 ? (
-              <View style={styles.emptyCard}>
+              <View style={styles.empty}>
                 <View style={styles.emptyIcon}>
-                  <HandCoins size={34} color="#10B981" />
+                  <HandCoins size={26} color={colors.primary.DEFAULT} />
                 </View>
                 <Text style={styles.emptyTitle}>
                   {filter === 'pending' ? 'Aucune demande de départ' : 'Aucune demande'}
@@ -147,33 +139,32 @@ export default function DepartureRequestsScreen() {
                 </Text>
               </View>
             ) : (
-              <View style={styles.listCard}>
+              <View style={styles.card}>
                 {visibleRequests.map((r, idx) => {
                   const st = statusInfo(r.status);
                   return (
                     <TouchableOpacity
                       key={r.id}
-                      style={[styles.requestRow, idx === visibleRequests.length - 1 && styles.requestRowLast]}
-                      activeOpacity={0.75}
+                      style={[styles.requestRow, idx < visibleRequests.length - 1 && styles.rowDivider]}
+                      activeOpacity={0.6}
                       onPress={() => setSelected(r)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Demande de départ de ${r.memberName}`}
                     >
-                      <View style={styles.avatarFallback}>
-                        <Text style={styles.avatarFallbackText}>
-                          {(r.memberName.trim().split(/\s+/)[0]?.[0] ?? '') +
-                            (r.memberName.trim().split(/\s+/)[1]?.[0] ?? '')}
-                        </Text>
+                      <View style={styles.avatar}>
+                        <Text style={styles.avatarText}>{initials(r.memberName)}</Text>
                       </View>
                       <View style={styles.rowInfo}>
                         <Text style={styles.rowName} numberOfLines={1}>{r.memberName}</Text>
                         <Text style={styles.rowMeta}>
-                          {r.pastTurns} tour(s) cotisé(s) • {formatXOF(r.totalRecover)} à récupérer
+                          {r.pastTurns} tour(s) cotisé(s) · {formatXOF(r.totalRecover)} à récupérer
                         </Text>
                       </View>
-                      <View style={{ alignItems: 'flex-end', gap: 6 }}>
-                        <View style={[styles.statusBadge, { backgroundColor: st.bg }]}>
-                          <Text style={[styles.statusBadgeText, { color: st.color }]}>{st.label}</Text>
+                      <View style={styles.rowRight}>
+                        <View style={[styles.badge, { backgroundColor: st.bg }]}>
+                          <Text style={[styles.badgeText, { color: st.color }]}>{st.label}</Text>
                         </View>
-                        <ChevronRight size={17} color="#94A3B8" />
+                        <ChevronRight size={18} color={colors.subtle} />
                       </View>
                     </TouchableOpacity>
                   );
@@ -182,602 +173,449 @@ export default function DepartureRequestsScreen() {
             )}
 
             <Text style={styles.hintText}>
-              Approuver un départ SANS ajouter de membre : les cagnottes sont recalculées automatiquement.
+              Approuver un départ sans ajouter de membre : les cagnottes sont recalculées automatiquement.
             </Text>
           </ScrollView>
         </View>
-
-        {/* MODALE DÉTAIL */}
-        <Modal visible={!!selected} animationType="fade" transparent={true}>
-          <View style={styles.modalOverlay}>
-            <Animated.View entering={FadeInDown.duration(300)} style={styles.modalCard}>
-              {selected && (
-                <>
-                  {/* En-tête */}
-                  <View style={styles.detailHeader}>
-                    <View style={styles.detailAvatar}>
-                      <Text style={styles.detailAvatarText}>
-                        {(selected.memberName.trim().split(/\s+/)[0]?.[0] ?? '') +
-                          (selected.memberName.trim().split(/\s+/)[1]?.[0] ?? '')}
-                      </Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.detailName}>{selected.memberName}</Text>
-                      <Text style={styles.detailSub}>Demande reçue le {formatDate(selected.createdAt)}</Text>
-                    </View>
-                    <TouchableOpacity onPress={() => setSelected(null)}>
-                      <Text style={styles.closeX}>✕</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  <ScrollView style={styles.detailScroll} showsVerticalScrollIndicator={false}>
-                    {/* Situation */}
-                    <Text style={styles.sectionLabel}>Situation</Text>
-                    <View style={styles.infoCard}>
-                      <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>Cagnotte déjà reçue</Text>
-                        <View style={styles.noBadge}>
-                          <Text style={styles.noBadgeText}>Non — éligible au départ</Text>
-                        </View>
-                      </View>
-                      <View style={styles.infoDivider} />
-                      <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>Tours cotisés (non reçus)</Text>
-                        <Text style={styles.infoValue}>{selected.pastTurns}</Text>
-                      </View>
-                      <View style={styles.infoDivider} />
-                      <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>Total à récupérer</Text>
-                        <Text style={[styles.infoValue, { color: '#E53E3E', fontWeight: '800' }]}>
-                          {formatXOF(selected.totalRecover)}
-                        </Text>
-                      </View>
-                    </View>
-
-                    {/* Ventilation du remboursement */}
-                    <Text style={styles.sectionLabel}>Qui lui rembourse quoi (main à main)</Text>
-                    <View style={styles.breakdownCard}>
-                      {selected.reimbursements.length === 0 ? (
-                        <Text style={styles.breakdownEmpty}>Aucun tour passé à rembourser.</Text>
-                      ) : (
-                        selected.reimbursements.map((r) => (
-                          <View key={r.turnNumber} style={styles.breakdownRow}>
-                            <View style={styles.turnPill}>
-                              <Text style={styles.turnPillText}>Tour {r.turnNumber}</Text>
-                            </View>
-                            <Text style={styles.breakdownName} numberOfLines={1}>{r.beneficiaryName}</Text>
-                            <Text style={styles.breakdownAmount}>{formatXOF(r.amount)}</Text>
-                          </View>
-                        ))
-                      )}
-                      <Text style={styles.breakdownNote}>
-                        Le paiement se fait directement avec chaque bénéficiaire, sans passer par l'application.
-                      </Text>
-                    </View>
-
-                    {/* Recalcul des cagnottes */}
-                    <Text style={styles.sectionLabel}>Conséquence de l'approbation</Text>
-                    <View style={styles.recalcCard}>
-                      <View style={styles.recalcHeader}>
-                        <Calculator size={18} color="#0369A1" />
-                        <Text style={styles.recalcTitle}>Aucun remplaçant — cagnottes recalculées</Text>
-                      </View>
-                      <Text style={styles.recalcText}>
-                        Le cercle continue normalement sans nouveau membre. Les cotisations restantes sont
-                        réajustées pour que le pot reste entier.
-                      </Text>
-                    </View>
-
-                    {selected.status === DepartureRequestStatus.APPROVED && selected.recalculatedContribution !== undefined && (
-                      <View style={styles.approvedBox}>
-                        <CheckCircle2 size={16} color="#0B6E4F" />
-                        <Text style={styles.approvedText}>
-                          Départ approuvé — nouvelle cotisation : {formatXOF(selected.recalculatedContribution)} par membre restant.
-                        </Text>
-                      </View>
-                    )}
-
-                    {selected.status === DepartureRequestStatus.REJECTED && (
-                      <View style={styles.rejectedBox}>
-                        <XCircle size={16} color="#E53E3E" />
-                        <Text style={styles.rejectedText}>
-                          Départ refusé — {selected.rejectionReason ?? 'le membre reste dans le cercle.'}
-                        </Text>
-                      </View>
-                    )}
-                  </ScrollView>
-
-                  {/* Actions */}
-                  {selected.status === DepartureRequestStatus.PENDING ? (
-                    <>
-                      <TouchableOpacity
-                        style={[styles.approveBtn, actionLoading && styles.btnDisabled]}
-                        activeOpacity={0.88}
-                        onPress={() => handleApprove(selected)}
-                        disabled={actionLoading}
-                      >
-                        {actionLoading ? (
-                          <Loader size={18} color="#FFFFFF" />
-                        ) : (
-                          <CheckCircle2 size={18} color="#FFFFFF" />
-                        )}
-                        <Text style={styles.approveBtnText}>
-                          {actionLoading ? 'Approbation en cours…' : 'Approuver sans remplaçant'}
-                        </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.refuseBtn}
-                        activeOpacity={0.8}
-                        onPress={() => handleReject(selected)}
-                        disabled={actionLoading}
-                      >
-                        <XCircle size={17} color="#E53E3E" />
-                        <Text style={styles.refuseBtnText}>Refuser</Text>
-                      </TouchableOpacity>
-                    </>
-                  ) : (
-                    <View style={styles.decidedBanner}>
-                      <Check size={18} color="#0B6E4F" />
-                      <Text style={styles.decidedBannerText}>
-                        {selected.status === DepartureRequestStatus.APPROVED
-                          ? 'Départ approuvé — cagnottes recalculées'
-                          : 'Départ refusé'}
-                      </Text>
-                    </View>
-                  )}
-                </>
-              )}
-            </Animated.View>
-          </View>
-        </Modal>
       </SafeAreaView>
+
+      {/* FEUILLE DÉTAIL */}
+      <Sheet visible={!!selected} onClose={() => setSelected(null)}>
+        {selected && (
+          <>
+            {/* En-tête */}
+            <View style={styles.detailHeader}>
+              <View style={[styles.avatar, styles.detailAvatar]}>
+                <Text style={styles.avatarText}>{initials(selected.memberName)}</Text>
+              </View>
+              <View style={styles.flexShrink}>
+                <Text style={styles.detailName}>{selected.memberName}</Text>
+                <Text style={styles.detailSub}>Demande reçue le {formatDate(selected.createdAt)}</Text>
+              </View>
+              <IconButton icon={X} variant="plain" accessibilityLabel="Fermer" onPress={() => setSelected(null)} />
+            </View>
+
+            <ScrollView style={styles.detailScroll} showsVerticalScrollIndicator={false}>
+              {/* Situation */}
+              <Text style={styles.sectionLabel}>Situation</Text>
+              <View style={styles.infoCard}>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Cagnotte déjà reçue</Text>
+                  <View style={[styles.badge, { backgroundColor: colors.primary.tint }]}>
+                    <Text style={[styles.badgeText, { color: colors.primary.DEFAULT }]}>Non — éligible au départ</Text>
+                  </View>
+                </View>
+                <View style={styles.infoDivider} />
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Tours cotisés (non reçus)</Text>
+                  <Text style={styles.infoValue}>{selected.pastTurns}</Text>
+                </View>
+                <View style={styles.infoDivider} />
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Total à récupérer</Text>
+                  <Text style={[styles.infoValue, styles.infoValueStrong]}>
+                    {formatXOF(selected.totalRecover)}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Ventilation du remboursement */}
+              <Text style={styles.sectionLabel}>Qui lui rembourse quoi (main à main)</Text>
+              <View style={styles.infoCard}>
+                {selected.reimbursements.length === 0 ? (
+                  <Text style={styles.breakdownEmpty}>Aucun tour passé à rembourser.</Text>
+                ) : (
+                  selected.reimbursements.map((r, i) => (
+                    <View
+                      key={r.turnNumber}
+                      style={[styles.breakdownRow, i < selected.reimbursements.length - 1 && styles.rowDivider]}
+                    >
+                      <View style={styles.turnPill}>
+                        <Text style={styles.turnPillText}>Tour {r.turnNumber}</Text>
+                      </View>
+                      <Text style={styles.breakdownName} numberOfLines={1}>{r.beneficiaryName}</Text>
+                      <Text style={styles.breakdownAmount}>{formatXOF(r.amount)}</Text>
+                    </View>
+                  ))
+                )}
+              </View>
+              <Text style={styles.breakdownNote}>
+                Le paiement se fait directement avec chaque bénéficiaire, sans passer par l'application.
+              </Text>
+
+              {/* Recalcul des cagnottes */}
+              <Text style={styles.sectionLabel}>Conséquence de l'approbation</Text>
+              <View style={styles.recalcCard}>
+                <View style={styles.recalcIcon}>
+                  <Calculator size={18} color={colors.info.DEFAULT} />
+                </View>
+                <View style={styles.flexShrink}>
+                  <Text style={styles.recalcTitle}>Aucun remplaçant — cagnottes recalculées</Text>
+                  <Text style={styles.recalcText}>
+                    Le cercle continue normalement sans nouveau membre. Les cotisations restantes sont
+                    réajustées pour que le pot reste entier.
+                  </Text>
+                </View>
+              </View>
+
+              {selected.status === DepartureRequestStatus.APPROVED && selected.recalculatedContribution !== undefined && (
+                <View style={[styles.notice, { backgroundColor: colors.primary.tint }]}>
+                  <CheckCircle2 size={16} color={colors.primary.DEFAULT} />
+                  <Text style={[styles.noticeText, { color: colors.primary.dark }]}>
+                    Départ approuvé — nouvelle cotisation : {formatXOF(selected.recalculatedContribution)} par membre restant.
+                  </Text>
+                </View>
+              )}
+
+              {selected.status === DepartureRequestStatus.REJECTED && (
+                <View style={[styles.notice, { backgroundColor: colors.danger.tint }]}>
+                  <XCircle size={16} color={colors.danger.DEFAULT} />
+                  <Text style={[styles.noticeText, { color: colors.danger.dark }]}>
+                    Départ refusé — {selected.rejectionReason ?? 'le membre reste dans le cercle.'}
+                  </Text>
+                </View>
+              )}
+            </ScrollView>
+
+            {/* Actions */}
+            <View style={styles.actions}>
+              {selected.status === DepartureRequestStatus.PENDING ? (
+                <>
+                  <Button
+                    title="Approuver sans remplaçant"
+                    icon={CheckCircle2}
+                    loading={actionLoading}
+                    onPress={() => handleApprove(selected)}
+                  />
+                  <Button
+                    title="Refuser"
+                    variant="secondary"
+                    icon={XCircle}
+                    disabled={actionLoading}
+                    onPress={() => handleReject(selected)}
+                  />
+                </>
+              ) : (
+                <View style={[styles.notice, styles.noticeFlat, styles.noticeCenter, { backgroundColor: colors.primary.tint }]}>
+                  <Check size={18} color={colors.primary.DEFAULT} />
+                  <Text style={styles.decidedText}>
+                    {selected.status === DepartureRequestStatus.APPROVED
+                      ? 'Départ approuvé — cagnottes recalculées'
+                      : 'Départ refusé'}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </>
+        )}
+      </Sheet>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  flexShrink: { flex: 1, flexShrink: 1 },
   container: {
     flex: 1,
-    backgroundColor: '#074B36',
+    backgroundColor: colors.bg,
   },
-  topSection: {
-    backgroundColor: '#074B36',
-    paddingHorizontal: 20,
-    paddingBottom: 24,
-  },
-  topBar: {
+
+  /* ── En-tête ── */
+  header: {
+    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 8,
-    marginBottom: 10,
+    paddingHorizontal: 8,
+    backgroundColor: colors.bg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.line,
   },
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    justifyContent: 'center',
+  headerText: {
+    flex: 1,
     alignItems: 'center',
   },
-  countPill: {
-    backgroundColor: '#D9A441',
-  },
-  countPillText: {
-    fontFamily: 'SoraBold',
-    fontSize: 13,
-    color: '#FFFFFF',
-  },
   headerTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 17,
-    color: '#FFFFFF',
-    flex: 1,
-    textAlign: 'center',
-    marginHorizontal: 10,
+    ...typography.headline,
+    color: colors.ink,
   },
   headerSub: {
-    fontFamily: 'WorkSans',
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.8)',
-    textAlign: 'center',
+    ...typography.caption,
+    fontWeight: '400',
+    color: colors.muted,
   },
-  bodySheet: {
+  headerSide: {
+    width: 40,
+  },
+
+  /* ── Corps ── */
+  body: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    marginTop: -20,
-    paddingTop: 16,
+    backgroundColor: colors.fill,
   },
   filterRow: {
     flexDirection: 'row',
     gap: 8,
-    paddingHorizontal: 20,
-    marginBottom: 12,
-  },
-  filterChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-  },
-  filterChipActive: {
-    backgroundColor: '#074B36',
-    borderColor: '#074B36',
-  },
-  filterChipText: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 12,
-    color: '#64748B',
-  },
-  filterChipTextActive: {
-    color: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 12,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 60,
+    paddingHorizontal: 16,
+    paddingBottom: 40,
     gap: 14,
   },
-  listCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+  card: {
+    backgroundColor: colors.bg,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.line,
     overflow: 'hidden',
   },
   requestRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 13,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-    gap: 11,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 12,
   },
-  requestRowLast: {
-    borderBottomWidth: 0,
+  rowDivider: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.line,
   },
-  avatarFallback: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(7, 75, 54, 0.1)',
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primary.tint,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  avatarFallbackText: {
-    fontFamily: 'SoraBold',
-    fontSize: 15,
-    color: '#074B36',
+  avatarText: {
+    ...typography.callout,
+    fontWeight: '600',
+    color: colors.primary.dark,
   },
   rowInfo: {
     flex: 1,
-    gap: 1,
+    flexShrink: 1,
   },
   rowName: {
-    fontFamily: 'SoraBold',
-    fontSize: 14,
-    color: '#0F172A',
+    ...typography.callout,
+    fontWeight: '600',
+    color: colors.ink,
   },
   rowMeta: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 10.5,
-    color: '#94A3B8',
-    marginTop: 2,
+    ...typography.footnote,
+    color: colors.muted,
+    marginTop: 1,
   },
-  statusBadge: {
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 9,
+  rowRight: {
+    alignItems: 'flex-end',
+    gap: 6,
   },
-  statusBadgeText: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 10.5,
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+    flexShrink: 1,
   },
-  emptyCard: {
+  badgeText: {
+    ...typography.caption,
+    fontWeight: '600',
+  },
+
+  /* ── État vide ── */
+  empty: {
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    paddingVertical: 34,
-    paddingHorizontal: 20,
-    gap: 10,
+    paddingVertical: 40,
+    paddingHorizontal: 24,
   },
   emptyIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(11, 110, 79, 0.1)',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primary.tint,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 14,
   },
   emptyTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 16,
-    color: '#0F172A',
+    ...typography.headline,
+    color: colors.ink,
+    textAlign: 'center',
   },
   emptyText: {
-    fontFamily: 'WorkSans',
-    fontSize: 12.5,
-    lineHeight: 18,
-    color: '#64748B',
+    ...typography.callout,
+    color: colors.muted,
     textAlign: 'center',
+    marginTop: 6,
   },
   hintText: {
-    fontFamily: 'WorkSans',
-    fontSize: 11.5,
-    lineHeight: 16,
-    color: '#94A3B8',
+    ...typography.footnote,
+    color: colors.subtle,
     textAlign: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 12,
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  modalCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 28,
-    padding: 22,
-    width: '100%',
-    gap: 12,
-    maxHeight: '92%',
-  },
+
+  /* ── Feuille détail ── */
   detailHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    marginBottom: 4,
   },
   detailAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(7, 75, 54, 0.12)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  detailAvatarText: {
-    fontFamily: 'SoraBold',
-    fontSize: 17,
-    color: '#074B36',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
   },
   detailName: {
-    fontFamily: 'SoraBold',
-    fontSize: 16,
-    color: '#0F172A',
+    ...typography.headline,
+    color: colors.ink,
   },
   detailSub: {
-    fontFamily: 'WorkSans',
-    fontSize: 11.5,
-    color: '#64748B',
-    marginTop: 2,
-  },
-  closeX: {
-    fontFamily: 'SoraBold',
-    fontSize: 16,
-    color: '#64748B',
+    ...typography.footnote,
+    color: colors.muted,
   },
   detailScroll: {
-    maxHeight: 380,
+    flexGrow: 0,
+    flexShrink: 1,
   },
   sectionLabel: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 11,
-    color: '#94A3B8',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    marginTop: 14,
-    marginBottom: 6,
-    marginLeft: 2,
+    ...typography.footnote,
+    fontWeight: '600',
+    color: colors.muted,
+    marginTop: 18,
+    marginBottom: 8,
   },
   infoCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    backgroundColor: colors.bg,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.line,
     paddingHorizontal: 14,
-    paddingVertical: 4,
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 11,
-    gap: 10,
+    paddingVertical: 12,
+    gap: 12,
   },
   infoDivider: {
-    height: 1,
-    backgroundColor: '#F1F5F9',
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.line,
   },
   infoLabel: {
-    fontFamily: 'WorkSans',
-    fontSize: 12.5,
-    color: '#64748B',
+    ...typography.callout,
+    color: colors.muted,
+    flexShrink: 1,
   },
   infoValue: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 13,
-    color: '#0F172A',
+    ...typography.callout,
+    fontWeight: '600',
+    color: colors.ink,
     textAlign: 'right',
     flexShrink: 1,
   },
-  noBadge: {
-    backgroundColor: 'rgba(11, 110, 79, 0.1)',
-    paddingHorizontal: 9,
-    paddingVertical: 3,
-    borderRadius: 9,
-  },
-  noBadgeText: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 11.5,
-    color: '#0B6E4F',
-  },
-  breakdownCard: {
-    backgroundColor: '#F0FDF4',
-    borderWidth: 1,
-    borderColor: '#BBF7D0',
-    borderRadius: 18,
-    padding: 14,
+  infoValueStrong: {
+    fontWeight: '700',
+    color: colors.danger.DEFAULT,
   },
   breakdownRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#DCFCE7',
+    paddingVertical: 12,
   },
   turnPill: {
-    backgroundColor: 'rgba(7, 75, 54, 0.1)',
-    borderRadius: 8,
+    backgroundColor: colors.fill,
+    borderRadius: radius.pill,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
   turnPillText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#074B36',
-    fontFamily: 'WorkSans',
+    ...typography.caption,
+    fontWeight: '600',
+    color: colors.inkSoft,
   },
   breakdownName: {
     flex: 1,
-    fontSize: 13,
+    ...typography.callout,
     fontWeight: '600',
-    color: '#0F172A',
-    fontFamily: 'WorkSans',
+    color: colors.ink,
   },
   breakdownAmount: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#E53E3E',
-    fontFamily: 'WorkSans',
+    ...typography.callout,
+    fontWeight: '600',
+    color: colors.danger.DEFAULT,
   },
   breakdownNote: {
-    fontSize: 11.5,
-    color: '#64748B',
-    fontFamily: 'WorkSans',
-    marginTop: 10,
-    lineHeight: 16,
+    ...typography.footnote,
+    color: colors.muted,
+    marginTop: 8,
   },
   breakdownEmpty: {
-    fontSize: 13,
-    color: '#64748B',
-    fontFamily: 'WorkSans',
+    ...typography.callout,
+    color: colors.muted,
+    paddingVertical: 12,
   },
   recalcCard: {
-    backgroundColor: '#F0F9FF',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    backgroundColor: colors.bg,
     borderWidth: 1,
-    borderColor: '#BAE6FD',
-    borderRadius: 18,
+    borderColor: colors.line,
+    borderRadius: radius.md,
     padding: 14,
   },
-  recalcHeader: {
-    flexDirection: 'row',
+  recalcIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.info.tint,
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 6,
   },
   recalcTitle: {
-    flex: 1,
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#0369A1',
-    fontFamily: 'Sora',
+    ...typography.callout,
+    fontWeight: '600',
+    color: colors.ink,
   },
   recalcText: {
-    fontSize: 12.5,
-    color: '#0C4A6E',
-    fontFamily: 'WorkSans',
-    lineHeight: 18,
+    ...typography.footnote,
+    color: colors.muted,
+    marginTop: 2,
   },
-  approvedBox: {
+  notice: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(11, 110, 79, 0.1)',
-    borderRadius: 12,
+    gap: 10,
+    borderRadius: radius.md,
     padding: 12,
-    marginTop: 14,
+    marginTop: 16,
   },
-  approvedText: {
+  noticeFlat: {
+    marginTop: 0,
+  },
+  noticeCenter: {
+    justifyContent: 'center',
+  },
+  noticeText: {
     flex: 1,
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 12,
-    color: '#0B6E4F',
+    ...typography.footnote,
+    fontWeight: '500',
   },
-  rejectedBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(229, 62, 62, 0.08)',
-    borderRadius: 12,
-    padding: 12,
-    marginTop: 14,
+  decidedText: {
+    ...typography.callout,
+    fontWeight: '600',
+    color: colors.primary.dark,
+    flexShrink: 1,
   },
-  rejectedText: {
-    flex: 1,
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 12,
-    color: '#E53E3E',
-  },
-  approveBtn: {
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#0B6E4F',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 10,
-    shadowColor: '#0B6E4F',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  approveBtnText: {
-    fontFamily: 'SoraBold',
-    fontSize: 14.5,
-    color: '#FFFFFF',
-  },
-  btnDisabled: {
-    opacity: 0.7,
-  },
-  refuseBtn: {
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#FECACA',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-  },
-  refuseBtnText: {
-    fontFamily: 'SoraBold',
-    fontSize: 13.5,
-    color: '#E53E3E',
-  },
-  decidedBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(11, 110, 79, 0.1)',
-    borderRadius: 14,
-    padding: 14,
-    marginTop: 10,
-  },
-  decidedBannerText: {
-    fontFamily: 'SoraBold',
-    fontSize: 13.5,
-    color: '#0B6E4F',
+  actions: {
+    gap: 10,
+    marginTop: 16,
   },
 });

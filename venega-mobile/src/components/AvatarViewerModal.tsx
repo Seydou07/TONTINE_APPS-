@@ -1,6 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, Image, StatusBar } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
+import { typography } from '@venega/design-tokens';
+import { IconButton } from './ui';
 
 interface AvatarViewerModalProps {
   visible: boolean;
@@ -11,6 +14,7 @@ interface AvatarViewerModalProps {
   color: string;
 }
 
+/** Visionneuse plein écran de la photo de profil d'un membre. */
 export default function AvatarViewerModal({
   visible,
   onClose,
@@ -19,9 +23,11 @@ export default function AvatarViewerModal({
   initials,
   color,
 }: AvatarViewerModalProps) {
+  const insets = useSafeAreaInsets();
   return (
-    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
-      <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
+    <Modal visible={visible} animationType="fade" transparent statusBarTranslucent onRequestClose={onClose}>
+      <StatusBar barStyle="light-content" />
+      <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose} accessibilityLabel="Fermer">
         <TouchableOpacity activeOpacity={1} onPress={() => {}} style={styles.content}>
           {photoUrl ? (
             <Image source={{ uri: photoUrl }} style={styles.photo} />
@@ -32,30 +38,35 @@ export default function AvatarViewerModal({
           )}
           <Text style={styles.name}>{name}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.closeBtn} activeOpacity={0.8} onPress={onClose}>
-          <X size={22} color="#FFFFFF" />
-        </TouchableOpacity>
+        <IconButton
+          icon={X}
+          variant="plain"
+          color="#FFFFFF"
+          accessibilityLabel="Fermer"
+          onPress={onClose}
+          style={[styles.closeBtn, { top: insets.top + 12 }]}
+        />
       </TouchableOpacity>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(10, 10, 12, 0.94)', justifyContent: 'center', alignItems: 'center' },
-  content: { alignItems: 'center', gap: 18 },
-  photo: { width: 260, height: 260, borderRadius: 130 },
-  initialsCircle: { justifyContent: 'center', alignItems: 'center' },
-  initialsText: { fontFamily: 'SoraBold', fontSize: 76, color: '#FFFFFF' },
-  name: { fontFamily: 'SoraBold', fontSize: 17, color: '#FFFFFF' },
-  closeBtn: {
-    position: 'absolute',
-    top: 50,
-    right: 20,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(22, 24, 29, 0.94)',
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  content: { alignItems: 'center', gap: 16 },
+  photo: { width: 240, height: 240, borderRadius: 120 },
+  initialsCircle: { justifyContent: 'center', alignItems: 'center' },
+  initialsText: { fontSize: 64, fontWeight: '600', color: '#FFFFFF' },
+  name: { ...typography.headline, color: '#FFFFFF', textAlign: 'center' },
+  closeBtn: {
+    position: 'absolute',
+    right: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
   },
 });

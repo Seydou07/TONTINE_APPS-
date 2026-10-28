@@ -1,37 +1,27 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  StatusBar,
-  Modal,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ArrowLeft,
-  ChevronRight,
   Wallet,
   BellRing,
   UserCheck,
   Users,
   UserX,
+  UserMinus,
   Calculator,
   Settings2,
   ShieldCheck,
   LogOut,
-  X,
   Check,
   Send,
-  Loader,
   CheckCircle2,
   Coins,
   UserCog,
 } from 'lucide-react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import { colors, radius, typography } from '@venega/design-tokens';
 import {
   getCircles,
   getCircle,
@@ -50,6 +40,7 @@ import {
   UnlockRule,
   PaymentStatus,
 } from '@venega/types';
+import { Button, IconButton, ListGroup, ListRow, Sheet } from '../../../components/ui';
 
 const formatXOF = (n: number) => new Intl.NumberFormat('fr-FR').format(n) + ' F CFA';
 
@@ -141,712 +132,376 @@ export default function ManageScreen() {
     }, 1500);
   };
 
-  const menuItem = (
-    key: string,
-    icon: any,
-    title: string,
-    subtitle: string,
-    onPress: () => void,
-    badge?: number,
-    danger?: boolean,
-    last?: boolean
-  ) => (
-    <TouchableOpacity
-      key={key}
-      style={[styles.menuRow, last && styles.menuRowLast]}
-      activeOpacity={0.75}
-      onPress={onPress}
-    >
-      <View style={[styles.menuIconWrap, danger ? styles.menuIconWrapDanger : styles.menuIconWrapDefault]}>
-        {React.createElement(icon, { size: 19, color: danger ? '#EF4444' : '#074B36', strokeWidth: 2 })}
-      </View>
-      <View style={styles.menuRowInfo}>
-        <Text style={[styles.menuRowTitle, danger && styles.menuRowTitleDanger]}>{title}</Text>
-        <Text style={styles.menuRowSub} numberOfLines={1}>{subtitle}</Text>
-      </View>
-      {badge != null && badge > 0 && (
-        <View style={styles.menuBadge}>
-          <Text style={styles.menuBadgeText}>{badge}</Text>
-        </View>
-      )}
-      <ChevronRight size={18} color="#94A3B8" />
-    </TouchableOpacity>
-  );
+  const pendingLabel = (n: number) => (n > 0 ? `${n} en attente` : undefined);
 
-  const sectionLabel = (text: string) => (
-    <Text style={styles.sectionLabel}>{text}</Text>
-  );
+  const initials = `${beneficiary?.user?.firstName?.[0] ?? ''}${beneficiary?.user?.lastName?.[0] ?? ''}`.toUpperCase();
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#074B36" />
-      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <SafeAreaView style={styles.flex} edges={['top']}>
         {/* En-tête */}
-        <View style={styles.topSection}>
-          <View style={styles.topBar}>
-            <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-              <ArrowLeft size={20} color="#FFFFFF" />
-            </TouchableOpacity>
-            <View style={{ flex: 1, alignItems: 'center' }}>
-              <Text style={styles.headerTitle}>Gérer le cercle</Text>
-            </View>
-            <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-              <Settings2 size={18} color="#FFFFFF" />
-            </TouchableOpacity>
-          </View>
+        <View style={styles.header}>
+          <IconButton icon={ArrowLeft} variant="plain" accessibilityLabel="Retour" onPress={() => router.back()} />
+          <Text style={styles.headerTitle}>Gérer le cercle</Text>
+          <View style={styles.headerSpacer} />
+        </View>
 
-          <View style={styles.headerCircleCard}>
-            <View style={styles.headerCircleInfo}>
-              <Text style={styles.headerCircleName} numberOfLines={1}>{circle.name}</Text>
-              <Text style={styles.headerCircleMeta}>
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          {/* Résumé du cercle */}
+          <View style={styles.summary}>
+            <View style={styles.summaryText}>
+              <Text style={styles.summaryName} numberOfLines={2}>
+                {circle.name}
+              </Text>
+              <Text style={styles.summaryMeta}>
                 {isAidAppeal
                   ? `Objectif ${formatXOF(circle.rules?.goalAmount ?? 0)}`
                   : isNature
                   ? `Objectif : ${circle.rules?.goalItem ?? '—'}`
                   : `Cotisation ${formatXOF(circle.tontineAmount || circle.solidarityAmount)}`}
-                {' • '}{orderedMembers.length} membre(s)
+                {' · '}
+                {orderedMembers.length} membre(s)
               </Text>
             </View>
-            <Image
-              source={{ uri: beneficiary?.user?.avatarUrl }}
-              style={styles.headerBeneficiaryAvatar}
-              contentFit="cover"
-            />
-          </View>
-        </View>
-
-        {/* Corps crème */}
-        <View style={styles.bodySheet}>
-          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-            {/* 1. TOUR & VERSEMENTS */}
-            {sectionLabel('Tour & Versements')}
-            <Animated.View entering={FadeInDown.delay(50).duration(400)} style={styles.menuCard}>
-              {menuItem(
-                'payout',
-                Wallet,
-                'Verser la cagnotte',
-                `Bénéficiaire : ${beneficiary?.user?.firstName ?? '—'} ${beneficiary?.user?.lastName ?? ''} (Tour ${cycle?.currentTurn ?? 1})`,
-                openPayout
-              )}
-              {menuItem(
-                'remind',
-                BellRing,
-                'Relancer les cotisations',
-                unpaidCount > 0
-                  ? `${unpaidCount} membre(s) n'ont pas encore cotisé`
-                  : 'Tous les membres ont cotisé',
-                openRemind
-              )}
-            </Animated.View>
-
-            {/* 2. MEMBRES */}
-            {sectionLabel('Membres')}
-            <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.menuCard}>
-              {menuItem(
-                'requests',
-                UserCheck,
-                'Demandes d\'adhésion',
-                'Approuver ou refuser les entrées',
-                () => router.push(`/circle/${circle.id}/requests` as any),
-                pendingRequests.length
-              )}
-              {menuItem(
-                'departure-requests',
-                UserX,
-                'Demandes de départ',
-                'Approuver un départ, recalculer les cagnottes',
-                () => router.push(`/circle/${circle.id}/departure-requests` as any),
-                pendingDepartures.length
-              )}
-              {menuItem(
-                'replacement',
-                Users,
-                'Remplacer un membre',
-                'Rachat des tours passés ou prise réduite',
-                () => router.push(`/circle/${circle.id}/replacement` as any)
-              )}
-              {menuItem(
-                'exclusion',
-                UserX,
-                'Exclure un membre',
-                'Retirer un membre du cercle',
-                () => router.push(`/circle/${circle.id}/exclusion` as any),
-                undefined,
-                false,
-                true
-              )}
-            </Animated.View>
-
-            {/* 2bis. BUREAU & GOUVERNANCE */}
-            {sectionLabel('Bureau & Gouvernance')}
-            <Animated.View entering={FadeInDown.delay(130).duration(400)} style={styles.menuCard}>
-              {menuItem(
-                'governance',
-                UserCog,
-                'Trésorier & validateurs',
-                'Nommer le Trésorier, désigner qui approuve un décaissement',
-                () => router.push(`/circle/${circle.id}/governance` as any)
-              )}
-            </Animated.View>
-
-            {/* 3. TONTINE & CALCULS */}
-            {sectionLabel('Tontine & Calculs')}
-            <Animated.View entering={FadeInDown.delay(150).duration(400)} style={styles.menuCard}>
-              {menuItem(
-                'recalculate',
-                Calculator,
-                'Recalcul des cotisations',
-                'Réajuster les montants après un départ',
-                () => router.push(`/circle/${circle.id}/recalculate` as any),
-                undefined,
-                false,
-                true
-              )}
-            </Animated.View>
-
-            {/* 3bis. CAISSE DE SOLIDARITÉ */}
-            {circle.solidarityAmount > 0 && (
-              <>
-                {sectionLabel('Solidarité')}
-                <Animated.View entering={FadeInDown.delay(170).duration(400)} style={styles.menuCard}>
-                  {menuItem(
-                    'solidarity',
-                    Coins,
-                    'Caisse de solidarité',
-                    'Contributions par membre, traces et justificatifs',
-                    () => router.push(`/circle/${circle.id}/solidarity` as any),
-                    undefined,
-                    false,
-                    true
-                  )}
-                </Animated.View>
-              </>
+            {beneficiary?.user?.avatarUrl ? (
+              <Image source={{ uri: beneficiary.user.avatarUrl }} style={styles.summaryAvatar} contentFit="cover" />
+            ) : (
+              <View style={[styles.summaryAvatar, styles.avatarFallback]}>
+                <Text style={styles.avatarInitials}>{initials || '—'}</Text>
+              </View>
             )}
+          </View>
 
-            {/* 4. RÈGLES DU CERCLE */}
-            {sectionLabel('Règles du cercle')}
-            <Animated.View entering={FadeInDown.delay(200).duration(400)} style={styles.menuCard}>
-              {menuItem(
-                'edit',
-                Settings2,
-                'Modifier le cercle',
-                'Nom, conditions, règles de remplacement, adhésion',
-                () => router.push(`/circle/${circle.id}/edit` as any)
-              )}
-            </Animated.View>
-            <Animated.View entering={FadeInDown.delay(225).duration(400)} style={styles.rulesCard}>
-              <View style={styles.rulesHeaderRow}>
-                <ShieldCheck size={17} color="#074B36" />
-                <Text style={styles.rulesHeaderText}>Paramètres de gestion</Text>
-              </View>
+          <ListGroup title="Tour et versements" style={styles.group}>
+            <ListRow
+              icon={Wallet}
+              tone="primary"
+              title="Verser la cagnotte"
+              subtitle={`Bénéficiaire : ${beneficiary?.user?.firstName ?? '—'} ${beneficiary?.user?.lastName ?? ''} (tour ${cycle?.currentTurn ?? 1})`}
+              onPress={openPayout}
+            />
+            <ListRow
+              icon={BellRing}
+              tone="primary"
+              title="Relancer les cotisations"
+              subtitle={
+                unpaidCount > 0 ? `${unpaidCount} membre(s) n'ont pas encore cotisé` : 'Tous les membres ont cotisé'
+              }
+              onPress={openRemind}
+              last
+            />
+          </ListGroup>
 
-              <View style={styles.ruleRow}>
-                <Text style={styles.ruleLabel}>Remboursement au départ</Text>
-                <Text style={styles.ruleValue}>{refundLabel}</Text>
-              </View>
-              <View style={styles.ruleRow}>
-                <Text style={styles.ruleLabel}>Remplacement d'un membre</Text>
-                <Text style={styles.ruleValue}>{replacementLabel}</Text>
-              </View>
-              <View style={styles.ruleRow}>
-                <Text style={styles.ruleLabel}>Déblocage caisse solidarité</Text>
-                <Text style={styles.ruleValue}>{unlockLabel}</Text>
-              </View>
-              <View style={styles.ruleRow}>
-                <Text style={styles.ruleLabel}>Approbateurs requis</Text>
-                <Text style={styles.ruleValue}>{rules?.approversRequired ?? 0} approbateur(s)</Text>
-              </View>
-              <View style={styles.ruleRow}>
-                <Text style={styles.ruleLabel}>Réserve de sécurité</Text>
-                <Text style={styles.ruleValue}>{rules?.reservePercent ?? 0} %</Text>
-              </View>
-              {isAidAppeal && (
-                <View style={styles.ruleRow}>
-                  <Text style={styles.ruleLabel}>Contributions publiques</Text>
-                  <Text style={styles.ruleValue}>
-                    {rules?.allowPublicContributions ? 'Ouvert sans adhésion' : 'Membres uniquement'}
-                  </Text>
-                </View>
-              )}
-              {isAidAppeal && rules?.minContribution ? (
-                <View style={styles.ruleRow}>
-                  <Text style={styles.ruleLabel}>Montant minimum</Text>
-                  <Text style={styles.ruleValue}>{formatXOF(rules.minContribution)}</Text>
-                </View>
-              ) : null}
-            </Animated.View>
+          <ListGroup title="Membres" style={styles.group}>
+            <ListRow
+              icon={UserCheck}
+              title="Demandes d'adhésion"
+              subtitle="Approuver ou refuser les entrées"
+              value={pendingLabel(pendingRequests.length)}
+              valueTone="success"
+              onPress={() => router.push(`/circle/${circle.id}/requests` as any)}
+            />
+            <ListRow
+              icon={UserMinus}
+              title="Demandes de départ"
+              subtitle="Approuver un départ, recalculer les cagnottes"
+              value={pendingLabel(pendingDepartures.length)}
+              valueTone="success"
+              onPress={() => router.push(`/circle/${circle.id}/departure-requests` as any)}
+            />
+            <ListRow
+              icon={Users}
+              title="Remplacer un membre"
+              subtitle="Rachat des tours passés ou prise réduite"
+              onPress={() => router.push(`/circle/${circle.id}/replacement` as any)}
+            />
+            <ListRow
+              icon={UserX}
+              title="Exclure un membre"
+              subtitle="Retirer un membre du cercle"
+              onPress={() => router.push(`/circle/${circle.id}/exclusion` as any)}
+              last
+            />
+          </ListGroup>
 
-            {/* 5. QUITTER */}
-            <Animated.View entering={FadeInDown.delay(250).duration(400)} style={styles.menuCard}>
-              {menuItem(
-                'departure',
-                LogOut,
-                'Quitter ce cercle',
-                'Règles de départ et remboursement',
-                () => router.push(`/circle/${circle.id}/departure` as any),
-                undefined,
-                true,
-                true
-              )}
-            </Animated.View>
-          </ScrollView>
-        </View>
+          <ListGroup title="Bureau et gouvernance" style={styles.group}>
+            <ListRow
+              icon={UserCog}
+              title="Trésorier et validateurs"
+              subtitle="Nommer le trésorier, désigner qui approuve un décaissement"
+              onPress={() => router.push(`/circle/${circle.id}/governance` as any)}
+              last
+            />
+          </ListGroup>
 
-        {/* MODALE RELANCE DES COTISATIONS (reste sur la page de gestion) */}
-        <Modal visible={showRemindModal} animationType="fade" transparent={true}>
-          <View style={styles.modalOverlay}>
-            <Animated.View entering={FadeInDown.duration(300)} style={styles.modalCard}>
-              {lateMembers.length === 0 ? (
-                <>
-                  <View style={styles.modalHeaderRow}>
-                    <Text style={styles.modalTitle}>Relancer les cotisations</Text>
-                    <TouchableOpacity onPress={() => setShowRemindModal(false)}>
-                      <X size={20} color="#64748B" />
-                    </TouchableOpacity>
-                  </View>
-                  <View style={styles.emptyBox}>
-                    <View style={styles.emptyIcon}>
-                      <UserCheck size={32} color="#10B981" />
-                    </View>
-                    <Text style={styles.emptyTitle}>Aucun membre en retard</Text>
-                    <Text style={styles.emptyText}>
-                      Tous les membres ont cotisé pour le Tour {cycle?.currentTurn ?? 1}.
-                    </Text>
-                  </View>
+          <ListGroup title="Calculs" style={styles.group}>
+            <ListRow
+              icon={Calculator}
+              title="Recalcul des cotisations"
+              subtitle="Réajuster les montants après un départ"
+              onPress={() => router.push(`/circle/${circle.id}/recalculate` as any)}
+              last
+            />
+          </ListGroup>
+
+          {circle.solidarityAmount > 0 && (
+            <ListGroup title="Solidarité" style={styles.group}>
+              <ListRow
+                icon={Coins}
+                title="Caisse de solidarité"
+                subtitle="Contributions par membre, traces et justificatifs"
+                onPress={() => router.push(`/circle/${circle.id}/solidarity` as any)}
+                last
+              />
+            </ListGroup>
+          )}
+
+          <ListGroup title="Règles du cercle" style={styles.group}>
+            <ListRow
+              icon={Settings2}
+              title="Modifier le cercle"
+              subtitle="Nom, conditions, règles de remplacement, adhésion"
+              onPress={() => router.push(`/circle/${circle.id}/edit` as any)}
+              last
+            />
+          </ListGroup>
+
+          <View style={styles.rulesCard}>
+            <View style={styles.rulesHeader}>
+              <ShieldCheck size={18} color={colors.primary.DEFAULT} strokeWidth={1.8} />
+              <Text style={styles.rulesTitle}>Paramètres de gestion</Text>
+            </View>
+            <RuleRow label="Remboursement au départ" value={refundLabel} />
+            <RuleRow label="Remplacement d'un membre" value={replacementLabel} />
+            <RuleRow label="Déblocage caisse solidarité" value={unlockLabel} />
+            <RuleRow label="Approbateurs requis" value={`${rules?.approversRequired ?? 0} approbateur(s)`} />
+            <RuleRow
+              label="Réserve de sécurité"
+              value={`${rules?.reservePercent ?? 0} %`}
+              last={!isAidAppeal}
+            />
+            {isAidAppeal && (
+              <RuleRow
+                label="Contributions publiques"
+                value={rules?.allowPublicContributions ? 'Ouvert sans adhésion' : 'Membres uniquement'}
+                last={!rules?.minContribution}
+              />
+            )}
+            {isAidAppeal && rules?.minContribution ? (
+              <RuleRow label="Montant minimum" value={formatXOF(rules.minContribution)} last />
+            ) : null}
+          </View>
+
+          <ListGroup style={styles.group}>
+            <ListRow
+              icon={LogOut}
+              tone="danger"
+              title="Quitter ce cercle"
+              subtitle="Règles de départ et remboursement"
+              onPress={() => router.push(`/circle/${circle.id}/departure` as any)}
+              last
+            />
+          </ListGroup>
+        </ScrollView>
+      </SafeAreaView>
+
+      {/* Relance des cotisations */}
+      <Sheet visible={showRemindModal} onClose={() => setShowRemindModal(false)} title="Relancer les cotisations">
+        {lateMembers.length === 0 ? (
+          <>
+            <View style={styles.empty}>
+              <View style={styles.emptyIcon}>
+                <UserCheck size={24} color={colors.primary.DEFAULT} strokeWidth={1.8} />
+              </View>
+              <Text style={styles.emptyTitle}>Aucun membre en retard</Text>
+              <Text style={styles.emptyText}>Tous les membres ont cotisé pour le tour {cycle?.currentTurn ?? 1}.</Text>
+            </View>
+            <Button title="Fermer" variant="secondary" onPress={() => setShowRemindModal(false)} />
+          </>
+        ) : (
+          <>
+            <Text style={styles.sheetText}>
+              {lateMembers.length} membre(s) en retard pour le tour {cycle?.currentTurn ?? 1}. Décochez ceux que vous
+              ne voulez pas relancer.
+            </Text>
+
+            <ScrollView style={styles.lateList} showsVerticalScrollIndicator={false}>
+              {lateMembers.map((m, idx) => {
+                const isChecked = !!selectedLate[m.userId];
+                const last = idx === lateMembers.length - 1;
+                return (
                   <TouchableOpacity
-                    style={styles.primaryBtn}
-                    activeOpacity={0.88}
-                    onPress={() => setShowRemindModal(false)}
+                    key={m.userId}
+                    style={styles.lateRow}
+                    activeOpacity={0.6}
+                    onPress={() => toggleLateMember(m.userId)}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: isChecked }}
                   >
-                    <Text style={styles.primaryBtnText}>Fermer</Text>
-                  </TouchableOpacity>
-                </>
-              ) : (
-                <>
-                  <View style={styles.modalHeaderRow}>
-                    <Text style={styles.modalTitle}>Relancer les cotisations</Text>
-                    <TouchableOpacity onPress={() => setShowRemindModal(false)}>
-                      <X size={20} color="#64748B" />
-                    </TouchableOpacity>
-                  </View>
-                  <Text style={styles.modalSub}>
-                    {lateMembers.length} membre(s) en retard • Tour {cycle?.currentTurn ?? 1} — décochez
-                    ceux que vous ne voulez pas relancer
-                  </Text>
-
-                  <ScrollView
-                    style={styles.lateList}
-                    contentContainerStyle={{ gap: 0 }}
-                    showsVerticalScrollIndicator={false}
-                  >
-                    {lateMembers.map((m, idx) => {
-                      const isChecked = !!selectedLate[m.userId];
-                      return (
-                        <TouchableOpacity
-                          key={m.userId}
-                          style={[styles.lateRow, idx === lateMembers.length - 1 && styles.lateRowLast]}
-                          activeOpacity={0.7}
-                          onPress={() => toggleLateMember(m.userId)}
-                        >
-                          <Image source={{ uri: m.user?.avatarUrl }} style={styles.lateAvatar} contentFit="cover" />
-                          <View style={styles.lateInfo}>
-                            <Text style={styles.lateName}>
-                              {m.user?.firstName} {m.user?.lastName}
-                            </Text>
-                            <Text style={styles.lateMeta}>
-                              {delayDaysOf(m, idx)} jour(s) de retard • {m.user?.phoneNumber}
-                            </Text>
-                          </View>
-                          <View style={[styles.checkbox, isChecked && styles.checkboxChecked]}>
-                            {isChecked && <Check size={14} color="#FFFFFF" />}
-                          </View>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </ScrollView>
-
-                  {!remindSent ? (
-                    <TouchableOpacity
-                      style={[
-                        styles.primaryBtn,
-                        (remindSending || selectedRemindCount === 0) && styles.primaryBtnDisabled,
-                      ]}
-                      activeOpacity={0.88}
-                      onPress={handleSendReminders}
-                      disabled={remindSending || selectedRemindCount === 0}
-                    >
-                      {remindSending ? (
-                        <>
-                          <Loader size={18} color="#FFFFFF" />
-                          <Text style={styles.primaryBtnText}>Envoi des rappels…</Text>
-                        </>
-                      ) : (
-                        <>
-                          <Send size={18} color="#FFFFFF" />
-                          <Text style={styles.primaryBtnText}>
-                            Envoyer ({selectedRemindCount})
-                          </Text>
-                        </>
-                      )}
-                    </TouchableOpacity>
-                  ) : (
-                    <>
-                      <View style={styles.successBanner}>
-                        <CheckCircle2 size={18} color="#059669" />
-                        <Text style={styles.successBannerText}>
-                          Rappel envoyé à {selectedRemindCount} membre(s). Les notifications sont parties.
+                    <Image source={{ uri: m.user?.avatarUrl }} style={styles.lateAvatar} contentFit="cover" />
+                    <View style={[styles.lateBody, !last && styles.lateBorder]}>
+                      <View style={styles.lateInfo}>
+                        <Text style={styles.lateName} numberOfLines={1}>
+                          {m.user?.firstName} {m.user?.lastName}
+                        </Text>
+                        <Text style={styles.lateMeta}>
+                          {delayDaysOf(m, idx)} jour(s) de retard · {m.user?.phoneNumber}
                         </Text>
                       </View>
-                      <TouchableOpacity
-                        style={styles.primaryBtn}
-                        activeOpacity={0.88}
-                        onPress={() => setShowRemindModal(false)}
-                      >
-                        <Text style={styles.primaryBtnText}>Fermer</Text>
-                      </TouchableOpacity>
-                    </>
-                  )}
-                </>
-              )}
-            </Animated.View>
-          </View>
-        </Modal>
-      </SafeAreaView>
+                      <View style={[styles.checkbox, isChecked && styles.checkboxChecked]}>
+                        {isChecked && <Check size={14} color="#FFFFFF" strokeWidth={3} />}
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            {!remindSent ? (
+              <Button
+                title={remindSending ? 'Envoi des rappels…' : `Envoyer (${selectedRemindCount})`}
+                icon={Send}
+                loading={remindSending}
+                disabled={selectedRemindCount === 0}
+                onPress={handleSendReminders}
+              />
+            ) : (
+              <>
+                <View style={styles.success}>
+                  <CheckCircle2 size={18} color={colors.primary.DEFAULT} />
+                  <Text style={styles.successText}>
+                    Rappel envoyé à {selectedRemindCount} membre(s). Les notifications sont parties.
+                  </Text>
+                </View>
+                <Button title="Fermer" variant="secondary" onPress={() => setShowRemindModal(false)} />
+              </>
+            )}
+          </>
+        )}
+      </Sheet>
+    </View>
+  );
+}
+
+function RuleRow({ label, value, last }: { label: string; value: string; last?: boolean }) {
+  return (
+    <View style={[styles.ruleRow, !last && styles.ruleBorder]}>
+      <Text style={styles.ruleLabel}>{label}</Text>
+      <Text style={styles.ruleValue}>{value}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#074B36',
-  },
-  topSection: {
-    backgroundColor: '#074B36',
-    paddingHorizontal: 20,
-    paddingBottom: 30,
-  },
-  topBar: {
+  container: { flex: 1, backgroundColor: colors.fill },
+  flex: { flex: 1 },
+
+  header: {
+    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 8,
-    marginBottom: 14,
+    paddingHorizontal: 8,
+    backgroundColor: colors.bg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.line,
   },
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 18,
-    color: '#FFFFFF',
-  },
-  headerCircleCard: {
+  headerTitle: { flex: 1, ...typography.headline, color: colors.ink, textAlign: 'center' },
+  headerSpacer: { width: 40 },
+
+  scroll: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 40 },
+  group: { marginTop: 20 },
+
+  summary: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 18,
-    padding: 14,
     gap: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.18)',
-  },
-  headerCircleInfo: {
-    flex: 1,
-  },
-  headerCircleName: {
-    fontFamily: 'SoraBold',
-    fontSize: 16,
-    color: '#FFFFFF',
-  },
-  headerCircleMeta: {
-    fontFamily: 'WorkSans',
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginTop: 3,
-  },
-  headerBeneficiaryAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.5)',
-  },
-  bodySheet: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    marginTop: -20,
-    paddingTop: 20,
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 60,
-  },
-  sectionLabel: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 11.5,
-    color: '#94A3B8',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    marginTop: 16,
-    marginBottom: 8,
-    marginLeft: 4,
-  },
-  menuCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    overflow: 'hidden',
-  },
-  menuRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  menuRowLast: {
-    borderBottomWidth: 0,
-  },
-  menuIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  menuIconWrapDefault: {
-    backgroundColor: 'rgba(7, 75, 54, 0.08)',
-  },
-  menuIconWrapDanger: {
-    backgroundColor: 'rgba(239, 68, 68, 0.08)',
-  },
-  menuRowInfo: {
-    flex: 1,
-    marginRight: 8,
-  },
-  menuRowTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 14,
-    color: '#0F172A',
-  },
-  menuRowTitleDanger: {
-    color: '#EF4444',
-  },
-  menuRowSub: {
-    fontFamily: 'WorkSans',
-    fontSize: 11.5,
-    color: '#64748B',
-    marginTop: 1,
-  },
-  menuBadge: {
-    minWidth: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#D9A441',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 6,
-    marginRight: 6,
-  },
-  menuBadgeText: {
-    fontFamily: 'WorkSansBold',
-    fontSize: 12,
-    color: '#FFFFFF',
-  },
-  rulesCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
     padding: 16,
-    gap: 10,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.bg,
   },
-  rulesHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 2,
+  summaryText: { flex: 1 },
+  summaryName: { ...typography.headline, color: colors.ink },
+  summaryMeta: { ...typography.footnote, color: colors.muted, marginTop: 4 },
+  summaryAvatar: { width: 44, height: 44, borderRadius: 22 },
+  avatarFallback: { backgroundColor: colors.primary.tint, justifyContent: 'center', alignItems: 'center' },
+  avatarInitials: { ...typography.callout, fontWeight: '700', color: colors.primary.dark },
+
+  rulesCard: {
+    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 4,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.bg,
   },
-  rulesHeaderText: {
-    fontFamily: 'SoraBold',
-    fontSize: 14,
-    color: '#074B36',
-  },
-  ruleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 10,
-  },
-  ruleLabel: {
-    fontFamily: 'WorkSans',
-    fontSize: 12.5,
-    color: '#64748B',
-    flex: 1,
-  },
-  ruleValue: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 12.5,
-    color: '#0F172A',
-    textAlign: 'right',
-    flexShrink: 1,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  modalCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 28,
-    padding: 22,
-    width: '100%',
-    gap: 12,
-    maxHeight: '90%',
-  },
-  modalHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  modalTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 17,
-    color: '#074B36',
-  },
-  modalSub: {
-    fontFamily: 'WorkSans',
-    fontSize: 12.5,
-    lineHeight: 18,
-    color: '#64748B',
-  },
+  rulesHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  rulesTitle: { ...typography.callout, fontWeight: '600', color: colors.ink },
+  ruleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 16, paddingVertical: 12 },
+  ruleBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
+  ruleLabel: { flex: 1, ...typography.footnote, color: colors.muted },
+  ruleValue: { flexShrink: 1, ...typography.footnote, fontWeight: '600', color: colors.ink, textAlign: 'right' },
+
+  /* ── Feuille de relance ── */
+  sheetText: { ...typography.callout, color: colors.muted, marginBottom: 12 },
   lateList: {
-    maxHeight: 260,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    maxHeight: 280,
+    marginBottom: 16,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.line,
   },
-  lateRow: {
+  lateRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 14 },
+  lateAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.fill },
+  lateBody: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-    gap: 10,
+    gap: 12,
+    paddingVertical: 12,
+    paddingRight: 14,
   },
-  lateRowLast: {
-    borderBottomWidth: 0,
-  },
-  lateAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-  },
-  lateInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  lateName: {
-    fontFamily: 'SoraBold',
-    fontSize: 13.5,
-    color: '#0F172A',
-  },
-  lateMeta: {
-    fontFamily: 'WorkSans',
-    fontSize: 11,
-    color: '#64748B',
-  },
+  lateBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
+  lateInfo: { flex: 1 },
+  lateName: { ...typography.callout, fontWeight: '600', color: colors.ink },
+  lateMeta: { ...typography.footnote, color: colors.muted, marginTop: 2 },
   checkbox: {
     width: 24,
     height: 24,
-    borderRadius: 7,
-    borderWidth: 2,
-    borderColor: '#CBD5E1',
-    backgroundColor: '#FFFFFF',
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: colors.lineStrong,
+    backgroundColor: colors.bg,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  checkboxChecked: {
-    backgroundColor: '#074B36',
-    borderColor: '#074B36',
-  },
-  primaryBtn: {
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#074B36',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 2,
-    shadowColor: '#074B36',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  primaryBtnDisabled: {
-    backgroundColor: '#94A3B8',
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  primaryBtnText: {
-    fontFamily: 'SoraBold',
-    fontSize: 14.5,
-    color: '#FFFFFF',
-  },
-  successBanner: {
+  checkboxChecked: { backgroundColor: colors.primary.DEFAULT, borderColor: colors.primary.DEFAULT },
+
+  success: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    borderRadius: 14,
-    padding: 12,
+    gap: 10,
+    padding: 14,
+    marginBottom: 12,
+    borderRadius: radius.md,
+    backgroundColor: colors.primary.tint,
   },
-  successBannerText: {
-    flex: 1,
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 12.5,
-    lineHeight: 18,
-    color: '#065F46',
-  },
-  emptyBox: {
-    alignItems: 'center',
-    paddingVertical: 20,
-    gap: 8,
-  },
+  successText: { flex: 1, ...typography.footnote, fontWeight: '500', color: colors.primary.dark },
+
+  empty: { alignItems: 'center', paddingVertical: 16, marginBottom: 12 },
   emptyIcon: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primary.tint,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 12,
   },
-  emptyTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 16,
-    color: '#0F172A',
-  },
-  emptyText: {
-    fontFamily: 'WorkSans',
-    fontSize: 12.5,
-    lineHeight: 18,
-    color: '#64748B',
-    textAlign: 'center',
-  },
+  emptyTitle: { ...typography.headline, color: colors.ink },
+  emptyText: { ...typography.callout, color: colors.muted, textAlign: 'center', marginTop: 4 },
 });

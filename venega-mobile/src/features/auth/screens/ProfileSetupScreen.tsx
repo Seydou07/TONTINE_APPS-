@@ -4,28 +4,17 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  TextInput,
   ScrollView,
   StatusBar,
   KeyboardAvoidingView,
   Platform,
-  Modal,
   Alert,
 } from 'react-native';
-import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import {
-  ArrowLeft,
-  Camera,
-  User,
-  Mail,
-  Smartphone,
-  Check,
-} from 'lucide-react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
-
-const logoImg = require('../../../../assets/venega-logo.png');
+import { ArrowLeft, Camera, Check } from 'lucide-react-native';
+import { colors, typography } from '@venega/design-tokens';
+import { Button, IconButton, Sheet, TextField } from '../../../components/ui';
 
 export default function ProfileSetupScreen() {
   const router = useRouter();
@@ -33,7 +22,6 @@ export default function ProfileSetupScreen() {
   const phone = '70 12 34 56';
   const [email, setEmail] = useState('');
   const [mobileMoneyNumber, setMobileMoneyNumber] = useState('70 12 34 56');
-  const [focusedField, setFocusedField] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
 
   const nameParts = fullName.trim().split(/\s+/);
@@ -49,149 +37,96 @@ export default function ProfileSetupScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-          <View style={styles.content}>
-            {/* ── Section logo (hero) moderne ── */}
-            <View style={styles.heroSection}>
-              <View style={styles.topBar}>
-                <TouchableOpacity style={styles.backBtn} onPress={() => router.replace('/otp')}>
-                  <ArrowLeft size={20} color="#074B36" />
-                </TouchableOpacity>
-                <View style={{ width: 38 }} />
-              </View>
-
-              {/* Logo réel, bien visible */}
-              <View style={styles.bigLogoWrap}>
-                <Image source={logoImg} style={styles.bigLogoImg} contentFit="contain" />
-              </View>
-
-              <View style={styles.heroTextGroup}>
-                <Text style={styles.heroTitle}>Informations</Text>
-                <Text style={styles.heroSubtitle}>
-                  Mettez à jour vos coordonnées personnelles
-                </Text>
-              </View>
-            </View>
-
-            {/* ── Formulaire (statique, le clavier le soulève si besoin) ── */}
-            <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.formCardSheet}>
-              <ScrollView
-                contentContainerStyle={styles.scrollContent}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                automaticallyAdjustKeyboardInsets
-              >
-              {/* Avatar avec bouton photo */}
-              <View style={styles.avatarWrapContainer}>
-                <View style={styles.avatarCircle}>
-                  <Text style={styles.avatarInitials}>{initials}</Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.cameraBadgeBtn}
-                  onPress={() => Alert.alert('Photo de profil', 'Changement de photo simulé avec succès.')}
-                  activeOpacity={0.85}
-                >
-                  <Camera size={15} color="#074B36" />
-                </TouchableOpacity>
-              </View>
-
-              {/* Formulaire des champs pilules */}
-              <View style={styles.formGroup}>
-                <View style={[styles.pillInputWrapper, focusedField === 'fullName' && styles.pillInputFocused]}>
-                  <User size={18} color={focusedField === 'fullName' ? '#074B36' : '#94A3B8'} />
-                  <TextInput
-                    style={[styles.pillInput, styles.pillInputBold]}
-                    placeholder="Nom complet"
-                    placeholderTextColor="#94A3B8"
-                    value={fullName}
-                    onChangeText={setFullName}
-                    onFocus={() => setFocusedField('fullName')}
-                    onBlur={() => setFocusedField(null)}
-                  />
-                </View>
-
-                <View style={[styles.pillInputWrapper, focusedField === 'email' && styles.pillInputFocused]}>
-                  <Mail size={18} color={focusedField === 'email' ? '#074B36' : '#94A3B8'} />
-                  <TextInput
-                    style={styles.pillInput}
-                    placeholder="Adresse e-mail (facultatif)"
-                    placeholderTextColor="#94A3B8"
-                    value={email}
-                    onChangeText={setEmail}
-                    keyboardType="email-address"
-                    onFocus={() => setFocusedField('email')}
-                    onBlur={() => setFocusedField(null)}
-                  />
-                </View>
-
-                <View style={[styles.pillInputWrapper, styles.pillInputDisabled]}>
-                  <Smartphone size={18} color="#94A3B8" />
-                  <Text style={styles.disabledPhoneText}>+226 {phone}</Text>
-                </View>
-
-                <Text style={styles.fieldLabel}>Numéro Mobile Money *</Text>
-                <View style={[styles.pillInputWrapper, focusedField === 'mobileMoney' && styles.pillInputFocused]}>
-                  <Smartphone size={18} color={focusedField === 'mobileMoney' ? '#074B36' : '#94A3B8'} />
-                  <Text style={styles.prefixText}>+226</Text>
-                  <View style={styles.prefixDivider} />
-                  <TextInput
-                    style={styles.pillInput}
-                    placeholder="70 12 34 56"
-                    placeholderTextColor="#94A3B8"
-                    value={mobileMoneyNumber}
-                    onChangeText={setMobileMoneyNumber}
-                    keyboardType="phone-pad"
-                    onFocus={() => setFocusedField('mobileMoney')}
-                    onBlur={() => setFocusedField(null)}
-                  />
-                </View>
-
-                <TouchableOpacity
-                  style={styles.primaryPillBtn}
-                  activeOpacity={0.88}
-                  onPress={handleSave}
-                >
-                  <Text style={styles.primaryPillBtnText}>Terminer</Text>
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
-          </Animated.View>
-          </View>
-        </SafeAreaView>
-      </KeyboardAvoidingView>
-
-      {/* ── Modal de confirmation — même gabarit que partout ailleurs dans l'app ── */}
-      <Modal
-        visible={showSuccess}
-        transparent
-        animationType="fade"
-        statusBarTranslucent
-        onRequestClose={() => router.replace('/login')}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalSuccessIcon}>
-              <Check size={24} color="#FFFFFF" strokeWidth={3} />
-            </View>
-            <Text style={styles.modalTitle}>Compte créé avec succès</Text>
-            <Text style={styles.modalText}>
-              Bienvenue dans Venega. Votre tontine digitale est prête.
-            </Text>
-            <TouchableOpacity
-              style={styles.modalConfirmBtn}
-              activeOpacity={0.85}
-              onPress={() => router.replace('/login')}
-            >
-              <Text style={styles.modalConfirmBtnText}>Se connecter</Text>
-            </TouchableOpacity>
-          </View>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        <View style={styles.topBar}>
+          <IconButton
+            icon={ArrowLeft}
+            variant="plain"
+            accessibilityLabel="Retour"
+            onPress={() => router.replace('/otp')}
+          />
         </View>
-      </Modal>
+
+        <KeyboardAvoidingView style={styles.safe} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <Text style={styles.title}>Votre profil</Text>
+            <Text style={styles.subtitle}>Ces informations apparaissent auprès des membres de vos cercles.</Text>
+
+            <View style={styles.avatarWrap}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarInitials}>{initials}</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.cameraBtn}
+                onPress={() => Alert.alert('Photo de profil', 'Changement de photo simulé avec succès.')}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel="Ajouter une photo de profil"
+              >
+                <Camera size={16} color={colors.ink} strokeWidth={2} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.form}>
+              <TextField
+                label="Nom complet"
+                placeholder="Prénom et nom"
+                autoComplete="name"
+                textContentType="name"
+                value={fullName}
+                onChangeText={setFullName}
+              />
+              <TextField
+                label="Adresse e-mail"
+                placeholder="nom@exemple.com"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="email"
+                value={email}
+                onChangeText={setEmail}
+                hint="Facultatif"
+              />
+              <TextField
+                label="Numéro de téléphone"
+                prefix="+226"
+                value={phone}
+                editable={false}
+                style={styles.readonly}
+                hint="Vérifié par SMS"
+              />
+              <TextField
+                label="Numéro Mobile Money"
+                prefix="+226"
+                placeholder="70 12 34 56"
+                keyboardType="phone-pad"
+                value={mobileMoneyNumber}
+                onChangeText={setMobileMoneyNumber}
+                hint="Utilisé pour vos cotisations et versements"
+              />
+            </View>
+          </ScrollView>
+
+          <View style={styles.footer}>
+            <Button title="Terminer" onPress={handleSave} />
+          </View>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+
+      <Sheet visible={showSuccess} onClose={() => router.replace('/login')}>
+        <View style={styles.sheetBody}>
+          <View style={styles.successIcon}>
+            <Check size={24} color={colors.primary.DEFAULT} strokeWidth={2.5} />
+          </View>
+          <Text style={styles.sheetTitle}>Compte créé</Text>
+          <Text style={styles.sheetText}>Bienvenue dans Venega. Vous pouvez maintenant vous connecter.</Text>
+        </View>
+        <Button title="Se connecter" onPress={() => router.replace('/login')} />
+      </Sheet>
     </View>
   );
 }
@@ -199,221 +134,97 @@ export default function ProfileSetupScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.bg,
   },
   safe: {
     flex: 1,
   },
-  content: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 10,
-  },
-  heroSection: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 16,
-    alignItems: 'center',
-  },
   topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-  },
-  bigLogoWrap: {
-    alignItems: 'center',
+    height: 56,
+    paddingHorizontal: 12,
     justifyContent: 'center',
-    marginTop: 8,
-    marginBottom: 8,
   },
-  bigLogoImg: {
-    width: 150,
-    height: 100,
+  scroll: {
+    paddingHorizontal: 24,
+    paddingTop: 8,
+    paddingBottom: 24,
   },
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(7, 75, 54, 0.08)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 18,
-    color: '#FFFFFF',
-  },
-  heroTextGroup: {
-    alignItems: 'center',
-  },
-  heroTitle: {
-    fontFamily: 'SoraBold',
+  title: {
+    ...typography.display,
     fontSize: 26,
-    color: '#0F172A',
-    textAlign: 'center',
+    lineHeight: 32,
+    color: colors.ink,
   },
-  heroSubtitle: {
-    fontFamily: 'WorkSans',
-    fontSize: 14,
-    color: '#64748B',
-    marginTop: 3,
-    textAlign: 'center',
+  subtitle: {
+    ...typography.callout,
+    color: colors.muted,
+    marginTop: 8,
+    marginBottom: 28,
   },
-  formCardSheet: {
-    flex: 1,
-    marginTop: 10,
-    paddingTop: 14,
+  avatarWrap: {
+    alignSelf: 'flex-start',
+    marginBottom: 28,
   },
-  scrollContent: {
-    paddingBottom: 20,
-  },
-  avatarWrapContainer: {
-    alignSelf: 'center',
-    marginBottom: 14,
-    position: 'relative',
-  },
-  avatarCircle: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
-    backgroundColor: '#D9A441',
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.primary.tint,
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarInitials: {
-    fontFamily: 'SoraBold',
-    fontSize: 28,
-    color: '#FFFFFF',
+    ...typography.title,
+    color: colors.primary.dark,
   },
-  cameraBadgeBtn: {
+  cameraBtn: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#FFFFFF',
+    bottom: -2,
+    right: -6,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: colors.bg,
+    borderWidth: 1,
+    borderColor: colors.lineStrong,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#074B36',
   },
-  formGroup: {
-    gap: 10,
+  form: {
+    gap: 20,
   },
-  fieldLabel: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 13,
-    color: '#334155',
-    marginTop: 2,
+  readonly: {
+    color: colors.muted,
   },
-  pillInputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    height: 52,
-    gap: 10,
-  },
-  prefixText: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 14,
-    color: '#0F172A',
-  },
-  prefixDivider: {
-    width: 1,
-    height: 18,
-    backgroundColor: '#CBD5E1',
-  },
-  pillInputFocused: {
-    borderColor: '#074B36',
-  },
-  pillInputDisabled: {
-    backgroundColor: '#F8FAFC',
-  },
-  pillInput: {
-    flex: 1,
-    fontFamily: 'WorkSans',
-    fontSize: 14.5,
-    color: '#0F172A',
-  },
-  pillInputBold: {
-    fontFamily: 'WorkSansSemiBold',
-  },
-  disabledPhoneText: {
-    fontFamily: 'WorkSans',
-    fontSize: 14.5,
-    color: '#94A3B8',
-  },
-  primaryPillBtn: {
-    height: 52,
-    backgroundColor: '#074B36',
-    borderRadius: 14,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 14,
-    shadowColor: '#074B36',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.22,
-    shadowRadius: 20,
-    elevation: 5,
-  },
-  primaryPillBtnText: {
-    fontFamily: 'SoraBold',
-    fontSize: 15.5,
-    color: '#FFFFFF',
-  },
-
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.55)',
-    justifyContent: 'center',
-    alignItems: 'center',
+  footer: {
     paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.line,
+    backgroundColor: colors.bg,
   },
-  modalCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    padding: 22,
-    width: '100%',
-    gap: 14,
+  sheetBody: {
+    alignItems: 'center',
+    paddingTop: 4,
+    paddingBottom: 24,
   },
-  modalSuccessIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#0B6E4F',
+  successIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primary.tint,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 16,
   },
-  modalTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 16,
-    color: '#1A202C',
+  sheetTitle: {
+    ...typography.headline,
+    color: colors.ink,
   },
-  modalText: {
-    fontFamily: 'WorkSans',
-    fontSize: 13.5,
-    lineHeight: 19,
-    color: '#334155',
-  },
-  modalConfirmBtn: {
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: '#074B36',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalConfirmBtnText: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 13.5,
-    color: '#FFFFFF',
+  sheetText: {
+    ...typography.callout,
+    color: colors.muted,
+    textAlign: 'center',
+    marginTop: 6,
   },
 });

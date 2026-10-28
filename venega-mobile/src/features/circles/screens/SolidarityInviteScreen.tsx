@@ -1,9 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Share } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, StatusBar, Share } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, UserPlus, Copy, Share2, Clock } from 'lucide-react-native';
+import { UserPlus, Copy, Share2, Clock, Inbox } from 'lucide-react-native';
+import { colors, typography } from '@venega/design-tokens';
+import { Button } from '../../../components/ui';
+import { Avatar, EmptyState, ScreenHeader, cardStyle } from '../components/SolidarityParts';
 import { getCircle, getCircles, getMembershipRequests } from '../circleStore';
 import { MembershipRequestStatus } from '@venega/types';
 
@@ -24,11 +27,6 @@ export default function SolidarityInviteScreen() {
 
   const pending = getMembershipRequests(circle.id).filter((r) => r.status === MembershipRequestStatus.PENDING);
 
-  const initials = (name: string) => {
-    const parts = name.trim().split(/\s+/);
-    return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase();
-  };
-
   const handleCopy = async () => {
     await Clipboard.setStringAsync(circle.inviteCode);
   };
@@ -43,20 +41,14 @@ export default function SolidarityInviteScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }} edges={['top']}>
-        <View style={styles.topBar}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-            <ArrowLeft size={20} color="#1A202C" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Inviter un membre</Text>
-          <View style={styles.backBtn} />
-        </View>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <SafeAreaView style={styles.flex} edges={['top']}>
+        <ScreenHeader title="Inviter un membre" subtitle={circle.name} onBack={() => router.back()} />
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <View style={styles.introBlock}>
+          <View style={styles.intro}>
             <View style={styles.introIcon}>
-              <UserPlus size={26} color="#0B6E4F" />
+              <UserPlus size={24} color={colors.primary.DEFAULT} strokeWidth={1.8} />
             </View>
             <Text style={styles.introTitle}>Tout membre peut inviter</Text>
             <Text style={styles.introText}>
@@ -65,44 +57,39 @@ export default function SolidarityInviteScreen() {
             </Text>
           </View>
 
-          <View style={styles.codeBox}>
+          <View style={[cardStyle, styles.codeCard]}>
             <Text style={styles.codeLabel}>Code d'invitation</Text>
-            <Text style={styles.codeValue}>{circle.inviteCode}</Text>
+            <Text style={styles.codeValue} selectable>{circle.inviteCode}</Text>
+            <View style={styles.actionsRow}>
+              <Button title="Copier" variant="secondary" size="sm" icon={Copy} onPress={handleCopy} style={styles.flex} />
+              <Button title="Partager" size="sm" icon={Share2} onPress={handleShare} style={styles.flex} />
+            </View>
           </View>
 
-          <View style={styles.actionsRow}>
-            <TouchableOpacity style={styles.actionBtnSecondary} activeOpacity={0.85} onPress={handleCopy}>
-              <Copy size={16} color="#1A202C" />
-              <Text style={styles.actionBtnSecondaryText}>Copier le code</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionBtnPrimary} activeOpacity={0.88} onPress={handleShare}>
-              <Share2 size={16} color="#FFFFFF" />
-              <Text style={styles.actionBtnPrimaryText}>Partager</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={{ gap: 10 }}>
-            <Text style={styles.sectionLabel}>En attente d'approbation</Text>
-            {pending.length === 0 ? (
-              <Text style={styles.emptyText}>Aucune demande en attente pour le moment.</Text>
-            ) : (
-              pending.map((r) => (
-                <View key={r.id} style={styles.pendingRow}>
-                  <View style={styles.pendingAvatar}>
-                    <Text style={styles.pendingAvatarText}>{initials(r.fullName)}</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.pendingName} numberOfLines={1}>{r.fullName}</Text>
-                    <Text style={styles.pendingMeta}>Demande envoyée {formatRelative(r.createdAt)}</Text>
-                  </View>
-                  <View style={styles.pendingBadge}>
-                    <Clock size={13} color="#B9852A" />
-                    <Text style={styles.pendingBadgeText}>En attente</Text>
+          <Text style={styles.sectionTitle}>En attente d'approbation</Text>
+          {pending.length === 0 ? (
+            <View style={cardStyle}>
+              <EmptyState icon={Inbox} title="Aucune demande" text="Aucune demande en attente pour le moment." />
+            </View>
+          ) : (
+            <View style={[cardStyle, styles.listCard]}>
+              {pending.map((r, idx) => (
+                <View key={r.id} style={styles.row}>
+                  <Avatar name={r.fullName} size={40} tone="soft" />
+                  <View style={[styles.rowBody, idx < pending.length - 1 && styles.rowBorder]}>
+                    <View style={styles.flex}>
+                      <Text style={styles.rowTitle} numberOfLines={1}>{r.fullName}</Text>
+                      <Text style={styles.rowSub}>Demande envoyée {formatRelative(r.createdAt)}</Text>
+                    </View>
+                    <View style={styles.pendingBadge}>
+                      <Clock size={13} color={colors.accent.deep} />
+                      <Text style={styles.pendingBadgeText}>En attente</Text>
+                    </View>
                   </View>
                 </View>
-              ))
-            )}
-          </View>
+              ))}
+            </View>
+          )}
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -110,91 +97,42 @@ export default function SolidarityInviteScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 4,
-  },
-  backBtn: { width: 38, height: 38, justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { fontFamily: 'SoraBold', fontSize: 17, color: '#1A202C' },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 50, gap: 22 },
-  introBlock: { alignItems: 'center', gap: 8, paddingHorizontal: 8 },
+  container: { flex: 1, backgroundColor: colors.bg },
+  flex: { flex: 1 },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 48 },
+
+  intro: { alignItems: 'center', paddingHorizontal: 8, marginBottom: 24 },
   introIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#E4F0EB',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primary.tint,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 14,
   },
-  introTitle: { fontFamily: 'SoraBold', fontSize: 16, color: '#1A202C', textAlign: 'center' },
-  introText: { fontFamily: 'WorkSans', fontSize: 12.5, lineHeight: 18, color: '#64748B', textAlign: 'center' },
-  codeBox: {
-    borderWidth: 1.5,
-    borderColor: '#E7EAEE',
-    borderStyle: 'dashed',
-    borderRadius: 16,
-    paddingVertical: 18,
-    alignItems: 'center',
-    gap: 6,
-  },
-  codeLabel: { fontFamily: 'WorkSans', fontSize: 11, color: '#94A3B8' },
-  codeValue: { fontFamily: 'SoraBold', fontSize: 22, color: '#074B36', letterSpacing: 2 },
-  actionsRow: { flexDirection: 'row', gap: 10 },
-  actionBtnSecondary: {
+  introTitle: { ...typography.headline, color: colors.ink, textAlign: 'center' },
+  introText: { ...typography.callout, color: colors.muted, textAlign: 'center', marginTop: 6 },
+
+  codeCard: { alignItems: 'center', padding: 20, marginBottom: 28 },
+  codeLabel: { ...typography.footnote, color: colors.muted },
+  codeValue: { ...typography.title, color: colors.primary.dark, letterSpacing: 2, marginTop: 6, marginBottom: 16 },
+  actionsRow: { flexDirection: 'row', gap: 10, alignSelf: 'stretch' },
+
+  sectionTitle: { ...typography.bodyStrong, color: colors.ink, marginBottom: 12 },
+  listCard: { overflow: 'hidden' },
+  row: { flexDirection: 'row', alignItems: 'center', paddingLeft: 14, gap: 12 },
+  rowBody: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    height: 48,
-    borderRadius: 13,
-    borderWidth: 1.5,
-    borderColor: '#E7EAEE',
+    gap: 10,
+    paddingVertical: 12,
+    paddingRight: 14,
   },
-  actionBtnSecondaryText: { fontFamily: 'WorkSansSemiBold', fontSize: 13, color: '#1A202C' },
-  actionBtnPrimary: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    height: 48,
-    borderRadius: 13,
-    backgroundColor: '#074B36',
-  },
-  actionBtnPrimaryText: { fontFamily: 'WorkSansSemiBold', fontSize: 13, color: '#FFFFFF' },
-  sectionLabel: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 12,
-    color: '#1A202C',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  emptyText: { fontFamily: 'WorkSans', fontSize: 12.5, color: '#94A3B8' },
-  pendingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderWidth: 1.5,
-    borderColor: '#E7EAEE',
-    borderRadius: 16,
-    padding: 13,
-  },
-  pendingAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#FBF1DD',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  pendingAvatarText: { fontFamily: 'SoraBold', fontSize: 13, color: '#B9852A' },
-  pendingName: { fontFamily: 'WorkSansSemiBold', fontSize: 13.5, color: '#1A202C' },
-  pendingMeta: { fontFamily: 'WorkSans', fontSize: 11, color: '#94A3B8', marginTop: 1 },
+  rowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
+  rowTitle: { ...typography.callout, fontWeight: '600', color: colors.ink },
+  rowSub: { ...typography.footnote, color: colors.muted, marginTop: 1 },
   pendingBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  pendingBadgeText: { fontFamily: 'WorkSansSemiBold', fontSize: 11, color: '#B9852A' },
+  pendingBadgeText: { ...typography.caption, fontWeight: '600', color: colors.accent.deep },
 });

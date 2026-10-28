@@ -1,42 +1,18 @@
 import React, { useState, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  StatusBar,
-  Alert,
-  Linking,
-  Modal,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, StatusBar, Alert, Linking } from 'react-native';
 import { Image } from 'expo-image';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-  ArrowLeft,
-  Copy,
-  Check,
-  Phone,
-  Loader,
-  CheckCircle2,
-  History,
-  X,
-  Bell,
-} from 'lucide-react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import { ArrowLeft, Copy, Check, Phone, Loader, CheckCircle2, History, Bell } from 'lucide-react-native';
+import { colors, radius, typography } from '@venega/design-tokens';
 import { getCircle, getCircles, getActiveCycle, getCycles } from '../circleStore';
 import { mockMemberships, mockPayoutRecords } from '@venega/types';
 import type { PayoutRecord } from '@venega/types';
+import { Button, IconButton, Sheet } from '../../../components/ui';
+import OperatorPicker, { UssdCodeBox } from '../components/OperatorPicker';
 
 const formatXOF = (n: number) => new Intl.NumberFormat('fr-FR').format(n) + ' F CFA';
-
-const operatorLogos: Record<string, any> = {
-  ORANGE: require('../../../../assets/operators/orange.png'),
-  MOOV: require('../../../../assets/operators/moov.png'),
-  WAVE: require('../../../../assets/operators/wave.png'),
-};
 
 const OPERATORS = [
   { id: 'ORANGE', name: 'Orange Money' },
@@ -141,698 +117,297 @@ export default function PayoutInitScreen() {
     );
   };
 
+  const operatorName = OPERATORS.find((o) => o.id === selectedOperator)?.name;
+  const beneficiaryName = `${beneficiary?.user?.firstName ?? ''} ${beneficiary?.user?.lastName ?? ''}`.trim();
+
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#074B36" />
-      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <SafeAreaView style={styles.flex} edges={['top', 'bottom']}>
         {/* En-tête */}
-        <View style={styles.topSection}>
-          <View style={styles.topBar}>
-            <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-              <ArrowLeft size={20} color="#FFFFFF" />
-            </TouchableOpacity>
+        <View style={styles.header}>
+          <IconButton icon={ArrowLeft} variant="plain" accessibilityLabel="Retour" onPress={() => router.back()} />
+          <View style={styles.headerCenter}>
             <Text style={styles.headerTitle} numberOfLines={1}>Verser la cagnotte</Text>
-            <View style={styles.backBtn} />
+            <Text style={styles.headerSub} numberOfLines={1}>Compte hub Venega · CityNet Pay</Text>
           </View>
-          <Text style={styles.headerSub}>Compte hub Venega • CityNet Pay</Text>
+          <View style={styles.headerSpacer} />
         </View>
 
-        {/* Corps crème */}
-        <View style={styles.bodySheet}>
-          <ScrollView
-            ref={scrollRef}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Bénéficiaire */}
-            <View style={styles.beneficiaryCard}>
-              <Image source={{ uri: beneficiary?.user?.avatarUrl }} style={styles.beneficiaryAvatar} contentFit="cover" />
-              <View style={styles.beneficiaryInfo}>
-                <Text style={styles.beneficiaryLabel}>Bénéficiaire (Tour {cycle?.currentTurn ?? 1})</Text>
-                <Text style={styles.beneficiaryName}>
-                  {beneficiary?.user?.firstName} {beneficiary?.user?.lastName}
-                </Text>
-                <Text style={styles.beneficiaryPhone}>+226 70 12 34 56 (Mobile Money)</Text>
-              </View>
-              <Text style={styles.beneficiaryAmount}>{formatXOF(beneficiaryPotAmount)}</Text>
-            </View>
-
-            {/* Détails de la transaction */}
-            <View style={styles.breakdownCard}>
-              <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>Total</Text>
-                <Text style={styles.breakdownVal}>{formatXOF(totalGrossCollected)}</Text>
-              </View>
-              <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>Frais</Text>
-                <Text style={styles.breakdownVal}>{formatXOF(netFounderFees)}</Text>
-              </View>
-              <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>Commission</Text>
-                <Text style={styles.breakdownVal}>{formatXOF(venegaCommission)}</Text>
-              </View>
-              <View style={styles.breakdownDivider} />
-              <View style={styles.breakdownRow}>
-                <Text style={styles.breakdownTotalLabel}>Somme à verser</Text>
-                <Text style={styles.breakdownTotalValGreen}>{formatXOF(beneficiaryPotAmount)}</Text>
+        <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          {/* Bénéficiaire */}
+          <View style={styles.heroCard}>
+            <View style={styles.heroTop}>
+              <Image source={{ uri: beneficiary?.user?.avatarUrl }} style={styles.heroAvatar} contentFit="cover" />
+              <View style={styles.flex}>
+                <Text style={styles.heroLabel}>Bénéficiaire · Tour {cycle?.currentTurn ?? 1}</Text>
+                <Text style={styles.heroName}>{beneficiaryName}</Text>
+                <Text style={styles.heroPhone}>+226 70 12 34 56 · Mobile Money</Text>
               </View>
             </View>
+            <View style={styles.heroDivider} />
+            <Text style={styles.heroLabel}>Somme à verser</Text>
+            <Text style={styles.heroAmount}>{formatXOF(beneficiaryPotAmount)}</Text>
+          </View>
 
-            {/* Opérateur */}
-            <View style={styles.operatorCard}>
-              <Text style={styles.operatorLabel}>Opérateur de versement</Text>
-              <Text style={styles.operatorSub}>Choisissez l'opérateur qui exécutera le paiement</Text>
-              <View style={styles.operatorsRow}>
-                {OPERATORS.map((op) => {
-                  const isSelected = op.id === selectedOperator;
-                  return (
-                    <TouchableOpacity
-                      key={op.id}
-                      style={[styles.operatorBox, isSelected && styles.operatorBoxSelected]}
-                      activeOpacity={0.8}
-                      onPress={() => setSelectedOperator(op.id)}
-                    >
-                      <Image source={operatorLogos[op.id]} style={styles.operatorLogo} contentFit="contain" />
-                      <Text style={[styles.operatorName, isSelected && styles.operatorNameSelected]}>
-                        {op.name}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+          {/* Détails de la transaction */}
+          <View style={styles.card}>
+            <Row label="Total collecté" value={formatXOF(totalGrossCollected)} />
+            <Row label="Frais fondateur" value={formatXOF(netFounderFees)} />
+            <Row label="Commission Venega" value={formatXOF(venegaCommission)} />
+            <Row label="Somme à verser" value={formatXOF(beneficiaryPotAmount)} strong last />
+          </View>
+
+          {/* Opérateur */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Opérateur de versement</Text>
+            <Text style={styles.sectionHint}>Choisissez l'opérateur qui exécutera le paiement.</Text>
+            <OperatorPicker operators={OPERATORS} value={selectedOperator} onChange={setSelectedOperator} />
+          </View>
+
+          {/* Historique des versements (seulement les payés) */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Historique des versements</Text>
+            {history.length === 0 ? (
+              <View style={styles.empty}>
+                <View style={styles.emptyIcon}>
+                  <History size={24} color={colors.subtle} />
+                </View>
+                <Text style={styles.emptyTitle}>Aucun versement</Text>
+                <Text style={styles.emptyText}>Les versements payés apparaîtront ici.</Text>
               </View>
-
-              <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.88} onPress={handleInitiate}>
-                <Phone size={18} color="#FFFFFF" />
-                <Text style={styles.primaryBtnText}>Initier le paiement</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Historique des versements (seulement les payés) */}
-            <View style={styles.historySection}>
-              <View style={styles.historyHeaderRow}>
-                <History size={18} color="#074B36" />
-                <Text style={styles.historyTitle}>Historique des versements</Text>
-              </View>
-              <View style={styles.historyCard}>
-                {history.length === 0 && (
-                  <View style={styles.emptyBox}>
-                    <Text style={styles.emptyText}>
-                      Aucun versement payé pour le moment.
-                    </Text>
-                  </View>
-                )}
+            ) : (
+              <View style={[styles.card, styles.historyCard]}>
                 {history.map((p: PayoutRecord, idx: number) => (
-                  <View
-                    key={p.id}
-                    style={[styles.historyRow, idx === history.length - 1 && styles.historyRowLast]}
-                  >
+                  <View key={p.id} style={[styles.historyRow, idx < history.length - 1 && styles.rowBorder]}>
                     <Image source={{ uri: p.beneficiaryAvatar }} style={styles.historyAvatar} contentFit="cover" />
-                    <View style={styles.historyInfo}>
-                      <Text style={styles.historyName}>{p.beneficiaryName}</Text>
+                    <View style={styles.flex}>
+                      <Text style={styles.historyName} numberOfLines={1}>{p.beneficiaryName}</Text>
                       <Text style={styles.historyMeta}>
-                        {formatDate(p.createdAt)} • {p.operator}
+                        {formatDate(p.createdAt)} · {p.operator}
                       </Text>
                       <Text style={styles.historyRef}>Réf. TX-{p.id.toUpperCase().slice(1)}</Text>
                     </View>
-                    <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                    <View style={styles.historyRight}>
                       <Text style={styles.historyAmount}>−{formatXOF(p.beneficiaryAmount)}</Text>
                       <View style={styles.paidTag}>
-                        <CheckCircle2 size={11} color="#0B6E4F" />
+                        <CheckCircle2 size={12} color={colors.primary.DEFAULT} />
                         <Text style={styles.paidTagText}>Payé</Text>
                       </View>
                     </View>
                   </View>
                 ))}
               </View>
-            </View>
-          </ScrollView>
+            )}
+          </View>
+        </ScrollView>
+
+        <View style={styles.footer}>
+          <Button title="Initier le paiement" icon={Phone} onPress={handleInitiate} />
+        </View>
+      </SafeAreaView>
+
+      {/* Code USSD : copier ou exécuter (pas de bouton « J'ai effectué ») */}
+      <Sheet visible={ussdModal} onClose={() => setUssdModal(false)} title="Code USSD à exécuter">
+        <Text style={styles.sheetSub}>{operatorName} · Compte hub Venega</Text>
+        <View style={styles.sheetBlock}>
+          <UssdCodeBox code={ussdCode} />
         </View>
 
-        {/* MODALE USSD : Copier ou Exécuter (pas de bouton « J'ai effectué ») */}
-        <Modal visible={ussdModal} animationType="fade" transparent={true}>
-          <View style={styles.modalOverlay}>
-            <Animated.View entering={FadeInDown.duration(300)} style={styles.modalCard}>
-              <View style={styles.modalHeaderRow}>
-                <Text style={styles.modalTitle}>Code USSD à exécuter</Text>
-                <TouchableOpacity onPress={() => setUssdModal(false)}>
-                  <X size={20} color="#64748B" />
-                </TouchableOpacity>
-              </View>
-              <Text style={styles.ussdSub}>
-                {OPERATORS.find((o) => o.id === selectedOperator)?.name} • Compte hub Venega
-              </Text>
-
-              <View style={styles.ussdCodeBox}>
-                <Text style={styles.ussdCodeText}>{ussdCode}</Text>
-              </View>
-
-              {!detecting ? (
-                <>
-                  <TouchableOpacity style={[styles.copyPillBtn, copied && styles.copyPillBtnDone]} activeOpacity={0.8} onPress={handleCopyCode}>
-                    {copied ? <Check size={17} color="#FFFFFF" /> : <Copy size={17} color="#074B36" />}
-                    <Text style={[styles.copyPillBtnText, copied && styles.copyPillBtnTextDone]}>
-                      {copied ? 'Copié' : 'Copier le code'}
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.88} onPress={handleExecuteUssd}>
-                    <Phone size={18} color="#FFFFFF" />
-                    <Text style={styles.primaryBtnText}>Exécuter le code USSD</Text>
-                  </TouchableOpacity>
-                </>
-              ) : (
-                <View style={styles.detectingBox}>
-                  <Loader size={22} color="#074B36" />
-                  <Text style={styles.detectingTitle}>Détection automatique du paiement…</Text>
-                  <Text style={styles.detectingText}>
-                    Le système a vu votre paiement de {formatXOF(beneficiaryPotAmount)}.
-                    Venega vous enverra la notification dès que la transaction est validée.
-                  </Text>
-                </View>
-              )}
-            </Animated.View>
+        {!detecting ? (
+          <View style={styles.sheetActions}>
+            <Button
+              title={copied ? 'Copié' : 'Copier le code'}
+              icon={copied ? Check : Copy}
+              variant="secondary"
+              onPress={handleCopyCode}
+            />
+            <Button title="Exécuter le code USSD" icon={Phone} onPress={handleExecuteUssd} />
           </View>
-        </Modal>
-
-        {/* NOTIFICATION VENEGA : versement détecté automatiquement */}
-        <Modal visible={showNotification} animationType="fade" transparent={true}>
-          <View style={styles.modalOverlay}>
-            <Animated.View entering={FadeInDown.duration(300)} style={styles.modalCard}>
-              <View style={styles.bellCircle}>
-                <Bell size={34} color="#B47818" />
-              </View>
-              <Text style={styles.notifTag}>Notification Venega</Text>
-              <Text style={styles.receiptTitle}>Versement effectué !</Text>
-
-              <View style={styles.paidNoticeBox}>
-                <Text style={styles.paidNoticeLine}>
-                  ✓ Vous avez versé {formatXOF(beneficiaryPotAmount)} à {beneficiary?.user?.firstName}{' '}
-                  {beneficiary?.user?.lastName}.
-                </Text>
-                <Text style={styles.paidNoticeLine}>
-                  ✓ Vous avez reçu {formatXOF(netFounderFees)} (frais fondateur) sur votre compte.
-                </Text>
-              </View>
-
-              <View style={styles.receiptBox}>
-                <View style={styles.receiptRow}>
-                  <Text style={styles.receiptLabel}>Bénéficiaire</Text>
-                  <Text style={styles.receiptVal}>
-                    {beneficiary?.user?.firstName} {beneficiary?.user?.lastName}
-                  </Text>
-                </View>
-                <View style={styles.receiptRow}>
-                  <Text style={styles.receiptLabel}>Somme versée</Text>
-                  <Text style={styles.receiptValGreen}>{formatXOF(beneficiaryPotAmount)}</Text>
-                </View>
-                <View style={styles.receiptRow}>
-                  <Text style={styles.receiptLabel}>Reçu (fondateur)</Text>
-                  <Text style={styles.receiptVal}>{formatXOF(netFounderFees)}</Text>
-                </View>
-                <View style={styles.receiptRow}>
-                  <Text style={styles.receiptLabel}>Commission Venega</Text>
-                  <Text style={styles.receiptVal}>{formatXOF(venegaCommission)}</Text>
-                </View>
-                <View style={styles.receiptRow}>
-                  <Text style={styles.receiptLabel}>Opérateur</Text>
-                  <Text style={styles.receiptVal}>
-                    {OPERATORS.find((o) => o.id === selectedOperator)?.name}
-                  </Text>
-                </View>
-                <View style={styles.receiptRow}>
-                  <Text style={styles.receiptLabel}>Référence</Text>
-                  <Text style={styles.receiptVal}>{refNumber}</Text>
-                </View>
-                <View style={styles.receiptRow}>
-                  <Text style={styles.receiptLabel}>Date</Text>
-                  <Text style={styles.receiptVal}>
-                    {formatDate(new Date().toISOString())}
-                  </Text>
-                </View>
-              </View>
-
-              <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.88} onPress={handleViewHistory}>
-                <History size={18} color="#FFFFFF" />
-                <Text style={styles.primaryBtnText}>Voir l'historique complet</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.cancelBtn}
-                activeOpacity={0.8}
-                onPress={() => setShowNotification(false)}
-              >
-                <Text style={styles.cancelBtnText}>Fermer</Text>
-              </TouchableOpacity>
-            </Animated.View>
+        ) : (
+          <View style={styles.detecting}>
+            <Loader size={22} color={colors.primary.DEFAULT} />
+            <Text style={styles.detectingTitle}>Détection automatique du paiement…</Text>
+            <Text style={styles.detectingText}>
+              Le système a vu votre paiement de {formatXOF(beneficiaryPotAmount)}. Venega vous enverra la notification
+              dès que la transaction est validée.
+            </Text>
           </View>
-        </Modal>
-      </SafeAreaView>
+        )}
+      </Sheet>
+
+      {/* Notification Venega : versement détecté automatiquement */}
+      <Sheet visible={showNotification} onClose={() => setShowNotification(false)}>
+        <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
+          <View style={styles.notifHead}>
+            <View style={styles.bellCircle}>
+              <Bell size={24} color={colors.accent.deep} />
+            </View>
+            <Text style={styles.notifTag}>Notification Venega</Text>
+            <Text style={styles.notifTitle}>Versement effectué</Text>
+          </View>
+
+          <View style={styles.paidNotice}>
+            <CheckLine>
+              Vous avez versé {formatXOF(beneficiaryPotAmount)} à {beneficiaryName}.
+            </CheckLine>
+            <CheckLine>Vous avez reçu {formatXOF(netFounderFees)} (frais fondateur) sur votre compte.</CheckLine>
+          </View>
+
+          <View style={[styles.card, styles.sheetBlock]}>
+            <Row label="Bénéficiaire" value={beneficiaryName} />
+            <Row label="Somme versée" value={formatXOF(beneficiaryPotAmount)} strong />
+            <Row label="Reçu (fondateur)" value={formatXOF(netFounderFees)} />
+            <Row label="Commission Venega" value={formatXOF(venegaCommission)} />
+            <Row label="Opérateur" value={operatorName ?? '—'} />
+            <Row label="Référence" value={refNumber} />
+            <Row label="Date" value={formatDate(new Date().toISOString())} last />
+          </View>
+
+          <View style={styles.sheetActions}>
+            <Button title="Voir l'historique complet" icon={History} onPress={handleViewHistory} />
+            <Button title="Fermer" variant="secondary" onPress={() => setShowNotification(false)} />
+          </View>
+        </ScrollView>
+      </Sheet>
+    </View>
+  );
+}
+
+function Row({ label, value, strong, last }: { label: string; value: string; strong?: boolean; last?: boolean }) {
+  return (
+    <View style={[styles.row, !last && styles.rowBorder]}>
+      <Text style={[styles.rowLabel, strong && styles.rowLabelStrong]}>{label}</Text>
+      <Text style={[styles.rowValue, strong && styles.rowValueStrong]} numberOfLines={2}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+/** Ligne de confirmation précédée d'une coche Lucide. */
+function CheckLine({ children }: { children: React.ReactNode }) {
+  return (
+    <View style={styles.checkLine}>
+      <View style={styles.checkIcon}>
+        <Check size={12} color="#FFFFFF" strokeWidth={3} />
+      </View>
+      <Text style={styles.checkText}>{children}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#074B36',
+  container: { flex: 1, backgroundColor: colors.bg },
+  flex: { flex: 1 },
+
+  /* En-tête */
+  header: { height: 56, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8 },
+  headerCenter: { flex: 1, alignItems: 'center' },
+  headerTitle: { ...typography.headline, color: colors.ink, textAlign: 'center' },
+  headerSub: { ...typography.caption, fontWeight: '400', color: colors.muted, textAlign: 'center' },
+  headerSpacer: { width: 40 },
+
+  scroll: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 32 },
+  section: { marginTop: 28 },
+  sectionTitle: { ...typography.bodyStrong, color: colors.ink, marginBottom: 12 },
+  sectionHint: { ...typography.footnote, color: colors.muted, marginTop: -8, marginBottom: 12 },
+
+  /* Carte bénéficiaire (verte unie) */
+  heroCard: { borderRadius: 24, backgroundColor: colors.primary.dark, padding: 20, marginBottom: 16 },
+  heroTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  heroAvatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.primary.DEFAULT },
+  heroLabel: { ...typography.footnote, color: '#FFFFFF', opacity: 0.8 },
+  heroName: { ...typography.headline, color: '#FFFFFF', marginTop: 1 },
+  heroPhone: { ...typography.footnote, color: '#FFFFFF', opacity: 0.8, marginTop: 1 },
+  heroDivider: { height: StyleSheet.hairlineWidth, backgroundColor: '#FFFFFF', opacity: 0.25, marginVertical: 16 },
+  heroAmount: { ...typography.display, color: '#FFFFFF', marginTop: 2 },
+
+  /* Cartes et lignes */
+  card: {
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.bg,
+    paddingHorizontal: 16,
   },
-  topSection: {
-    backgroundColor: '#074B36',
-    paddingHorizontal: 20,
-    paddingBottom: 26,
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 8,
-    marginBottom: 10,
-  },
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 18,
-    color: '#FFFFFF',
-    flex: 1,
-    textAlign: 'center',
-    marginHorizontal: 10,
-  },
-  headerSub: {
-    fontFamily: 'WorkSans',
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.8)',
-    textAlign: 'center',
-  },
-  bodySheet: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    marginTop: -20,
-    paddingTop: 20,
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 60,
-    gap: 16,
-  },
-  beneficiaryCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    padding: 14,
-    gap: 12,
-  },
-  beneficiaryAvatar: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-  },
-  beneficiaryInfo: {
-    flex: 1,
-  },
-  beneficiaryLabel: {
-    fontFamily: 'WorkSans',
-    fontSize: 11,
-    color: '#64748B',
-  },
-  beneficiaryName: {
-    fontFamily: 'SoraBold',
-    fontSize: 15,
-    color: '#0F172A',
-  },
-  beneficiaryPhone: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 11,
-    color: '#074B36',
-    marginTop: 1,
-  },
-  beneficiaryAmount: {
-    fontFamily: 'SoraBold',
-    fontSize: 15,
-    color: '#E53E3E',
-  },
-  breakdownCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    padding: 16,
-    gap: 8,
-  },
-  breakdownRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  breakdownLabel: {
-    fontFamily: 'WorkSans',
-    fontSize: 12.5,
-    color: '#64748B',
-  },
-  breakdownVal: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 13,
-    color: '#0F172A',
-  },
-  breakdownDivider: {
-    height: 1,
-    backgroundColor: '#F1F5F9',
-    marginVertical: 4,
-  },
-  breakdownTotalLabel: {
-    fontFamily: 'SoraBold',
-    fontSize: 13,
-    color: '#074B36',
-  },
-  breakdownTotalValGreen: {
-    fontFamily: 'SoraBold',
-    fontSize: 15,
-    color: '#E53E3E',
-  },
-  operatorCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    padding: 16,
-    gap: 12,
-  },
-  operatorLabel: {
-    fontFamily: 'SoraBold',
-    fontSize: 14,
-    color: '#0F172A',
-  },
-  operatorSub: {
-    fontFamily: 'WorkSans',
-    fontSize: 11.5,
-    color: '#64748B',
-    marginTop: -6,
-  },
-  operatorsRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  operatorBox: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 6,
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-  },
-  operatorBoxSelected: {
-    borderColor: '#074B36',
-    backgroundColor: 'rgba(7, 75, 54, 0.05)',
-  },
-  operatorLogo: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-  },
-  operatorName: {
-    fontFamily: 'WorkSansMedium',
-    fontSize: 10.5,
-    color: '#64748B',
-    textAlign: 'center',
-  },
-  operatorNameSelected: {
-    fontFamily: 'WorkSansBold',
-    color: '#074B36',
-  },
-  primaryBtn: {
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#074B36',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 4,
-    shadowColor: '#074B36',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  primaryBtnText: {
-    fontFamily: 'SoraBold',
-    fontSize: 14.5,
-    color: '#FFFFFF',
-  },
-  copyPillBtn: {
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#074B36',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-  },
-  copyPillBtnDone: {
-    backgroundColor: '#10B981',
-    borderColor: '#10B981',
-  },
-  copyPillBtnText: {
-    fontFamily: 'SoraBold',
-    fontSize: 14,
-    color: '#074B36',
-  },
-  copyPillBtnTextDone: {
-    color: '#FFFFFF',
-  },
-  historySection: {
-    gap: 10,
-  },
-  historyHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  historyTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 16,
-    color: '#074B36',
-  },
-  historyCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    overflow: 'hidden',
-  },
-  historyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 13,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  historyRowLast: {
-    borderBottomWidth: 0,
-  },
-  historyAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    marginRight: 12,
-  },
-  historyInfo: {
-    flex: 1,
-  },
-  historyName: {
-    fontFamily: 'SoraBold',
-    fontSize: 13.5,
-    color: '#0F172A',
-  },
-  historyMeta: {
-    fontFamily: 'WorkSans',
-    fontSize: 11,
-    color: '#64748B',
-    marginTop: 1,
-  },
-  historyRef: {
-    fontFamily: 'WorkSans',
-    fontSize: 10.5,
-    color: '#94A3B8',
-    marginTop: 1,
-  },
-  historyAmount: {
-    fontFamily: 'SoraBold',
-    fontSize: 13,
-    color: '#E53E3E',
-  },
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 16, paddingVertical: 13 },
+  rowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
+  rowLabel: { ...typography.callout, color: colors.muted },
+  rowLabelStrong: { fontWeight: '600', color: colors.ink },
+  rowValue: { flexShrink: 1, ...typography.callout, fontWeight: '500', color: colors.ink, textAlign: 'right' },
+  rowValueStrong: { ...typography.bodyStrong, fontWeight: '700', color: colors.primary.dark },
+
+  /* Historique */
+  historyCard: { paddingHorizontal: 0 },
+  historyRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 16 },
+  historyAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.fill },
+  historyName: { ...typography.callout, fontWeight: '600', color: colors.ink },
+  historyMeta: { ...typography.footnote, color: colors.muted, marginTop: 1 },
+  historyRef: { ...typography.caption, fontWeight: '400', color: colors.subtle, marginTop: 1 },
+  historyRight: { alignItems: 'flex-end', gap: 4 },
+  historyAmount: { ...typography.callout, fontWeight: '600', color: colors.ink },
   paidTag: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(11, 110, 79, 0.1)',
+    backgroundColor: colors.primary.tint,
     paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
   },
-  paidTagText: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 10.5,
-    color: '#0B6E4F',
-  },
-  emptyBox: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontFamily: 'WorkSans',
-    fontSize: 13,
-    color: '#64748B',
-    textAlign: 'center',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  modalCard: {
-    backgroundColor: '#FFFFFF',
+  paidTagText: { ...typography.caption, fontWeight: '600', color: colors.primary.dark },
+  empty: { alignItems: 'center', paddingVertical: 28 },
+  emptyIcon: {
+    width: 56,
+    height: 56,
     borderRadius: 28,
-    padding: 22,
-    width: '100%',
-    gap: 12,
-    maxHeight: '90%',
-  },
-  modalHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    backgroundColor: colors.fill,
+    justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 12,
   },
-  modalTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 17,
-    color: '#074B36',
+  emptyTitle: { ...typography.headline, color: colors.ink },
+  emptyText: { ...typography.callout, color: colors.muted, marginTop: 4, textAlign: 'center' },
+
+  footer: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.line,
+    backgroundColor: colors.bg,
   },
-  ussdSub: {
-    fontFamily: 'WorkSans',
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: -4,
-  },
-  ussdCodeBox: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  ussdCodeText: {
-    fontFamily: 'SoraBold',
-    fontSize: 18,
-    color: '#074B36',
-    letterSpacing: 1,
-    textAlign: 'center',
-  },
-  detectingBox: {
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 14,
-  },
-  detectingTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 15,
-    color: '#074B36',
-  },
-  detectingText: {
-    fontFamily: 'WorkSans',
-    fontSize: 12.5,
-    lineHeight: 18,
-    color: '#64748B',
-    textAlign: 'center',
-  },
+
+  /* Feuilles */
+  sheetSub: { ...typography.footnote, color: colors.muted, marginTop: -6 },
+  sheetBlock: { marginTop: 16 },
+  sheetActions: { gap: 10, marginTop: 20 },
+  detecting: { alignItems: 'center', gap: 8, paddingTop: 20, paddingBottom: 8 },
+  detectingTitle: { ...typography.bodyStrong, color: colors.ink, textAlign: 'center' },
+  detectingText: { ...typography.footnote, color: colors.muted, textAlign: 'center' },
+
+  notifHead: { alignItems: 'center', marginBottom: 16 },
   bellCircle: {
-    alignSelf: 'center',
-    marginBottom: 2,
-  },
-  notifTag: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 11,
-    color: '#B47818',
-    textAlign: 'center',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  receiptTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 20,
-    color: '#074B36',
-    textAlign: 'center',
-  },
-  paidNoticeBox: {
-    backgroundColor: 'rgba(16, 185, 129, 0.08)',
-    borderRadius: 14,
-    padding: 12,
-    gap: 4,
-  },
-  paidNoticeLine: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 12.5,
-    lineHeight: 18,
-    color: '#0F172A',
-  },
-  receiptBox: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 16,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    gap: 8,
-  },
-  receiptRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.accent.tint,
+    justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 10,
   },
-  receiptLabel: {
-    fontFamily: 'WorkSans',
-    fontSize: 12.5,
-    color: '#64748B',
-  },
-  receiptVal: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 13,
-    color: '#0F172A',
-  },
-  receiptValGreen: {
-    fontFamily: 'SoraBold',
-    fontSize: 13.5,
-    color: '#E53E3E',
-  },
-  cancelBtn: {
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+  notifTag: { ...typography.caption, color: colors.accent.deep },
+  notifTitle: { ...typography.title, color: colors.ink, marginTop: 2, textAlign: 'center' },
+  paidNotice: { gap: 10, padding: 14, borderRadius: radius.md, backgroundColor: colors.primary.tint },
+  checkLine: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  checkIcon: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    marginTop: 1,
+    backgroundColor: colors.primary.DEFAULT,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  cancelBtnText: {
-    fontFamily: 'SoraBold',
-    fontSize: 14,
-    color: '#64748B',
-  },
+  checkText: { flex: 1, ...typography.footnote, fontWeight: '500', color: colors.ink },
 });

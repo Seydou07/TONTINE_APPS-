@@ -1,28 +1,31 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Image, Alert, Modal, PanResponder } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Image, Alert, PanResponder } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 import {
   ArrowLeft,
-  ArrowUp,
-  ArrowDown,
+  ArrowUpRight,
+  ArrowDownLeft,
   Calendar,
   Check,
-  ChevronDown,
   ChevronRight,
   ChevronLeft,
   Filter,
+  MoreVertical,
   Settings2,
   Repeat,
+  UserPlus,
   UserX,
+  Receipt,
 } from 'lucide-react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import { colors, radius, typography } from '@venega/design-tokens';
 import { mockTransactions, Role, TransactionType, TransactionStatus, Frequency, MembershipRequestStatus } from '@venega/types';
 import type { Transaction, MembershipRequest } from '@venega/types';
 import TransactionDetailModal from '../../../components/TransactionDetailModal';
 import AvatarViewerModal from '../../../components/AvatarViewerModal';
+import { Button, IconButton, ListGroup, ListRow, Sheet } from '../../../components/ui';
 import {
   getCircle,
   getCircles,
@@ -44,9 +47,9 @@ const roleLabel: Record<Role, string> = {
 };
 
 const roleBadgeStyle: Partial<Record<Role, { bg: string; color: string }>> = {
-  [Role.PRESIDENT]: { bg: '#FBF1DD', color: '#B9852A' },
-  [Role.TREASURER]: { bg: '#E4F0EB', color: '#0B6E4F' },
-  [Role.SECRETARY]: { bg: '#EBF8FF', color: '#3182CE' },
+  [Role.PRESIDENT]: { bg: colors.accent.tint, color: colors.accent.deep },
+  [Role.TREASURER]: { bg: colors.primary.tint, color: colors.primary.DEFAULT },
+  [Role.SECRETARY]: { bg: colors.info.tint, color: colors.info.DEFAULT },
 };
 
 const rolePriority: Record<Role, number> = {
@@ -58,7 +61,14 @@ const rolePriority: Record<Role, number> = {
 
 const monthLabels = ['Janv', 'Févr', 'Mars', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'];
 
-const avatarPalette = ['#D9A441', '#0B6E4F', '#7A4E9C', '#3182CE', '#B9852A', '#E53E3E'];
+const avatarPalette: string[] = [
+  colors.accent.DEFAULT,
+  colors.primary.DEFAULT,
+  colors.purple.DEFAULT,
+  colors.info.DEFAULT,
+  colors.accent.dark,
+  colors.danger.DEFAULT,
+];
 const avatarColor = (userId: string) => {
   const sum = userId.split('').reduce((s, ch) => s + ch.charCodeAt(0), 0);
   return avatarPalette[sum % avatarPalette.length] ?? avatarPalette[0]!;
@@ -280,58 +290,34 @@ export default function TontineScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#074B36" />
-      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        <View style={styles.topSection}>
-          <View style={styles.topBar}>
-            <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-              <ArrowLeft size={20} color="#FFFFFF" />
-            </TouchableOpacity>
-            <View style={styles.badgeRow}>
-              <View style={styles.typeBadge}>
-                <Text style={styles.typeBadgeText}>Tontine</Text>
-              </View>
-              <View style={styles.roleBadge}>
-                <Text style={styles.roleBadgeText}>
-                  {isFounder ? 'Vous êtes Fondateur' : `Vous êtes ${roleLabel[myMembership?.role ?? Role.MEMBER]}`}
-                </Text>
-              </View>
-            </View>
-            {isFounder ? (
-              <TouchableOpacity style={styles.backBtn} onPress={() => setShowFounderMenu((v) => !v)}>
-                <ChevronDown size={20} color="#FFFFFF" />
-              </TouchableOpacity>
-            ) : (
-              <View style={styles.backBtn} />
-            )}
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        {/* ── En-tête ── */}
+        <View style={styles.header}>
+          <IconButton icon={ArrowLeft} variant="plain" accessibilityLabel="Retour" onPress={() => router.back()} />
+          <View style={styles.headerText}>
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {circle.name}
+            </Text>
+            <Text style={styles.headerSub} numberOfLines={1}>
+              Tontine · {isFounder ? 'Vous êtes fondateur' : `Vous êtes ${roleLabel[myMembership?.role ?? Role.MEMBER].toLowerCase()}`}
+            </Text>
           </View>
-
-          <Text style={styles.circleName} numberOfLines={2}>{circle.name}</Text>
+          {isFounder ? (
+            <IconButton
+              icon={MoreVertical}
+              variant="plain"
+              accessibilityLabel="Options du cercle"
+              onPress={() => setShowFounderMenu((v) => !v)}
+            />
+          ) : (
+            <View style={styles.headerSpacer} />
+          )}
         </View>
 
-        {showFounderMenu && (
-          <>
-            <TouchableOpacity
-              style={styles.founderMenuBackdrop}
-              activeOpacity={1}
-              onPress={() => setShowFounderMenu(false)}
-            />
-            <View style={styles.founderMenu}>
-              <TouchableOpacity style={styles.founderMenuItem} activeOpacity={0.8} onPress={handleSettings}>
-                <Settings2 size={15} color="#074B36" />
-                <Text style={styles.founderMenuItemText}>Paramètres du cercle</Text>
-              </TouchableOpacity>
-            </View>
-          </>
-        )}
-
-        <View style={styles.bodySheet}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.tabScroll}
-            contentContainerStyle={styles.tabRow}
-          >
+        {/* ── Onglets ── */}
+        <View style={styles.tabBar}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabRow}>
             <TabButton label="Aperçu" active={tab === 'apercu'} onPress={() => setTab('apercu')} />
             <TabButton label="Tour" active={tab === 'tour'} onPress={() => setTab('tour')} />
             <TabButton label="Membres" active={tab === 'membres'} onPress={() => setTab('membres')} />
@@ -340,368 +326,381 @@ export default function TontineScreen() {
               <TabButton label="Gestion" active={tab === 'gestion'} onPress={() => setTab('gestion')} />
             )}
           </ScrollView>
+        </View>
 
-          <ScrollView style={styles.contentScroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-            {tab === 'apercu' && (
-              <Animated.View entering={FadeInDown.delay(75).duration(400)}>
-                <View style={styles.dueCard}>
-                  <View style={styles.dueIconWrap}>
-                    <Calendar size={18} color="#0B6E4F" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.dueLabel}>
-                      Prochain versement{nextDueDays !== null ? ` · dans ${nextDueDays} jour${nextDueDays > 1 ? 's' : ''}` : ''}
+        <ScrollView style={styles.contentScroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {tab === 'apercu' && (
+            <View>
+              {/* ── Prochain versement ── */}
+              <View style={styles.dueCard}>
+                <View style={styles.dueTop}>
+                  <Calendar size={16} color="rgba(255,255,255,0.72)" />
+                  <Text style={styles.dueLabel}>
+                    Prochain versement{nextDueDays !== null ? ` · dans ${nextDueDays} jour${nextDueDays > 1 ? 's' : ''}` : ''}
+                  </Text>
+                </View>
+                <Text style={styles.dueAmount}>{formatXOF(circle.tontineAmount)}</Text>
+                <View style={styles.dueBottom}>
+                  <Text style={styles.dueMeta}>
+                    Tour {currentTurn} · {turnCompletedCount}/{members.length} ont cotisé
+                  </Text>
+                  <Button title="Payer" size="sm" variant="secondary" onPress={handlePayNow} style={styles.payBtn} />
+                </View>
+              </View>
+
+              {/* ── Historique ── */}
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Historique</Text>
+                {monthsWithActivity.length > 1 && (
+                  <TouchableOpacity
+                    style={[styles.filterBtn, monthFilter !== null && styles.filterBtnActive]}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="Filtrer par mois"
+                    onPress={() => setShowMonthFilter((v) => !v)}
+                  >
+                    <Filter size={14} color={monthFilter !== null ? colors.primary.DEFAULT : colors.muted} />
+                    <Text style={[styles.filterBtnText, monthFilter !== null && styles.filterBtnTextActive]}>
+                      {monthFilter !== null ? monthLabels[monthFilter] : 'Filtrer'}
                     </Text>
-                    <Text style={styles.dueAmount}>{formatXOF(circle.tontineAmount)}</Text>
-                  </View>
-                  <TouchableOpacity style={styles.payBtn} activeOpacity={0.88} onPress={handlePayNow}>
-                    <Text style={styles.payBtnText}>Payer</Text>
                   </TouchableOpacity>
-                </View>
-
-                <View style={styles.historyHeaderRow}>
-                  <Text style={styles.historyTitle}>Historique</Text>
-                  {monthsWithActivity.length > 1 && (
-                    <View style={styles.filterWrap}>
-                      <TouchableOpacity
-                        style={styles.filterBtn}
-                        activeOpacity={0.75}
-                        onPress={() => setShowMonthFilter((v) => !v)}
-                      >
-                        <Filter size={13} color={monthFilter !== null ? '#074B36' : '#64748B'} />
-                        <Text style={[styles.filterBtnText, monthFilter !== null && styles.filterBtnTextActive]}>
-                          {monthFilter !== null ? monthLabels[monthFilter] : 'Filtrer'}
-                        </Text>
-                      </TouchableOpacity>
-
-                      {showMonthFilter && (
-                        <View style={styles.monthDropdown}>
-                          <ScrollView style={styles.monthDropdownScroll} showsVerticalScrollIndicator={false}>
-                            <TouchableOpacity
-                              style={styles.monthDropdownItem}
-                              onPress={() => { setMonthFilter(null); setVisibleCount(5); setShowMonthFilter(false); }}
-                            >
-                              <Text style={[styles.monthDropdownItemText, monthFilter === null && styles.monthDropdownItemTextActive]}>
-                                Tous les mois
-                              </Text>
-                            </TouchableOpacity>
-                            {monthsWithActivity.map((mIdx) => (
-                              <TouchableOpacity
-                                key={mIdx}
-                                style={styles.monthDropdownItem}
-                                onPress={() => { setMonthFilter(mIdx); setVisibleCount(5); setShowMonthFilter(false); }}
-                              >
-                                <Text style={[styles.monthDropdownItemText, monthFilter === mIdx && styles.monthDropdownItemTextActive]}>
-                                  {monthLabels[mIdx]} 2026
-                                </Text>
-                              </TouchableOpacity>
-                            ))}
-                          </ScrollView>
-                        </View>
-                      )}
-                    </View>
-                  )}
-                </View>
-
-                {filteredTx.length === 0 && (
-                  <Text style={styles.emptyText}>Aucune opération pour le moment.</Text>
                 )}
+              </View>
 
-                {groups.map((group) => (
-                  <View key={group.dateLabel} style={{ marginBottom: 10 }}>
-                    <Text style={styles.dateGroupLabel}>{group.dateLabel}</Text>
-                    {group.items.map((t) => {
+              {filteredTx.length === 0 && (
+                <EmptyState icon={Receipt} title="Aucune opération" text="Les cotisations et cagnottes apparaîtront ici." />
+              )}
+
+              {groups.map((group) => (
+                <View key={group.dateLabel} style={styles.txGroup}>
+                  <Text style={styles.dateGroupLabel}>{group.dateLabel}</Text>
+                  <View style={styles.card}>
+                    {group.items.map((t, i) => {
                       const isCredit = t.type !== TransactionType.PAYOUT;
+                      const pending = t.status === TransactionStatus.PENDING;
+                      const failed = t.status === TransactionStatus.FAILED;
+                      const Icon = isCredit ? ArrowUpRight : ArrowDownLeft;
                       return (
                         <TouchableOpacity
                           key={t.id}
-                          activeOpacity={0.7}
+                          activeOpacity={0.6}
                           onPress={() => setSelectedTx(t)}
-                          style={styles.txRow}
+                          style={styles.row}
                         >
-                          <View style={[styles.txIcon, isCredit ? styles.txIconCredit : styles.txIconPayout]}>
-                            {isCredit
-                              ? <ArrowUp size={16} color="#0B6E4F" />
-                              : <ArrowDown size={16} color="#E53E3E" />}
+                          <View
+                            style={[
+                              styles.rowIcon,
+                              styles.rowIconRound,
+                              { backgroundColor: pending ? colors.accent.tint : isCredit ? colors.primary.tint : colors.fill },
+                            ]}
+                          >
+                            <Icon size={18} color={pending ? colors.accent.dark : isCredit ? colors.primary.DEFAULT : colors.inkSoft} />
                           </View>
-                          <View style={styles.txInfo}>
-                            <Text style={styles.txDesc} numberOfLines={2}>{txLabel(t)}</Text>
-                            <Text style={styles.txMeta}>
-                              {new Date(t.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                            </Text>
-                          </View>
-                          <View style={{ alignItems: 'flex-end', gap: 2 }}>
-                            <Text style={[styles.txAmount, isCredit ? styles.txAmountCredit : styles.txAmountPayout]}>
-                              {formatXOF(t.amount)}
-                            </Text>
-                            <Text style={[styles.txStatus, t.status === TransactionStatus.PENDING && styles.txStatusPending]}>
-                              {txStatusLabel(t)}
-                            </Text>
+                          <View style={[styles.rowBody, i < group.items.length - 1 && styles.rowBorder]}>
+                            <View style={styles.flex}>
+                              <Text style={styles.rowTitle} numberOfLines={2}>
+                                {txLabel(t)}
+                              </Text>
+                              <Text style={styles.rowSub}>
+                                {new Date(t.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                              </Text>
+                            </View>
+                            <View style={styles.amountCol}>
+                              <Text style={[styles.amount, { color: isCredit ? colors.primary.DEFAULT : colors.ink }]}>
+                                {isCredit ? '+' : '−'}
+                                {formatXOF(t.amount)}
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.txStatus,
+                                  pending && { color: colors.accent.dark },
+                                  failed && { color: colors.danger.DEFAULT },
+                                ]}
+                              >
+                                {txStatusLabel(t)}
+                              </Text>
+                            </View>
                           </View>
                         </TouchableOpacity>
                       );
                     })}
                   </View>
-                ))}
-
-                {filteredTx.length > visibleCount && (
-                  <TouchableOpacity
-                    style={styles.seeMoreBtn}
-                    activeOpacity={0.75}
-                    onPress={() => setVisibleCount((n) => n + 5)}
-                  >
-                    <Text style={styles.seeMoreBtnText}>Voir plus</Text>
-                  </TouchableOpacity>
-                )}
-              </Animated.View>
-            )}
-
-            {tab === 'tour' && (
-              <Animated.View entering={FadeInDown.delay(75).duration(400)} style={{ alignItems: 'center' }}>
-                <Text style={styles.sectionLabel}>Tour en cours</Text>
-
-                <View style={styles.tourRingRow}>
-                  {ringCanRotate && (
-                    <TouchableOpacity
-                      style={styles.ringNavBtn}
-                      activeOpacity={0.75}
-                      onPress={() => setRingOffset((o) => o - 1)}
-                    >
-                      <ChevronLeft size={18} color="#334155" />
-                    </TouchableOpacity>
-                  )}
-
-                  <View
-                    style={[styles.tourRingWrap, { width: arcContainerSize, height: arcContainerSize }]}
-                    {...(ringCanRotate ? ringPanResponder.panHandlers : {})}
-                  >
-                  {arcPositions.map(({ member: m, x, y }) => {
-                    const isMe = m.userId === me.id;
-                    const isCurrentTurn = m.turnOrder === currentTurn;
-                    const fullName = `${m.user.firstName} ${m.user.lastName}`;
-                    const initialsText = initials(fullName);
-                    const color = avatarColor(m.userId);
-                    return (
-                      <TouchableOpacity
-                        key={m.userId}
-                        activeOpacity={0.8}
-                        style={[styles.tourAvatarWrap, { left: x - ARC_AVATAR_SIZE / 2, top: y - ARC_AVATAR_SIZE / 2 }]}
-                        onPress={() => setViewedProfile({ name: isMe ? 'Moi' : fullName, photoUrl: m.user.avatarUrl, initials: initialsText, color })}
-                      >
-                        <View
-                          style={[
-                            styles.tourAvatar,
-                            !m.user.avatarUrl && { backgroundColor: m.hasReceivedPayout ? '#36E395' : color },
-                            isCurrentTurn && styles.tourAvatarActive,
-                          ]}
-                        >
-                          {m.user.avatarUrl ? (
-                            <Image source={{ uri: m.user.avatarUrl }} style={styles.tourAvatarImage} />
-                          ) : m.hasReceivedPayout ? (
-                            <Check size={16} color="#FFFFFF" strokeWidth={3} />
-                          ) : (
-                            <Text style={styles.tourAvatarText}>{initialsText}</Text>
-                          )}
-                          {m.user.avatarUrl && m.hasReceivedPayout && (
-                            <View style={styles.tourAvatarDoneBadge}>
-                              <Check size={10} color="#FFFFFF" strokeWidth={4} />
-                            </View>
-                          )}
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
-
-                  <View
-                    style={[styles.tourGaugeWrap, { left: arcCenter - GAUGE_SIZE / 2, top: arcCenter - GAUGE_SIZE / 2 }]}
-                    pointerEvents="none"
-                  >
-                    <Svg width={GAUGE_SIZE} height={GAUGE_SIZE}>
-                      <Circle
-                        cx={GAUGE_SIZE / 2}
-                        cy={GAUGE_SIZE / 2}
-                        r={(GAUGE_SIZE - GAUGE_STROKE) / 2}
-                        stroke="#E2E8F0"
-                        strokeWidth={GAUGE_STROKE}
-                        fill="none"
-                      />
-                      <Circle
-                        cx={GAUGE_SIZE / 2}
-                        cy={GAUGE_SIZE / 2}
-                        r={(GAUGE_SIZE - GAUGE_STROKE) / 2}
-                        stroke="#D9A441"
-                        strokeWidth={GAUGE_STROKE}
-                        strokeLinecap="round"
-                        fill="none"
-                        strokeDasharray={`${gaugeCircumference} ${gaugeCircumference}`}
-                        strokeDashoffset={gaugeDashoffset}
-                        transform={`rotate(-90 ${GAUGE_SIZE / 2} ${GAUGE_SIZE / 2})`}
-                      />
-                    </Svg>
-                    <View style={styles.tourGaugeCenter}>
-                      <Text style={styles.tourGaugeLabel}>Tour</Text>
-                      <Text style={styles.tourGaugeNumber}>{currentTurn}</Text>
-                    </View>
-                  </View>
-                  </View>
-
-                  {ringCanRotate && (
-                    <TouchableOpacity
-                      style={styles.ringNavBtn}
-                      activeOpacity={0.75}
-                      onPress={() => setRingOffset((o) => o + 1)}
-                    >
-                      <ChevronRight size={18} color="#334155" />
-                    </TouchableOpacity>
-                  )}
                 </View>
+              ))}
 
-                {ringCanRotate && (
-                  <Text style={styles.tourPanHint}>
-                    Faites glisser l'anneau (ou utilisez les flèches) pour voir tous les membres
-                  </Text>
-                )}
+              {filteredTx.length > visibleCount && (
+                <Button title="Voir plus" variant="ghost" size="sm" onPress={() => setVisibleCount((n) => n + 5)} />
+              )}
+            </View>
+          )}
 
+          {tab === 'tour' && (
+            <View style={[styles.card, styles.tourCard]}>
+              <Text style={styles.tourTitle}>Tour en cours</Text>
+
+              <View
+                style={[styles.tourRingWrap, { width: arcContainerSize, height: arcContainerSize }]}
+                {...(ringCanRotate ? ringPanResponder.panHandlers : {})}
+              >
+                {arcPositions.map(({ member: m, x, y }) => {
+                  const isMe = m.userId === me.id;
+                  const isCurrentTurn = m.turnOrder === currentTurn;
+                  const fullName = `${m.user.firstName} ${m.user.lastName}`;
+                  const initialsText = initials(fullName);
+                  const color = avatarColor(m.userId);
+                  return (
+                    <TouchableOpacity
+                      key={m.userId}
+                      activeOpacity={0.8}
+                      accessibilityLabel={`Voir le profil de ${isMe ? 'Moi' : fullName}`}
+                      style={[styles.tourAvatarWrap, { left: x - ARC_AVATAR_SIZE / 2, top: y - ARC_AVATAR_SIZE / 2 }]}
+                      onPress={() => setViewedProfile({ name: isMe ? 'Moi' : fullName, photoUrl: m.user.avatarUrl, initials: initialsText, color })}
+                    >
+                      <View
+                        style={[
+                          styles.tourAvatar,
+                          !m.user.avatarUrl && { backgroundColor: m.hasReceivedPayout ? colors.primary.soft : color },
+                          isCurrentTurn && styles.tourAvatarActive,
+                        ]}
+                      >
+                        {m.user.avatarUrl ? (
+                          <Image source={{ uri: m.user.avatarUrl }} style={styles.tourAvatarImage} />
+                        ) : m.hasReceivedPayout ? (
+                          <Check size={18} color={colors.primary.dark} strokeWidth={3} />
+                        ) : (
+                          <Text style={styles.tourAvatarText}>{initialsText}</Text>
+                        )}
+                      </View>
+                      {m.user.avatarUrl && m.hasReceivedPayout && (
+                        <View style={styles.tourAvatarDoneBadge}>
+                          <Check size={10} color="#FFFFFF" strokeWidth={4} />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+
+                <View
+                  style={[styles.tourGaugeWrap, { left: arcCenter - GAUGE_SIZE / 2, top: arcCenter - GAUGE_SIZE / 2 }]}
+                  pointerEvents="none"
+                >
+                  <Svg width={GAUGE_SIZE} height={GAUGE_SIZE}>
+                    <Circle
+                      cx={GAUGE_SIZE / 2}
+                      cy={GAUGE_SIZE / 2}
+                      r={(GAUGE_SIZE - GAUGE_STROKE) / 2}
+                      stroke={colors.line}
+                      strokeWidth={GAUGE_STROKE}
+                      fill="none"
+                    />
+                    <Circle
+                      cx={GAUGE_SIZE / 2}
+                      cy={GAUGE_SIZE / 2}
+                      r={(GAUGE_SIZE - GAUGE_STROKE) / 2}
+                      stroke={colors.accent.DEFAULT}
+                      strokeWidth={GAUGE_STROKE}
+                      strokeLinecap="round"
+                      fill="none"
+                      strokeDasharray={`${gaugeCircumference} ${gaugeCircumference}`}
+                      strokeDashoffset={gaugeDashoffset}
+                      transform={`rotate(-90 ${GAUGE_SIZE / 2} ${GAUGE_SIZE / 2})`}
+                    />
+                  </Svg>
+                  <View style={styles.tourGaugeCenter}>
+                    <Text style={styles.tourGaugeLabel}>Tour</Text>
+                    <Text style={styles.tourGaugeNumber}>{currentTurn}</Text>
+                  </View>
+                </View>
+              </View>
+
+              {ringCanRotate && (
+                <View style={styles.ringNavRow}>
+                  <IconButton icon={ChevronLeft} accessibilityLabel="Membres précédents" onPress={() => setRingOffset((o) => o - 1)} />
+                  <Text style={styles.tourPanHint}>Faites glisser l’anneau pour voir tous les membres</Text>
+                  <IconButton icon={ChevronRight} accessibilityLabel="Membres suivants" onPress={() => setRingOffset((o) => o + 1)} />
+                </View>
+              )}
+
+              <View style={styles.tourProgress}>
                 <Text style={styles.tourProgressText}>
                   {turnCompletedCount}/{members.length} membres ont déjà cotisé pour ce tour
                 </Text>
-              </Animated.View>
-            )}
+              </View>
+            </View>
+          )}
 
-            {tab === 'membres' && (
-              <Animated.View entering={FadeInDown.delay(75).duration(400)}>
-                <Text style={styles.sectionLabel}>{sortedMembers.length} membre(s)</Text>
+          {tab === 'membres' && (
+            <View>
+              <Text style={styles.groupTitle}>{sortedMembers.length} membre(s)</Text>
+              <View style={styles.card}>
                 {sortedMembers.map((m, idx) => {
                   const badge = roleBadgeStyle[m.role];
                   const fullName = `${m.user.firstName} ${m.user.lastName}`;
                   const initialsText = initials(fullName);
                   const color = avatarColor(m.userId);
                   return (
-                    <View
-                      key={m.userId}
-                      style={[styles.memberListRow, idx === sortedMembers.length - 1 && styles.memberListRowLast]}
-                    >
+                    <View key={m.userId} style={styles.row}>
                       <TouchableOpacity
                         activeOpacity={0.8}
+                        accessibilityLabel={`Voir le profil de ${fullName}`}
                         onPress={() => setViewedProfile({ name: m.userId === me.id ? 'Moi' : fullName, photoUrl: m.user.avatarUrl, initials: initialsText, color })}
                       >
                         {m.user.avatarUrl ? (
-                          <Image source={{ uri: m.user.avatarUrl }} style={styles.memberListAvatar} />
+                          <Image source={{ uri: m.user.avatarUrl }} style={styles.avatar} />
                         ) : (
-                          <View style={[styles.memberListAvatar, { backgroundColor: color }]}>
-                            <Text style={styles.memberListAvatarText}>{initialsText}</Text>
+                          <View style={[styles.avatar, { backgroundColor: color }]}>
+                            <Text style={styles.avatarText}>{initialsText}</Text>
                           </View>
                         )}
                       </TouchableOpacity>
-                      <View style={styles.memberInfo}>
-                        <Text style={styles.memberListName} numberOfLines={1}>
-                          {m.user.firstName} {m.user.lastName}{m.userId === me.id ? ' (Moi)' : ''}
-                        </Text>
-                        <View style={styles.memberListMetaRow}>
-                          {badge && (
-                            <View style={[styles.roleBadgeTag, { backgroundColor: badge.bg }]}>
-                              <Text style={[styles.roleBadgeTagText, { color: badge.color }]}>{roleLabel[m.role]}</Text>
-                            </View>
-                          )}
-                          <Text style={styles.memberListSince}>Membre depuis {formatMonthYear(m.joinedAt)}</Text>
+                      <View style={[styles.rowBody, idx < sortedMembers.length - 1 && styles.rowBorder]}>
+                        <View style={styles.flex}>
+                          <Text style={styles.rowTitle} numberOfLines={1}>
+                            {m.user.firstName} {m.user.lastName}{m.userId === me.id ? ' (Moi)' : ''}
+                          </Text>
+                          <View style={styles.memberMetaRow}>
+                            {badge && (
+                              <View style={[styles.roleTag, { backgroundColor: badge.bg }]}>
+                                <Text style={[styles.roleTagText, { color: badge.color }]}>{roleLabel[m.role]}</Text>
+                              </View>
+                            )}
+                            <Text style={styles.rowSubInline}>Membre depuis {formatMonthYear(m.joinedAt)}</Text>
+                          </View>
                         </View>
                       </View>
                     </View>
                   );
                 })}
-              </Animated.View>
-            )}
+              </View>
+            </View>
+          )}
 
-            {tab === 'demandes' && (
-              <Animated.View entering={FadeInDown.delay(75).duration(400)}>
-                <Text style={styles.sectionLabel}>Demandes d'adhésion</Text>
-                {pendingMembership.length === 0 ? (
-                  <View style={styles.listCard}>
-                    <View style={styles.emptyRow}>
-                      <Text style={styles.emptyText}>Aucune demande d'adhésion en attente.</Text>
-                    </View>
-                  </View>
-                ) : (
-                  pendingMembership.map((r) => (
-                    <View key={r.id} style={styles.requestCard}>
+          {tab === 'demandes' && (
+            <View>
+              <Text style={styles.groupTitle}>Demandes d'adhésion</Text>
+              {pendingMembership.length === 0 ? (
+                <EmptyState icon={UserPlus} title="Aucune demande" text="Aucune demande d'adhésion en attente." />
+              ) : (
+                <View style={styles.stack}>
+                  {pendingMembership.map((r) => (
+                    <View key={r.id} style={[styles.card, styles.requestCard]}>
                       <View style={styles.requestHeaderRow}>
-                        <View style={styles.requestIconWrap}>
-                          <Text style={styles.requestIconText}>{initials(r.fullName)}</Text>
+                        <View style={styles.requestAvatar}>
+                          <Text style={styles.requestAvatarText}>{initials(r.fullName)}</Text>
                         </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.requestName}>{r.fullName}</Text>
-                          <Text style={styles.requestMeta}>{r.phoneNumber}</Text>
+                        <View style={styles.flex}>
+                          <Text style={styles.rowTitle}>{r.fullName}</Text>
+                          <Text style={styles.rowSub}>{r.phoneNumber}</Text>
                         </View>
                       </View>
                       <View style={styles.decisionRow}>
-                        <TouchableOpacity style={styles.decisionBtn} activeOpacity={0.85} onPress={() => handleDecideMembership(r.id, false)}>
-                          <Text style={styles.decisionBtnText}>Refuser</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.approveBtn} activeOpacity={0.85} onPress={() => handleDecideMembership(r.id, true)}>
-                          <Text style={styles.approveBtnText}>Valider l'adhésion</Text>
-                        </TouchableOpacity>
+                        <Button
+                          title="Refuser"
+                          variant="secondary"
+                          size="sm"
+                          onPress={() => handleDecideMembership(r.id, false)}
+                          style={styles.flex}
+                        />
+                        <Button
+                          title="Valider"
+                          size="sm"
+                          onPress={() => handleDecideMembership(r.id, true)}
+                          style={styles.flex}
+                        />
                       </View>
                     </View>
-                  ))
-                )}
-              </Animated.View>
-            )}
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
 
-            {tab === 'gestion' && isFounder && (
-              <Animated.View entering={FadeInDown.delay(75).duration(400)}>
-                <Text style={styles.sectionLabel}>Gestion des membres</Text>
-                {sortedMembers.map((m, idx) => {
+          {tab === 'gestion' && isFounder && (
+            <View>
+              <Text style={styles.groupTitle}>Gestion des membres</Text>
+              <View style={styles.stack}>
+                {sortedMembers.map((m) => {
                   const fullName = `${m.user.firstName} ${m.user.lastName}`;
                   return (
-                    <View
-                      key={m.userId}
-                      style={[styles.gestionMemberCard, idx === sortedMembers.length - 1 && { marginBottom: 0 }]}
-                    >
-                      <View style={styles.gestionMemberRow}>
-                        <View style={[styles.memberListAvatar, { backgroundColor: avatarColor(m.userId) }]}>
-                          <Text style={styles.memberListAvatarText}>{initials(fullName)}</Text>
+                    <View key={m.userId} style={[styles.card, styles.gestionCard]}>
+                      <View style={styles.requestHeaderRow}>
+                        <View style={[styles.avatar, { backgroundColor: avatarColor(m.userId) }]}>
+                          <Text style={styles.avatarText}>{initials(fullName)}</Text>
                         </View>
-                        <View style={styles.memberInfo}>
-                          <Text style={styles.memberListName} numberOfLines={1}>
+                        <View style={styles.flex}>
+                          <Text style={styles.rowTitle} numberOfLines={1}>
                             {fullName}{m.userId === me.id ? ' (Moi)' : ''}
                           </Text>
-                          <Text style={styles.memberListSince}>Tour {m.turnOrder ?? '—'}</Text>
+                          <Text style={styles.rowSub}>Tour {m.turnOrder ?? '—'}</Text>
                         </View>
                       </View>
                       {m.userId !== me.id && (
-                        <View style={styles.gestionActionRow}>
+                        <View style={styles.decisionRow}>
                           <TouchableOpacity
-                            style={styles.gestionActionBtn}
-                            activeOpacity={0.85}
+                            style={styles.actionBtn}
+                            activeOpacity={0.7}
+                            accessibilityRole="button"
                             onPress={() => setTurnPickerMember({ userId: m.userId, name: fullName })}
                           >
-                            <Repeat size={14} color="#334155" />
-                            <Text style={styles.gestionActionBtnText}>Changer le tour</Text>
+                            <Repeat size={15} color={colors.inkSoft} />
+                            <Text style={styles.actionBtnText}>Changer le tour</Text>
                           </TouchableOpacity>
                           <TouchableOpacity
-                            style={[styles.gestionActionBtn, styles.gestionActionBtnDanger]}
-                            activeOpacity={0.85}
+                            style={[styles.actionBtn, styles.actionBtnDanger]}
+                            activeOpacity={0.7}
+                            accessibilityRole="button"
                             onPress={() => handleRemoveMember(m.userId, fullName)}
                           >
-                            <UserX size={14} color="#E53E3E" />
-                            <Text style={[styles.gestionActionBtnText, styles.gestionActionBtnTextDanger]}>Retirer</Text>
+                            <UserX size={15} color={colors.danger.DEFAULT} />
+                            <Text style={[styles.actionBtnText, { color: colors.danger.DEFAULT }]}>Retirer</Text>
                           </TouchableOpacity>
                         </View>
                       )}
                     </View>
                   );
                 })}
+              </View>
 
-                <Text style={[styles.sectionLabel, { marginTop: 20 }]}>Paramètres</Text>
-                <TouchableOpacity style={styles.gestionSettingsRow} activeOpacity={0.8} onPress={handleOpenSettings}>
-                  <Settings2 size={17} color="#074B36" />
-                  <Text style={styles.gestionSettingsText}>Reparamétrer le cercle</Text>
-                  <ChevronRight size={18} color="#CBD5E1" />
-                </TouchableOpacity>
-              </Animated.View>
-            )}
+              <ListGroup title="Paramètres" style={styles.settingsGroup}>
+                <ListRow icon={Settings2} tone="primary" title="Reparamétrer le cercle" onPress={handleOpenSettings} last />
+              </ListGroup>
+            </View>
+          )}
+        </ScrollView>
+
+        {/* ── Menu fondateur ── */}
+        <Sheet visible={showFounderMenu} onClose={() => setShowFounderMenu(false)} title="Options du cercle">
+          <ListGroup>
+            <ListRow icon={Settings2} tone="primary" title="Paramètres du cercle" onPress={handleSettings} last />
+          </ListGroup>
+        </Sheet>
+
+        {/* ── Filtre par mois ── */}
+        <Sheet visible={showMonthFilter} onClose={() => setShowMonthFilter(false)} title="Filtrer par mois">
+          <ScrollView style={styles.monthList} showsVerticalScrollIndicator={false}>
+            <ListGroup>
+              <ListRow
+                title="Tous les mois"
+                value={monthFilter === null ? 'Sélectionné' : undefined}
+                valueTone="success"
+                chevron={false}
+                onPress={() => { setMonthFilter(null); setVisibleCount(5); setShowMonthFilter(false); }}
+                last={monthsWithActivity.length === 0}
+              />
+              {monthsWithActivity.map((mIdx, i) => (
+                <ListRow
+                  key={mIdx}
+                  title={`${monthLabels[mIdx]} 2026`}
+                  value={monthFilter === mIdx ? 'Sélectionné' : undefined}
+                  valueTone="success"
+                  chevron={false}
+                  onPress={() => { setMonthFilter(mIdx); setVisibleCount(5); setShowMonthFilter(false); }}
+                  last={i === monthsWithActivity.length - 1}
+                />
+              ))}
+            </ListGroup>
           </ScrollView>
-        </View>
+        </Sheet>
 
         {selectedTx && (
           <TransactionDetailModal
@@ -732,30 +731,29 @@ export default function TontineScreen() {
           />
         )}
 
-        <Modal visible={!!turnPickerMember} animationType="fade" transparent onRequestClose={() => setTurnPickerMember(null)}>
-          <View style={styles.turnPickerOverlay}>
-            <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setTurnPickerMember(null)} />
-            <View style={styles.turnPickerCard}>
-              <Text style={styles.turnPickerTitle}>Nouveau tour pour {turnPickerMember?.name}</Text>
-              <Text style={styles.turnPickerSubtitle}>La personne qui occupe déjà ce tour prendra sa place actuelle.</Text>
-              <View style={styles.turnPickerGrid}>
-                {members.map((m) => (
-                  <TouchableOpacity
-                    key={m.userId}
-                    style={styles.turnPickerItem}
-                    activeOpacity={0.8}
-                    onPress={() => handlePickTurn(m.turnOrder ?? 1)}
-                  >
-                    <Text style={styles.turnPickerItemText}>{m.turnOrder}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <TouchableOpacity style={styles.turnPickerCancel} activeOpacity={0.8} onPress={() => setTurnPickerMember(null)}>
-                <Text style={styles.turnPickerCancelText}>Annuler</Text>
+        {/* ── Sélecteur de tour ── */}
+        <Sheet
+          visible={!!turnPickerMember}
+          onClose={() => setTurnPickerMember(null)}
+          title={`Nouveau tour pour ${turnPickerMember?.name ?? ''}`}
+        >
+          <Text style={styles.turnPickerSubtitle}>La personne qui occupe déjà ce tour prendra sa place actuelle.</Text>
+          <View style={styles.turnPickerGrid}>
+            {members.map((m) => (
+              <TouchableOpacity
+                key={m.userId}
+                style={styles.turnPickerItem}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel={`Tour ${m.turnOrder}`}
+                onPress={() => handlePickTurn(m.turnOrder ?? 1)}
+              >
+                <Text style={styles.turnPickerItemText}>{m.turnOrder}</Text>
               </TouchableOpacity>
-            </View>
+            ))}
           </View>
-        </Modal>
+          <Button title="Annuler" variant="secondary" onPress={() => setTurnPickerMember(null)} style={styles.turnPickerCancel} />
+        </Sheet>
       </SafeAreaView>
     </View>
   );
@@ -765,7 +763,9 @@ function TabButton({ label, active, badge, onPress }: { label: string; active: b
   return (
     <TouchableOpacity
       style={[styles.tabBtn, active && styles.tabBtnActive]}
-      activeOpacity={0.75}
+      activeOpacity={0.7}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: active }}
       onPress={onPress}
     >
       <Text style={[styles.tabBtnText, active && styles.tabBtnTextActive]}>{label}</Text>
@@ -778,196 +778,190 @@ function TabButton({ label, active, badge, onPress }: { label: string; active: b
   );
 }
 
+function EmptyState({ icon: Icon, title, text }: { icon: typeof Receipt; title: string; text: string }) {
+  return (
+    <View style={styles.empty}>
+      <View style={styles.emptyIcon}>
+        <Icon size={24} color={colors.muted} strokeWidth={1.8} />
+      </View>
+      <Text style={styles.emptyTitle}>{title}</Text>
+      <Text style={styles.emptyText}>{text}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#074B36' },
-  topSection: { backgroundColor: '#074B36', paddingHorizontal: 20, paddingBottom: 24 },
-  topBar: {
+  container: { flex: 1, backgroundColor: colors.fill },
+  safe: { flex: 1, backgroundColor: colors.bg },
+  flex: { flex: 1 },
+
+  /* ── En-tête ── */
+  header: {
+    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 8,
-    marginBottom: 12,
+    paddingHorizontal: 8,
+    gap: 4,
+    backgroundColor: colors.bg,
   },
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
+  headerText: { flex: 1, alignItems: 'center' },
+  headerTitle: { ...typography.headline, color: colors.ink },
+  headerSub: { ...typography.caption, fontWeight: '400', color: colors.muted },
+  headerSpacer: { width: 40 },
+
+  /* ── Onglets ── */
+  tabBar: {
+    backgroundColor: colors.bg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.line,
   },
-  badgeRow: { flexDirection: 'row', gap: 8 },
-  typeBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.15)' },
-  typeBadgeText: { fontFamily: 'WorkSansSemiBold', fontSize: 11.5, color: '#FFFFFF' },
-  roleBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.15)' },
-  roleBadgeText: { fontFamily: 'WorkSansSemiBold', fontSize: 11.5, color: '#FFFFFF' },
-  circleName: {
-    fontFamily: 'SoraBold',
-    fontSize: 21,
-    color: '#FFFFFF',
-    marginBottom: 4,
-  },
-  founderMenuBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 5 },
-  founderMenu: {
-    position: 'absolute',
-    top: 58,
-    right: 20,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    paddingVertical: 6,
-    minWidth: 190,
-    zIndex: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.18,
-    shadowRadius: 14,
-    elevation: 10,
-  },
-  founderMenuItem: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11, paddingHorizontal: 14 },
-  founderMenuItemText: { fontFamily: 'WorkSansSemiBold', fontSize: 13, color: '#1A202C' },
-  bodySheet: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    marginTop: -20,
-    paddingTop: 20,
-  },
-  tabScroll: { flexGrow: 0, flexShrink: 0 },
-  contentScroll: { flex: 1 },
-  tabRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 20, marginBottom: 16 },
+  tabRow: { paddingHorizontal: 12, gap: 4 },
   tabBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 13,
-    paddingVertical: 7,
-    borderRadius: 18,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    height: 44,
+    paddingHorizontal: 10,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
   },
-  tabBtnActive: { backgroundColor: '#074B36', borderColor: '#074B36' },
-  tabBtnText: { fontFamily: 'WorkSansMedium', fontSize: 12, color: '#64748B' },
-  tabBtnTextActive: { color: '#FFFFFF', fontFamily: 'WorkSansSemiBold' },
-  tabBadge: { minWidth: 15, height: 15, borderRadius: 8, backgroundColor: '#E53E3E', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 3 },
-  tabBadgeText: { fontFamily: 'WorkSansBold', fontSize: 9, color: '#FFFFFF' },
-  scrollContent: { paddingHorizontal: 20, paddingBottom: 60 },
-  dueCard: {
+  tabBtnActive: { borderBottomColor: colors.primary.DEFAULT },
+  tabBtnText: { ...typography.callout, fontWeight: '500', color: colors.muted },
+  tabBtnTextActive: { color: colors.primary.DEFAULT, fontWeight: '600' },
+  tabBadge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.danger.DEFAULT,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  tabBadgeText: { fontSize: 11, lineHeight: 14, fontWeight: '700', color: '#FFFFFF' },
+
+  contentScroll: { flex: 1, backgroundColor: colors.fill },
+  scrollContent: { padding: 16, paddingBottom: 48 },
+
+  /* ── Carte du prochain versement ── */
+  dueCard: { backgroundColor: colors.primary.dark, borderRadius: 24, padding: 20 },
+  dueTop: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  dueLabel: { ...typography.footnote, color: 'rgba(255,255,255,0.72)', flexShrink: 1 },
+  dueAmount: { ...typography.display, color: '#FFFFFF', marginTop: 6 },
+  dueBottom: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    borderRadius: 18,
-    padding: 14,
-    marginBottom: 22,
+    marginTop: 16,
+    paddingTop: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.2)',
   },
-  dueIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: '#E4F0EB',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  dueLabel: { fontFamily: 'WorkSans', fontSize: 12, color: '#94A3B8' },
-  dueAmount: { fontFamily: 'SoraBold', fontSize: 17, color: '#1A202C', marginTop: 2 },
-  payBtn: { backgroundColor: '#D9A441', borderRadius: 13, paddingHorizontal: 18, paddingVertical: 11 },
-  payBtnText: { fontFamily: 'WorkSansSemiBold', fontSize: 13.5, color: '#0F172A' },
-  historyHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  historyTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 13,
-    color: '#1A202C',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  filterWrap: { zIndex: 20 },
-  filterBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 4, paddingHorizontal: 8 },
-  filterBtnText: { fontFamily: 'WorkSansSemiBold', fontSize: 12, color: '#64748B' },
-  filterBtnTextActive: { color: '#074B36' },
-  monthDropdown: {
-    position: 'absolute',
-    top: 34,
-    right: 0,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    paddingVertical: 4,
-    minWidth: 150,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.18,
-    shadowRadius: 14,
-    elevation: 10,
-  },
-  monthDropdownScroll: { maxHeight: 240 },
-  monthDropdownItem: { paddingVertical: 10, paddingHorizontal: 14 },
-  monthDropdownItemText: { fontFamily: 'WorkSansSemiBold', fontSize: 13, color: '#334155' },
-  monthDropdownItemTextActive: { color: '#074B36' },
-  emptyText: { fontFamily: 'WorkSans', fontSize: 12.5, color: '#64748B' },
-  dateGroupLabel: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 11.5,
-    color: '#94A3B8',
-    marginBottom: 6,
-  },
-  txRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, gap: 11 },
-  txIcon: { width: 34, height: 34, borderRadius: 17, justifyContent: 'center', alignItems: 'center' },
-  txIconCredit: { backgroundColor: 'rgba(49, 130, 206, 0.12)' },
-  txIconPayout: { backgroundColor: 'rgba(185, 133, 42, 0.12)' },
-  txInfo: { flex: 1, gap: 2 },
-  txDesc: { fontFamily: 'WorkSansSemiBold', fontSize: 12.5, lineHeight: 17, color: '#0F172A' },
-  txMeta: { fontFamily: 'WorkSans', fontSize: 11, color: '#94A3B8' },
-  txAmount: { fontFamily: 'SoraBold', fontSize: 13.5 },
-  txAmountCredit: { color: '#0B6E4F' },
-  txAmountPayout: { color: '#E53E3E' },
-  txStatus: { fontFamily: 'WorkSansSemiBold', fontSize: 10.5, color: '#0B6E4F' },
-  txStatusPending: { color: '#B9852A' },
-  seeMoreBtn: { alignSelf: 'center', paddingVertical: 12, marginTop: 4 },
-  seeMoreBtnText: { fontFamily: 'WorkSansSemiBold', fontSize: 12.5, color: '#0B6E4F' },
+  dueMeta: { ...typography.footnote, color: '#FFFFFF', flex: 1 },
+  payBtn: { borderWidth: 0, paddingHorizontal: 24 },
 
-  sectionLabel: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 11.5,
-    color: '#94A3B8',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    marginBottom: 8,
-    marginLeft: 4,
+  /* ── Sections ── */
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 28,
+    marginBottom: 10,
+    paddingHorizontal: 4,
   },
-  listCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+  sectionTitle: { ...typography.headline, color: colors.ink },
+  groupTitle: { ...typography.footnote, fontWeight: '600', color: colors.muted, marginBottom: 8, marginLeft: 4 },
+  filterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: 32,
+    paddingHorizontal: 12,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.bg,
+  },
+  filterBtnActive: { borderColor: colors.primary.soft, backgroundColor: colors.primary.tint },
+  filterBtnText: { ...typography.footnote, fontWeight: '600', color: colors.muted },
+  filterBtnTextActive: { color: colors.primary.DEFAULT },
+  monthList: { flexGrow: 0 },
+
+  card: {
+    backgroundColor: colors.bg,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.line,
     overflow: 'hidden',
   },
-  emptyRow: { padding: 20, alignItems: 'center' },
-  memberInfo: { flex: 1, gap: 2 },
+  stack: { gap: 10 },
 
-  /* ── Tour (anneau de profils autour de la jauge) ── */
-  tourRingRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  ringNavBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#F1F3F6',
+  /* ── Lignes de liste ── */
+  txGroup: { marginBottom: 16 },
+  dateGroupLabel: { ...typography.footnote, fontWeight: '600', color: colors.muted, marginBottom: 8, marginLeft: 4 },
+  row: { flexDirection: 'row', alignItems: 'center', paddingLeft: 14, gap: 12 },
+  rowIcon: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  rowIconRound: { borderRadius: 20 },
+  rowBody: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 14, paddingRight: 14 },
+  rowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
+  rowTitle: { ...typography.callout, fontWeight: '600', color: colors.ink },
+  rowSub: { ...typography.footnote, color: colors.muted, marginTop: 2 },
+  rowSubInline: { ...typography.footnote, color: colors.muted, flexShrink: 1 },
+  amountCol: { alignItems: 'flex-end' },
+  amount: { ...typography.callout, fontWeight: '700' },
+  txStatus: { ...typography.caption, color: colors.muted, marginTop: 2 },
+
+  /* ── Membres ── */
+  avatar: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
+  avatarText: { ...typography.footnote, fontWeight: '700', color: '#FFFFFF' },
+  memberMetaRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 4 },
+  roleTag: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.pill },
+  roleTagText: { ...typography.caption },
+
+  /* ── Demandes et gestion ── */
+  requestCard: { padding: 14, gap: 14 },
+  requestHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  requestAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.accent.tint,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  tourRingWrap: { position: 'relative', marginBottom: 16 },
-  tourAvatarWrap: { position: 'absolute' },
+  requestAvatarText: { ...typography.footnote, fontWeight: '700', color: colors.accent.deep },
+  decisionRow: { flexDirection: 'row', gap: 8 },
+  gestionCard: { padding: 14, gap: 14 },
+  actionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 40,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.lineStrong,
+    backgroundColor: colors.bg,
+  },
+  actionBtnDanger: { borderColor: colors.danger.tint, backgroundColor: colors.danger.tint },
+  actionBtnText: { ...typography.footnote, fontWeight: '600', color: colors.inkSoft },
+  settingsGroup: { marginTop: 24 },
+
+  /* ── Tour (anneau de profils autour de la jauge) ── */
+  tourCard: { alignItems: 'center', paddingTop: 16, paddingBottom: 16 },
+  tourTitle: { ...typography.headline, color: colors.ink, alignSelf: 'flex-start', marginLeft: 16, marginBottom: 8 },
+  tourRingWrap: { position: 'relative' },
+  tourAvatarWrap: { position: 'absolute', width: ARC_AVATAR_SIZE, height: ARC_AVATAR_SIZE },
   tourAvatar: {
     width: ARC_AVATAR_SIZE,
     height: ARC_AVATAR_SIZE,
     borderRadius: ARC_AVATAR_SIZE / 2,
-    backgroundColor: '#E4F0EB',
+    backgroundColor: colors.primary.tint,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
   },
-  tourAvatarActive: { borderWidth: 3.5, borderColor: '#D9A441' },
+  tourAvatarActive: { borderWidth: 3, borderColor: colors.accent.DEFAULT },
   tourAvatarImage: { width: '100%', height: '100%' },
   tourAvatarDoneBadge: {
     position: 'absolute',
@@ -976,125 +970,58 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: '#36E395',
-    borderWidth: 2.5,
-    borderColor: '#FFFFFF',
+    backgroundColor: colors.primary.DEFAULT,
+    borderWidth: 2,
+    borderColor: colors.bg,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 2,
-    elevation: 2,
   },
-  tourAvatarText: { fontFamily: 'SoraBold', fontSize: 16, color: '#FFFFFF' },
+  tourAvatarText: { ...typography.bodyStrong, color: '#FFFFFF' },
   tourGaugeWrap: { position: 'absolute', width: GAUGE_SIZE, height: GAUGE_SIZE, alignItems: 'center', justifyContent: 'center' },
   tourGaugeCenter: { position: 'absolute', alignItems: 'center' },
-  tourGaugeLabel: { fontFamily: 'WorkSansSemiBold', fontSize: 12.5, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.4 },
-  tourGaugeNumber: { fontFamily: 'SoraBold', fontSize: 36, color: '#1A202C', marginTop: 2 },
-  tourProgressText: { fontFamily: 'WorkSansSemiBold', fontSize: 12.5, color: '#0B6E4F', textAlign: 'center' },
-  tourPanHint: { fontFamily: 'WorkSans', fontSize: 11.5, color: '#94A3B8', textAlign: 'center', marginTop: 4, marginBottom: 10 },
-
-  /* ── Demandes d'adhésion (onglet) ── */
-  requestCard: { borderWidth: 1.5, borderColor: '#E2E8F0', borderRadius: 18, padding: 14, gap: 12, marginBottom: 12 },
-  requestHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 11 },
-  requestIconWrap: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#FBF1DD', justifyContent: 'center', alignItems: 'center' },
-  requestIconText: { fontFamily: 'SoraBold', fontSize: 13, color: '#B9852A' },
-  requestName: { fontFamily: 'SoraBold', fontSize: 13.5, color: '#0F172A' },
-  requestMeta: { fontFamily: 'WorkSans', fontSize: 11.5, color: '#94A3B8', marginTop: 1 },
-  decisionRow: { flexDirection: 'row', gap: 8 },
-  decisionBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    height: 40,
-    borderRadius: 11,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+  tourGaugeLabel: { ...typography.footnote, color: colors.muted },
+  tourGaugeNumber: { ...typography.display, color: colors.ink },
+  ringNavRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, marginTop: 8 },
+  tourPanHint: { ...typography.footnote, color: colors.muted, textAlign: 'center', flex: 1 },
+  tourProgress: {
+    alignSelf: 'stretch',
+    marginTop: 12,
+    marginHorizontal: 16,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.line,
   },
-  decisionBtnText: { fontFamily: 'WorkSansSemiBold', fontSize: 12.5, color: '#334155' },
-  approveBtn: {
-    flex: 1,
-    height: 40,
-    borderRadius: 11,
-    backgroundColor: '#074B36',
+  tourProgressText: { ...typography.callout, fontWeight: '600', color: colors.primary.DEFAULT, textAlign: 'center' },
+
+  /* ── État vide ── */
+  empty: { alignItems: 'center', paddingVertical: 32, paddingHorizontal: 24 },
+  emptyIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.bg,
+    borderWidth: 1,
+    borderColor: colors.line,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 12,
   },
-  approveBtnText: { fontFamily: 'WorkSansSemiBold', fontSize: 12.5, color: '#FFFFFF' },
+  emptyTitle: { ...typography.headline, color: colors.ink, textAlign: 'center' },
+  emptyText: { ...typography.callout, color: colors.muted, textAlign: 'center', marginTop: 4 },
 
-  /* ── Membres (onglet) ── */
-  memberListRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 13,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F3F6',
-    gap: 12,
-  },
-  memberListRowLast: { borderBottomWidth: 0 },
-  memberListAvatar: { width: 42, height: 42, borderRadius: 21, justifyContent: 'center', alignItems: 'center' },
-  memberListAvatarText: { fontFamily: 'SoraBold', fontSize: 13, color: '#FFFFFF' },
-  memberListName: { fontFamily: 'SoraBold', fontSize: 14, color: '#0F172A' },
-  memberListMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 3 },
-  roleBadgeTag: { paddingHorizontal: 9, paddingVertical: 2.5, borderRadius: 7 },
-  roleBadgeTagText: { fontFamily: 'WorkSansSemiBold', fontSize: 10.5 },
-  memberListSince: { fontFamily: 'WorkSans', fontSize: 11.5, color: '#94A3B8' },
-
-  /* ── Gestion (onglet, fondateur uniquement) ── */
-  gestionMemberCard: {
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    borderRadius: 16,
-    padding: 12,
-    marginBottom: 10,
-    gap: 10,
-  },
-  gestionMemberRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  gestionActionRow: { flexDirection: 'row', gap: 8 },
-  gestionActionBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    height: 38,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-  },
-  gestionActionBtnDanger: { borderColor: '#FBD5D5' },
-  gestionActionBtnText: { fontFamily: 'WorkSansSemiBold', fontSize: 12, color: '#334155' },
-  gestionActionBtnTextDanger: { color: '#E53E3E' },
-  gestionSettingsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    borderRadius: 16,
-    padding: 14,
-  },
-  gestionSettingsText: { flex: 1, fontFamily: 'WorkSansSemiBold', fontSize: 13.5, color: '#1A202C' },
-
-  /* ── Sélecteur de tour (modale) ── */
-  turnPickerOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.5)', justifyContent: 'center', padding: 24 },
-  turnPickerCard: { backgroundColor: '#FFFFFF', borderRadius: 22, padding: 20, gap: 14 },
-  turnPickerTitle: { fontFamily: 'SoraBold', fontSize: 15.5, color: '#1A202C' },
-  turnPickerSubtitle: { fontFamily: 'WorkSans', fontSize: 12, color: '#64748B', marginTop: -8 },
+  /* ── Sélecteur de tour ── */
+  turnPickerSubtitle: { ...typography.footnote, color: colors.muted, marginBottom: 16 },
   turnPickerGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   turnPickerItem: {
-    width: 46,
-    height: 46,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    width: 48,
+    height: 48,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.bg,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  turnPickerItemText: { fontFamily: 'SoraBold', fontSize: 15, color: '#074B36' },
-  turnPickerCancel: { alignSelf: 'center', paddingVertical: 8, marginTop: 4 },
-  turnPickerCancelText: { fontFamily: 'WorkSansSemiBold', fontSize: 13, color: '#64748B' },
+  turnPickerItemText: { ...typography.bodyStrong, color: colors.primary.dark },
+  turnPickerCancel: { marginTop: 20 },
 });

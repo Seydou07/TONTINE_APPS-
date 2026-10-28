@@ -3,16 +3,13 @@ import {
   View,
   Text,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   ScrollView,
   StatusBar,
-  Modal,
   Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
@@ -27,10 +24,9 @@ import {
   Smartphone,
   Copy,
   Loader,
-  X,
   Users,
 } from 'lucide-react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import { colors, radius, typography } from '@venega/design-tokens';
 import {
   getCircleByInvite,
   getActiveCycle,
@@ -44,6 +40,8 @@ import {
 } from '../circleStore';
 import { KycRequirement, MembershipRequestStatus, AdhesionPaymentStatus, KycStatus } from '@venega/types';
 import type { Circle, User } from '@venega/types';
+import { Button, IconButton, Sheet, TextField } from '../../../components/ui';
+import OperatorPicker, { UssdCodeBox } from '../components/OperatorPicker';
 
 const formatXOF = (n: number) => new Intl.NumberFormat('fr-FR').format(n) + ' F CFA';
 
@@ -56,7 +54,6 @@ const OPERATORS = [
 const typeLabels: Record<string, string> = {
   TONTINE_ONLY: 'Tontine rotative',
   SOLIDARITY_ONLY: 'Caisse de solidarité',
-  HYBRID: 'Tontine + Solidarité',
   NATURE: 'Tontine en nature',
 };
 
@@ -220,664 +217,502 @@ export default function JoinCircleScreen() {
     router.back();
   };
 
+  /* ── CTA du footer selon l'étape ── */
+  const footer = (() => {
+    switch (step) {
+      case 'search':
+        return <Button title="Rechercher" icon={Search} disabled={!inviteCode.trim()} onPress={handleSearch} />;
+      case 'fiche':
+        return <Button title="Continuer" disabled={!conditionsAccepted} onPress={() => setStep('form')} />;
+      case 'form':
+        return (
+          <Button
+            title={needsPayment ? 'Continuer vers le paiement' : 'Envoyer la demande'}
+            disabled={!formFilled || !docsOk}
+            onPress={() => (needsPayment ? setStep('payment') : submitRequest())}
+          />
+        );
+      case 'payment':
+        return <Button title={`Payer ${formatXOF(total)}`} icon={Wallet} onPress={handleInitiatePayment} />;
+      case 'done':
+        return <Button title="Retour aux cercles" onPress={() => router.back()} />;
+    }
+  })();
+
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#074B36" />
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-          <View style={styles.topSection}>
-            <View style={styles.topBar}>
-              <TouchableOpacity style={styles.backBtn} onPress={goBack}>
-                <ArrowLeft size={20} color="#FFFFFF" />
-              </TouchableOpacity>
-              <Text style={styles.headerTitle} numberOfLines={1}>Rejoindre un cercle</Text>
-              <View style={styles.backBtn} />
-            </View>
-            {circle && <Text style={styles.headerSub} numberOfLines={1}>{circle.name}</Text>}
-            <View style={styles.progressRow}>
-              {order.map((s) => (
-                <View key={s} style={[styles.progressSegment, isSegmentActive(s) && styles.progressSegmentActive]} />
-              ))}
-            </View>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <SafeAreaView style={styles.flex} edges={['top', 'bottom']}>
+        {/* ── En-tête ── */}
+        <View style={styles.header}>
+          <IconButton icon={ArrowLeft} variant="plain" accessibilityLabel="Retour" onPress={goBack} />
+          <View style={styles.headerCenter}>
+            <Text style={styles.headerTitle} numberOfLines={1}>Rejoindre un cercle</Text>
+            {circle && step !== 'search' ? (
+              <Text style={styles.headerSub} numberOfLines={1}>{circle.name}</Text>
+            ) : null}
           </View>
-
-          <View style={styles.bodySheet}>
-            <ScrollView
-              contentContainerStyle={styles.scrollContent}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-            >
-              {step === 'search' && (
-                <>
-                  <View style={styles.searchHero}>
-                    <View style={styles.searchIconWrap}>
-                      <Users size={28} color="#FFFFFF" />
-                    </View>
-                    <Text style={styles.searchTitle}>Rejoindre un cercle</Text>
-                    <Text style={styles.searchSubtitle}>
-                      Saisissez le code d'invitation partagé par le fondateur. Votre compte Venega pré-remplit vos
-                      informations : vous n'avez rien à ressaisir.
-                    </Text>
-                    <View style={styles.searchRow}>
-                      <TextInput
-                        style={styles.searchInput}
-                        placeholder="Code d'invitation"
-                        placeholderTextColor="#94A3B8"
-                        value={inviteCode}
-                        onChangeText={(v) => {
-                          setInviteCode(v);
-                          setNotFound(false);
-                        }}
-                        autoCapitalize="characters"
-                        autoCorrect={false}
-                        onSubmitEditing={handleSearch}
-                      />
-                      <TouchableOpacity
-                        style={[styles.searchBtn, !inviteCode.trim() && styles.btnDisabled]}
-                        disabled={!inviteCode.trim()}
-                        onPress={handleSearch}
-                      >
-                        <Search size={20} color="#FFFFFF" />
-                      </TouchableOpacity>
-                    </View>
-                    {notFound && (
-                      <Text style={styles.notFoundHint}>
-                        Aucun cercle ne correspond à ce code. Vérifiez-le auprès du fondateur.
-                      </Text>
-                    )}
-                    {notActive && (
-                      <Text style={styles.notFoundHint}>
-                        Ce cercle n'est pas encore activé par son fondateur. Réessayez plus tard.
-                      </Text>
-                    )}
-                    <Text style={styles.searchHint}>Le code vous est remis par le fondateur du cercle.</Text>
-                  </View>
-                </>
-              )}
-
-              {step === 'fiche' && circle && (
-                <>
-                  <Text style={styles.ficheIntro}>
-                    Voici la fiche de ce cercle, générée automatiquement à partir de ses réglages. Lisez-la avant de
-                    poursuivre.
-                  </Text>
-
-                  <View style={styles.circleInfoCard}>
-                    <View style={styles.circleInfoHeader}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.circleName} numberOfLines={2}>{circle.name}</Text>
-                        <Text style={styles.circleMeta}>
-                          {typeLabels[circle.type] ?? circle.type} • {circle.memberCount} membre(s)
-                        </Text>
-                      </View>
-                      <View style={[styles.phaseBadge, phase === 'ACTIVE' ? styles.phaseBadgeActive : styles.phaseBadgeNew]}>
-                        <Text style={[styles.phaseBadgeText, phase === 'ACTIVE' ? styles.phaseBadgeTextActive : styles.phaseBadgeTextNew]}>
-                          {phase === 'ACTIVE' ? 'En cours' : 'Nouveau'}
-                        </Text>
-                      </View>
-                    </View>
-                    <View style={styles.circleInfoDivider} />
-                    <Text style={styles.circleCotisation}>
-                      Cotisation : <Text style={styles.circleCotisationStrong}>{cotisationLine(circle)}</Text> par tour
-                    </Text>
-                  </View>
-
-                  <View style={styles.conditionsHeaderRow}>
-                    <Text style={styles.sectionTitle}>Conditions d'adhésion</Text>
-                    <View style={styles.autoTag}>
-                      <Text style={styles.autoTagText}>Résumé automatique</Text>
-                    </View>
-                  </View>
-                  <View style={styles.conditionsBox}>
-                    <Text style={styles.conditionsText}>
-                      {buildConditionsText(circle, cycle, rachat, deposit)}
-                    </Text>
-                  </View>
-
-                  {needsPayment && (
-                    <View style={styles.summaryCard}>
-                      <View style={styles.summaryRow}>
-                        <Text style={styles.summaryLabel}>Frais de rachat des tours passés</Text>
-                        <Text style={styles.summaryValue}>{formatXOF(rachat)}</Text>
-                      </View>
-                      <View style={styles.summaryRow}>
-                        <Text style={styles.summaryLabel}>Dépôt de garantie</Text>
-                        <Text style={styles.summaryValue}>{formatXOF(deposit)}</Text>
-                      </View>
-                      <View style={[styles.summaryRow, styles.summaryRowTotal]}>
-                        <Text style={styles.summaryLabelTotal}>Total à payer</Text>
-                        <Text style={styles.summaryValueTotal}>{formatXOF(total)}</Text>
-                      </View>
-                    </View>
-                  )}
-
-                  <TouchableOpacity style={styles.checkboxRow} onPress={() => setConditionsAccepted(!conditionsAccepted)}>
-                    <View style={[styles.checkbox, conditionsAccepted && styles.checkboxActive]}>
-                      {conditionsAccepted && <Check size={14} color="#FFFFFF" />}
-                    </View>
-                    <Text style={styles.checkboxLabel}>J'ai lu et j'accepte les conditions du cercle</Text>
-                  </TouchableOpacity>
-
-                  <View style={styles.btnRow}>
-                    <TouchableOpacity style={styles.btnSecondary} onPress={reset}>
-                      <Text style={styles.btnSecondaryText}>Retour</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.btnPrimary, !conditionsAccepted && styles.btnDisabled]}
-                      disabled={!conditionsAccepted}
-                      onPress={() => setStep('form')}
-                    >
-                      <Text style={styles.btnPrimaryText}>Suivant — mes informations</Text>
-                    </TouchableOpacity>
-                  </View>
-                </>
-              )}
-
-              {step === 'form' && circle && (
-                <>
-                  <Text style={styles.sectionTitle}>Vos informations</Text>
-
-                  <Text style={styles.label}>Nom complet *</Text>
-                  <TextInput style={styles.input} placeholder="Ex: Aminata Ouédraogo" placeholderTextColor="#94A3B8" value={form.fullName} onChangeText={(v) => setForm((p) => ({ ...p, fullName: v }))} />
-
-                  <Text style={styles.label}>Numéro de téléphone *</Text>
-                  <TextInput style={styles.input} placeholder="+226 70 12 34 56" placeholderTextColor="#94A3B8" keyboardType="phone-pad" value={form.phoneNumber} onChangeText={(v) => setForm((p) => ({ ...p, phoneNumber: v }))} />
-
-                  <Text style={styles.label}>Numéro de dépôt Mobile Money *</Text>
-                  <TextInput style={styles.input} placeholder="+226 70 12 34 56" placeholderTextColor="#94A3B8" keyboardType="phone-pad" value={form.depositNumber} onChangeText={(v) => setForm((p) => ({ ...p, depositNumber: v }))} />
-
-                  {accountVerified ? (
-                    <View style={styles.verifiedNote}>
-                      <ShieldCheck size={18} color="#059669" />
-                      <Text style={styles.verifiedNoteText}>
-                        Identité vérifiée — aucune pièce à fournir. Vos informations sont transmises au fondateur,
-                        qui validera votre entrée.
-                      </Text>
-                    </View>
-                  ) : needsDocs ? (
-                    <>
-                      <Text style={[styles.sectionTitle, { marginTop: 6 }]}>Documents exigés</Text>
-                      <Text style={styles.docSub}>Exigence du cercle : {kycLabel}</Text>
-
-                      <Text style={styles.label}>CNIB recto</Text>
-                      <TouchableOpacity style={[styles.uploadBox, docs.cnibFront && styles.uploadBoxDone]} onPress={() => setDocs((p) => ({ ...p, cnibFront: !p.cnibFront }))}>
-                        <Upload size={18} color={docs.cnibFront ? '#059669' : '#64748B'} />
-                        <Text style={[styles.uploadText, docs.cnibFront && { color: '#059669' }]}>
-                          {docs.cnibFront ? 'CNIB recto ajouté' : 'Choisir le recto'}
-                        </Text>
-                        {docs.cnibFront && <Check size={18} color="#059669" />}
-                      </TouchableOpacity>
-
-                      <Text style={styles.label}>CNIB verso</Text>
-                      <TouchableOpacity style={[styles.uploadBox, docs.cnibBack && styles.uploadBoxDone]} onPress={() => setDocs((p) => ({ ...p, cnibBack: !p.cnibBack }))}>
-                        <Upload size={18} color={docs.cnibBack ? '#059669' : '#64748B'} />
-                        <Text style={[styles.uploadText, docs.cnibBack && { color: '#059669' }]}>
-                          {docs.cnibBack ? 'CNIB verso ajouté' : 'Choisir le verso'}
-                        </Text>
-                        {docs.cnibBack && <Check size={18} color="#059669" />}
-                      </TouchableOpacity>
-
-                      {needsSelfie && (
-                        <>
-                          <Text style={styles.label}>Selfie facial</Text>
-                          <TouchableOpacity style={[styles.uploadBox, docs.selfie && styles.uploadBoxDone]} onPress={() => setDocs((p) => ({ ...p, selfie: !p.selfie }))}>
-                            <Upload size={18} color={docs.selfie ? '#059669' : '#64748B'} />
-                            <Text style={[styles.uploadText, docs.selfie && { color: '#059669' }]}>
-                              {docs.selfie ? 'Selfie ajouté' : 'Prendre un selfie'}
-                            </Text>
-                            {docs.selfie && <Check size={18} color="#059669" />}
-                          </TouchableOpacity>
-                        </>
-                      )}
-                    </>
-                  ) : null}
-
-                  <View style={styles.btnRow}>
-                    <TouchableOpacity style={styles.btnSecondary} onPress={goBack}>
-                      <Text style={styles.btnSecondaryText}>Retour</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.btnPrimary, (!formFilled || !docsOk) && styles.btnDisabled]}
-                      disabled={!formFilled || !docsOk}
-                      onPress={() => (needsPayment ? setStep('payment') : submitRequest())}
-                    >
-                      <Text style={styles.btnPrimaryText}>
-                        {needsPayment ? 'Continuer vers le paiement' : 'Envoyer la demande'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </>
-              )}
-
-              {step === 'payment' && circle && (
-                <>
-                  <Text style={styles.sectionTitle}>Paiement de la place</Text>
-                  <Text style={styles.subText}>
-                    Réglez les frais d'adhésion pour finaliser votre demande. Le montant est vérifié avant
-                    l'approbation du fondateur.
-                  </Text>
-
-                  <View style={styles.paySummary}>
-                    <View style={styles.payRow}>
-                      <Text style={styles.payLabel}>Frais de rachat des tours passés</Text>
-                      <Text style={styles.payValue}>{formatXOF(rachat)}</Text>
-                    </View>
-                    <View style={styles.payRow}>
-                      <Text style={styles.payLabel}>Dépôt de garantie</Text>
-                      <Text style={styles.payValue}>{formatXOF(deposit)}</Text>
-                    </View>
-                    <View style={styles.payDivider} />
-                    <View style={styles.payRow}>
-                      <Text style={styles.payLabelTotal}>Total à payer</Text>
-                      <Text style={styles.payValueTotal}>{formatXOF(total)}</Text>
-                    </View>
-                  </View>
-
-                  <Text style={styles.label}>Opérateur de paiement</Text>
-                  <View style={styles.operatorsRow}>
-                    {OPERATORS.map((op) => {
-                      const isSelected = selectedOperator === op.id;
-                      return (
-                        <TouchableOpacity
-                          key={op.id}
-                          style={[styles.operatorBox, isSelected && styles.operatorBoxSelected]}
-                          onPress={() => setSelectedOperator(op.id)}
-                        >
-                          <Image source={operatorLogos[op.id]} style={styles.operatorLogo} contentFit="contain" />
-                          <Text style={[styles.operatorName, isSelected && styles.operatorNameSelected]}>
-                            {op.name}
-                          </Text>
-                          {isSelected && <Check size={14} color="#074B36" />}
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-
-                  <View style={styles.btnRow}>
-                    <TouchableOpacity style={styles.btnSecondary} onPress={() => setStep('form')}>
-                      <Text style={styles.btnSecondaryText}>Retour</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.btnPrimary} onPress={handleInitiatePayment}>
-                      <Wallet size={17} color="#FFFFFF" />
-                      <Text style={styles.btnPrimaryText}>Payer {formatXOF(total)}</Text>
-                    </TouchableOpacity>
-                  </View>
-                </>
-              )}
-
-              {step === 'done' && (
-                <View style={styles.doneContainer}>
-                  <View style={styles.doneIcon}>
-                    <Check size={32} color="#059669" />
-                  </View>
-                  <Text style={styles.doneTitle}>Demande envoyée !</Text>
-                  <Text style={styles.doneText}>
-                    {needsPayment ? (
-                      <>
-                        Paiement reçu (<Text style={{ fontWeight: '600' }}>{paymentRef}</Text>). Votre demande
-                        d'adhésion à <Text style={{ fontWeight: '600' }}>{circle?.name}</Text> est en attente
-                        de validation par le fondateur.
-                      </>
-                    ) : (
-                      <>
-                        Votre demande d'adhésion à <Text style={{ fontWeight: '600' }}>{circle?.name}</Text> est
-                        en attente de validation par le fondateur.
-                      </>
-                    )}
-                  </Text>
-                  <TouchableOpacity style={styles.btnPrimary} onPress={() => router.back()}>
-                    <Text style={styles.btnPrimaryText}>Retour aux cercles</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </ScrollView>
+          <View style={styles.headerSpacer} />
+        </View>
+        {step !== 'search' && (
+          <View style={styles.progress}>
+            {order.map((s) => (
+              <View key={s} style={[styles.progressSeg, isSegmentActive(s) && styles.progressSegDone]} />
+            ))}
           </View>
+        )}
 
-          {/* MODALE USSD */}
-          <Modal visible={ussdModal} animationType="fade" transparent={true}>
-            <View style={styles.modalOverlay}>
-              <Animated.View entering={FadeInDown.duration(300)} style={styles.modalCard}>
-                <View style={styles.modalHeaderRow}>
-                  <Text style={styles.modalTitle}>Paiement de la place</Text>
-                  <TouchableOpacity onPress={() => setUssdModal(false)}>
-                    <X size={20} color="#64748B" />
-                  </TouchableOpacity>
+        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* ── Recherche par code ── */}
+            {step === 'search' && (
+              <>
+                <View style={styles.intro}>
+                  <View style={styles.introIcon}>
+                    <Users size={26} color={colors.primary.DEFAULT} strokeWidth={1.8} />
+                  </View>
+                  <Text style={styles.stepTitle}>Entrez le code d'invitation</Text>
+                  <Text style={styles.stepSubtitle}>
+                    Le code vous est remis par le fondateur du cercle. Votre compte Venega pré-remplit vos
+                    informations : vous n'avez rien à ressaisir.
+                  </Text>
                 </View>
-                <Text style={styles.ussdSub}>
-                  Exécutez ce code USSD pour régler <Text style={{ fontWeight: '700', color: '#074B36' }}>{formatXOF(total)}</Text>.
+
+                <TextField
+                  label="Code d'invitation"
+                  placeholder="Ex. DASS4821"
+                  value={inviteCode}
+                  onChangeText={(v) => {
+                    setInviteCode(v);
+                    setNotFound(false);
+                  }}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  returnKeyType="search"
+                  onSubmitEditing={handleSearch}
+                  style={styles.codeInput}
+                  error={
+                    notFound
+                      ? 'Aucun cercle ne correspond à ce code. Vérifiez-le auprès du fondateur.'
+                      : notActive
+                      ? "Ce cercle n'est pas encore activé par son fondateur. Réessayez plus tard."
+                      : undefined
+                  }
+                />
+              </>
+            )}
+
+            {/* ── Fiche du cercle ── */}
+            {step === 'fiche' && circle && (
+              <>
+                <Text style={styles.stepTitle}>Fiche du cercle</Text>
+                <Text style={styles.stepSubtitle}>
+                  Générée automatiquement à partir des réglages du cercle. Lisez-la avant de poursuivre.
                 </Text>
-                <View style={styles.ussdCodeBox}>
-                  <Text style={styles.ussdCodeText}>{ussdCode}</Text>
-                </View>
-                <TouchableOpacity style={[styles.copyBtn, copied && styles.copyBtnCopied]} onPress={handleCopyCode}>
-                  {copied ? <Check size={17} color="#FFFFFF" /> : <Copy size={17} color="#FFFFFF" />}
-                  <Text style={styles.copyBtnText}>{copied ? 'Copié !' : 'Copier le code'}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.88} onPress={handleExecuteUssd} disabled={detecting}>
-                  {detecting ? <Loader size={17} color="#FFFFFF" /> : <Smartphone size={17} color="#FFFFFF" />}
-                  <Text style={styles.primaryBtnText}>
-                    {detecting ? 'Paiement détecté…' : 'Exécuter le code USSD'}
+
+                <View style={styles.card}>
+                  <View style={styles.circleHeader}>
+                    <View style={styles.flex}>
+                      <Text style={styles.circleName}>{circle.name}</Text>
+                      <Text style={styles.circleMeta}>
+                        {typeLabels[circle.type] ?? circle.type} · {circle.memberCount} membre(s)
+                      </Text>
+                    </View>
+                    <View style={[styles.badge, phase === 'ACTIVE' ? styles.badgeActive : styles.badgeNew]}>
+                      <Text style={[styles.badgeText, phase === 'ACTIVE' ? styles.badgeTextActive : styles.badgeTextNew]}>
+                        {phase === 'ACTIVE' ? 'En cours' : 'Nouveau'}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.divider} />
+                  <Text style={styles.cotisation}>
+                    Cotisation : <Text style={styles.cotisationStrong}>{cotisationLine(circle)}</Text> par tour
                   </Text>
+                </View>
+
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitleInline}>Conditions d'adhésion</Text>
+                  <Text style={styles.autoTag}>Résumé automatique</Text>
+                </View>
+                <View style={styles.conditionsBox}>
+                  <Text style={styles.conditionsText}>{buildConditionsText(circle, cycle, rachat, deposit)}</Text>
+                </View>
+
+                {needsPayment && (
+                  <View style={[styles.card, styles.section]}>
+                    <AmountRow label="Frais de rachat des tours passés" value={formatXOF(rachat)} />
+                    <AmountRow label="Dépôt de garantie" value={formatXOF(deposit)} />
+                    <AmountRow label="Total à payer" value={formatXOF(total)} strong last />
+                  </View>
+                )}
+
+                <TouchableOpacity
+                  style={styles.checkboxRow}
+                  activeOpacity={0.7}
+                  onPress={() => setConditionsAccepted(!conditionsAccepted)}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: conditionsAccepted }}
+                >
+                  <View style={[styles.checkbox, conditionsAccepted && styles.checkboxActive]}>
+                    {conditionsAccepted && <Check size={14} color="#FFFFFF" strokeWidth={3} />}
+                  </View>
+                  <Text style={styles.checkboxLabel}>J'ai lu et j'accepte les conditions du cercle</Text>
                 </TouchableOpacity>
-              </Animated.View>
-            </View>
-          </Modal>
-        </SafeAreaView>
-      </KeyboardAvoidingView>
+              </>
+            )}
+
+            {/* ── Informations du candidat ── */}
+            {step === 'form' && circle && (
+              <>
+                <Text style={styles.stepTitle}>Vos informations</Text>
+                <Text style={styles.stepSubtitle}>Elles sont transmises au fondateur pour valider votre entrée.</Text>
+
+                <View style={styles.fields}>
+                  <TextField
+                    label="Nom complet"
+                    placeholder="Ex. Aminata Ouédraogo"
+                    value={form.fullName}
+                    onChangeText={(v) => setForm((p) => ({ ...p, fullName: v }))}
+                  />
+                  <TextField
+                    label="Numéro de téléphone"
+                    placeholder="+226 70 12 34 56"
+                    keyboardType="phone-pad"
+                    value={form.phoneNumber}
+                    onChangeText={(v) => setForm((p) => ({ ...p, phoneNumber: v }))}
+                  />
+                  <TextField
+                    label="Numéro de dépôt Mobile Money"
+                    placeholder="+226 70 12 34 56"
+                    keyboardType="phone-pad"
+                    value={form.depositNumber}
+                    onChangeText={(v) => setForm((p) => ({ ...p, depositNumber: v }))}
+                    hint="Numéro sur lequel vous recevrez la cagnotte."
+                  />
+                </View>
+
+                {accountVerified ? (
+                  <View style={[styles.verifiedNote, styles.section]}>
+                    <ShieldCheck size={18} color={colors.primary.DEFAULT} />
+                    <Text style={styles.verifiedNoteText}>
+                      Identité vérifiée — aucune pièce à fournir. Vos informations sont transmises au fondateur, qui
+                      validera votre entrée.
+                    </Text>
+                  </View>
+                ) : needsDocs ? (
+                  <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Documents exigés</Text>
+                    <Text style={styles.sectionHint}>Exigence du cercle : {kycLabel}</Text>
+                    <View style={styles.stack}>
+                      <DocRow
+                        label="CNIB recto"
+                        doneLabel="CNIB recto ajouté"
+                        action="Choisir le recto"
+                        done={docs.cnibFront}
+                        onPress={() => setDocs((p) => ({ ...p, cnibFront: !p.cnibFront }))}
+                      />
+                      <DocRow
+                        label="CNIB verso"
+                        doneLabel="CNIB verso ajouté"
+                        action="Choisir le verso"
+                        done={docs.cnibBack}
+                        onPress={() => setDocs((p) => ({ ...p, cnibBack: !p.cnibBack }))}
+                      />
+                      {needsSelfie && (
+                        <DocRow
+                          label="Selfie facial"
+                          doneLabel="Selfie ajouté"
+                          action="Prendre un selfie"
+                          done={docs.selfie}
+                          onPress={() => setDocs((p) => ({ ...p, selfie: !p.selfie }))}
+                        />
+                      )}
+                    </View>
+                  </View>
+                ) : null}
+              </>
+            )}
+
+            {/* ── Paiement de la place ── */}
+            {step === 'payment' && circle && (
+              <>
+                <Text style={styles.stepTitle}>Paiement de la place</Text>
+                <Text style={styles.stepSubtitle}>
+                  Réglez les frais d'adhésion pour finaliser votre demande. Le montant est vérifié avant l'approbation
+                  du fondateur.
+                </Text>
+
+                <View style={styles.card}>
+                  <AmountRow label="Frais de rachat des tours passés" value={formatXOF(rachat)} />
+                  <AmountRow label="Dépôt de garantie" value={formatXOF(deposit)} />
+                  <AmountRow label="Total à payer" value={formatXOF(total)} strong last />
+                </View>
+
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Opérateur de paiement</Text>
+                  <OperatorPicker operators={OPERATORS} value={selectedOperator} onChange={setSelectedOperator} />
+                </View>
+              </>
+            )}
+
+            {/* ── Demande envoyée ── */}
+            {step === 'done' && (
+              <View style={styles.done}>
+                <View style={styles.doneIcon}>
+                  <Check size={30} color={colors.primary.DEFAULT} strokeWidth={2.5} />
+                </View>
+                <Text style={styles.doneTitle}>Demande envoyée</Text>
+                <Text style={styles.doneText}>
+                  {needsPayment ? (
+                    <>
+                      Paiement reçu (<Text style={styles.doneStrong}>{paymentRef}</Text>). Votre demande d'adhésion à{' '}
+                      <Text style={styles.doneStrong}>{circle?.name}</Text> est en attente de validation par le
+                      fondateur.
+                    </>
+                  ) : (
+                    <>
+                      Votre demande d'adhésion à <Text style={styles.doneStrong}>{circle?.name}</Text> est en attente
+                      de validation par le fondateur.
+                    </>
+                  )}
+                </Text>
+              </View>
+            )}
+          </ScrollView>
+
+          <View style={styles.footer}>{footer}</View>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+
+      {/* ── Code USSD ── */}
+      <Sheet visible={ussdModal} onClose={() => setUssdModal(false)} title="Paiement de la place">
+        <Text style={styles.sheetText}>
+          Exécutez ce code USSD pour régler <Text style={styles.sheetStrong}>{formatXOF(total)}</Text>.
+        </Text>
+        <View style={styles.sheetCode}>
+          <UssdCodeBox code={ussdCode} />
+        </View>
+        <View style={styles.sheetActions}>
+          <Button
+            title={copied ? 'Copié' : 'Copier le code'}
+            icon={copied ? Check : Copy}
+            variant="secondary"
+            onPress={handleCopyCode}
+          />
+          <Button
+            title={detecting ? 'Détection du paiement…' : 'Exécuter le code USSD'}
+            icon={detecting ? Loader : Smartphone}
+            disabled={detecting}
+            onPress={handleExecuteUssd}
+          />
+        </View>
+      </Sheet>
     </View>
   );
 }
 
-const operatorLogos: Record<string, any> = {
-  ORANGE: require('../../../../assets/operators/orange.png'),
-  MOOV: require('../../../../assets/operators/moov.png'),
-  WAVE: require('../../../../assets/operators/wave.png'),
-};
+function AmountRow({ label, value, strong, last }: { label: string; value: string; strong?: boolean; last?: boolean }) {
+  return (
+    <View style={[styles.row, !last && styles.rowBorder]}>
+      <Text style={[styles.rowLabel, strong && styles.rowLabelStrong]}>{label}</Text>
+      <Text style={[styles.rowValue, strong && styles.rowValueStrong]}>{value}</Text>
+    </View>
+  );
+}
+
+function DocRow({
+  label,
+  doneLabel,
+  action,
+  done,
+  onPress,
+}: {
+  label: string;
+  doneLabel: string;
+  action: string;
+  done: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      style={[styles.docRow, done && styles.docRowDone]}
+      activeOpacity={0.8}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={done ? doneLabel : action}
+    >
+      <View style={[styles.docIcon, done && styles.docIconDone]}>
+        {done ? (
+          <Check size={18} color="#FFFFFF" strokeWidth={2.5} />
+        ) : (
+          <Upload size={18} color={colors.primary.DEFAULT} />
+        )}
+      </View>
+      <View style={styles.flex}>
+        <Text style={styles.docLabel}>{label}</Text>
+        <Text style={[styles.docAction, done && styles.docActionDone]}>{done ? doneLabel : action}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#074B36' },
-  topSection: { backgroundColor: '#074B36', paddingHorizontal: 20, paddingBottom: 24 },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 8,
-    marginBottom: 10,
-  },
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  container: { flex: 1, backgroundColor: colors.bg },
+  flex: { flex: 1 },
+
+  /* En-tête */
+  header: { height: 56, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8 },
+  headerCenter: { flex: 1, alignItems: 'center' },
+  headerTitle: { ...typography.headline, color: colors.ink, textAlign: 'center' },
+  headerSub: { ...typography.caption, fontWeight: '400', color: colors.muted, textAlign: 'center' },
+  headerSpacer: { width: 40 },
+  progress: { flexDirection: 'row', gap: 6, paddingHorizontal: 20, paddingBottom: 4 },
+  progressSeg: { flex: 1, height: 4, borderRadius: 2, backgroundColor: colors.line },
+  progressSegDone: { backgroundColor: colors.primary.DEFAULT },
+
+  scroll: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 32 },
+  stepTitle: { ...typography.title, color: colors.ink },
+  stepSubtitle: { ...typography.callout, color: colors.muted, marginTop: 6, marginBottom: 24 },
+
+  fields: { gap: 20 },
+  stack: { gap: 10 },
+  section: { marginTop: 24 },
+  sectionTitle: { ...typography.bodyStrong, color: colors.ink, marginBottom: 4 },
+  sectionHint: { ...typography.footnote, color: colors.muted, marginBottom: 12 },
+
+  /* Recherche */
+  intro: { marginBottom: 4 },
+  introIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primary.tint,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 16,
   },
-  headerTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 17,
-    color: '#FFFFFF',
-    flex: 1,
-    textAlign: 'center',
-    marginHorizontal: 10,
-  },
-  headerSub: {
-    fontFamily: 'WorkSans',
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.8)',
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  progressRow: { flexDirection: 'row', gap: 8 },
-  progressSegment: {
-    flex: 1,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  progressSegmentActive: { backgroundColor: '#36E395' },
-  bodySheet: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    marginTop: -20,
-    paddingTop: 22,
-  },
-  scrollContent: { paddingHorizontal: 20, paddingBottom: 50, gap: 12 },
-  sectionTitle: { fontFamily: 'SoraBold', fontSize: 18, color: '#074B36', marginTop: 6 },
-  subText: { fontFamily: 'WorkSans', fontSize: 13, lineHeight: 19, color: '#64748B' },
-  label: { fontFamily: 'WorkSansSemiBold', fontSize: 13, color: '#334155', marginTop: 10, marginBottom: 2 },
-  docSub: { fontFamily: 'WorkSans', fontSize: 12, color: '#64748B', marginBottom: 4 },
-  input: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    borderRadius: 16,
+  codeInput: { letterSpacing: 2, fontWeight: '600' },
+
+  /* Cartes */
+  card: {
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.bg,
     paddingHorizontal: 16,
-    height: 50,
-    fontFamily: 'WorkSans',
-    fontSize: 14,
-    color: '#0F172A',
   },
-  searchHero: { alignItems: 'center', paddingTop: 26, gap: 14 },
-  searchIconWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#074B36',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  searchTitle: { fontFamily: 'SoraBold', fontSize: 22, color: '#0F172A', textAlign: 'center' },
-  searchSubtitle: {
-    fontFamily: 'WorkSans',
-    fontSize: 13.5,
-    lineHeight: 20,
-    color: '#64748B',
-    textAlign: 'center',
+  circleHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 16 },
+  circleName: { ...typography.bodyStrong, color: colors.ink },
+  circleMeta: { ...typography.footnote, color: colors.muted, marginTop: 2 },
+  divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.line, marginVertical: 14 },
+  cotisation: { ...typography.callout, color: colors.inkSoft, paddingBottom: 16 },
+  cotisationStrong: { fontWeight: '600', color: colors.ink },
+  badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill },
+  badgeActive: { backgroundColor: colors.accent.tint },
+  badgeNew: { backgroundColor: colors.primary.tint },
+  badgeText: { ...typography.caption, fontWeight: '600' },
+  badgeTextActive: { color: colors.accent.deep },
+  badgeTextNew: { color: colors.primary.dark },
+
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 24, marginBottom: 12 },
+  sectionTitleInline: { ...typography.bodyStrong, color: colors.ink },
+  autoTag: {
+    ...typography.caption,
+    color: colors.muted,
+    backgroundColor: colors.fill,
     paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    overflow: 'hidden',
   },
-  searchRow: { flexDirection: 'row', gap: 10, width: '100%', marginTop: 4 },
-  searchInput: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    height: 50,
-    fontFamily: 'WorkSans',
-    fontSize: 15,
-    color: '#0F172A',
-    textTransform: 'uppercase',
-    letterSpacing: 2,
-  },
-  searchBtn: {
-    width: 50,
-    height: 50,
-    borderRadius: 16,
-    backgroundColor: '#074B36',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  notFoundHint: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 12.5,
-    color: '#DC2626',
-    textAlign: 'center',
-  },
-  searchHint: { fontFamily: 'WorkSans', fontSize: 11.5, color: '#94A3B8', textAlign: 'center' },
-  btnDisabled: { opacity: 0.4 },
-  circleInfoCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    padding: 16,
-    marginTop: 6,
-  },
-  circleInfoHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  circleName: { fontFamily: 'SoraBold', fontSize: 15, color: '#0F172A' },
-  circleMeta: { fontFamily: 'WorkSans', fontSize: 12, color: '#64748B', marginTop: 2 },
-  circleInfoDivider: { height: 1, backgroundColor: '#F1F5F9', marginVertical: 12 },
-  circleCotisation: { fontFamily: 'WorkSans', fontSize: 13, color: '#475569' },
-  circleCotisationStrong: { fontFamily: 'WorkSansSemiBold', color: '#074B36' },
-  phaseBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
-  phaseBadgeActive: { backgroundColor: 'rgba(217, 164, 65, 0.14)' },
-  phaseBadgeNew: { backgroundColor: 'rgba(16, 185, 129, 0.1)' },
-  phaseBadgeText: { fontFamily: 'WorkSansSemiBold', fontSize: 11 },
-  phaseBadgeTextActive: { color: '#B47818' },
-  phaseBadgeTextNew: { color: '#059669' },
-  ficheIntro: { fontFamily: 'WorkSans', fontSize: 12.5, lineHeight: 19, color: '#64748B', marginTop: -2 },
-  conditionsHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
-  autoTag: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6, backgroundColor: '#F1F3F6' },
-  autoTagText: { fontFamily: 'WorkSansSemiBold', fontSize: 9.5, color: '#94A3B8' },
-  conditionsBox: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    padding: 16,
-  },
-  conditionsText: { fontFamily: 'WorkSans', fontSize: 12.5, lineHeight: 19, color: '#334155' },
-  summaryCard: {
-    backgroundColor: 'rgba(7, 75, 54, 0.05)',
-    borderRadius: 18,
-    padding: 16,
-    gap: 8,
-  },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  summaryRowTotal: { borderTopWidth: 1, borderTopColor: 'rgba(7, 75, 54, 0.15)', paddingTop: 10 },
-  summaryLabel: { fontFamily: 'WorkSans', fontSize: 13, color: '#475569' },
-  summaryValue: { fontFamily: 'WorkSansSemiBold', fontSize: 13, color: '#0F172A' },
-  summaryLabelTotal: { fontFamily: 'SoraBold', fontSize: 14, color: '#074B36' },
-  summaryValueTotal: { fontFamily: 'SoraBold', fontSize: 16, color: '#074B36' },
-  checkboxRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
+  conditionsBox: { borderRadius: radius.lg, backgroundColor: colors.fill, padding: 16 },
+  conditionsText: { ...typography.callout, color: colors.inkSoft },
+
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 16, paddingVertical: 14 },
+  rowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
+  rowLabel: { flex: 1, ...typography.callout, color: colors.muted },
+  rowLabelStrong: { fontWeight: '600', color: colors.ink },
+  rowValue: { ...typography.callout, fontWeight: '500', color: colors.ink, textAlign: 'right' },
+  rowValueStrong: { ...typography.headline, fontWeight: '700', color: colors.primary.dark },
+
+  checkboxRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 24, minHeight: 40 },
   checkbox: {
     width: 24,
     height: 24,
     borderRadius: 7,
     borderWidth: 2,
-    borderColor: '#CBD5E1',
+    borderColor: colors.lineStrong,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.bg,
   },
-  checkboxActive: { backgroundColor: '#074B36', borderColor: '#074B36' },
-  checkboxLabel: { flex: 1, fontFamily: 'WorkSans', fontSize: 13.5, color: '#334155' },
+  checkboxActive: { backgroundColor: colors.primary.DEFAULT, borderColor: colors.primary.DEFAULT },
+  checkboxLabel: { flex: 1, ...typography.callout, color: colors.ink },
+
+  /* Formulaire */
   verifiedNote: {
     flexDirection: 'row',
     gap: 10,
-    backgroundColor: 'rgba(16, 185, 129, 0.08)',
-    borderRadius: 14,
-    padding: 12,
-    marginTop: 10,
-  },
-  verifiedNoteText: { flex: 1, fontFamily: 'WorkSans', fontSize: 12.5, lineHeight: 18, color: '#065F46' },
-  uploadBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    borderStyle: 'dashed',
-    borderRadius: 16,
     padding: 14,
-    marginBottom: 8,
+    borderRadius: radius.md,
+    backgroundColor: colors.primary.tint,
   },
-  uploadBoxDone: { borderColor: '#10B981', backgroundColor: 'rgba(16, 185, 129, 0.04)', borderStyle: 'solid' },
-  uploadText: { flex: 1, fontFamily: 'WorkSans', fontSize: 13, color: '#64748B' },
-  btnRow: { flexDirection: 'row', gap: 12, marginTop: 16 },
-  btnPrimary: {
-    flex: 1,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#074B36',
+  verifiedNoteText: { flex: 1, ...typography.footnote, color: colors.primary.dark },
+  docRow: {
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: colors.lineStrong,
+    backgroundColor: colors.bg,
+  },
+  docRowDone: { borderStyle: 'solid', borderColor: colors.primary.DEFAULT, backgroundColor: colors.primary.tint },
+  docIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primary.tint,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
   },
-  btnPrimaryText: { fontFamily: 'SoraBold', fontSize: 14.5, color: '#FFFFFF' },
-  btnSecondary: {
-    flex: 1,
-    height: 52,
-    borderRadius: 26,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  btnSecondaryText: { fontFamily: 'WorkSansSemiBold', fontSize: 14, color: '#475569' },
-  paySummary: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    padding: 16,
-    gap: 8,
-    marginTop: 8,
-  },
-  payRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  payLabel: { fontFamily: 'WorkSans', fontSize: 13, color: '#64748B' },
-  payValue: { fontFamily: 'WorkSansSemiBold', fontSize: 13.5, color: '#0F172A' },
-  payDivider: { height: 1, backgroundColor: '#F1F5F9' },
-  payLabelTotal: { fontFamily: 'SoraBold', fontSize: 14.5, color: '#074B36' },
-  payValueTotal: { fontFamily: 'SoraBold', fontSize: 17, color: '#074B36' },
-  operatorsRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
-  operatorBox: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    padding: 12,
-    alignItems: 'center',
-    gap: 6,
-  },
-  operatorBoxSelected: { borderColor: '#074B36', backgroundColor: 'rgba(7, 75, 54, 0.04)' },
-  operatorLogo: { width: 34, height: 34 },
-  operatorName: { fontFamily: 'WorkSansSemiBold', fontSize: 11.5, color: '#64748B', textAlign: 'center' },
-  operatorNameSelected: { color: '#074B36' },
-  doneContainer: { alignItems: 'center', paddingVertical: 40, gap: 10 },
+  docIconDone: { backgroundColor: colors.primary.DEFAULT },
+  docLabel: { ...typography.callout, fontWeight: '600', color: colors.ink },
+  docAction: { ...typography.footnote, color: colors.muted, marginTop: 1 },
+  docActionDone: { color: colors.primary.dark },
+
+  /* Terminé */
+  done: { alignItems: 'center', paddingTop: 40 },
   doneIcon: {
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    backgroundColor: colors.primary.tint,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 20,
   },
-  doneTitle: { fontFamily: 'SoraBold', fontSize: 20, color: '#0F172A' },
-  doneText: { fontFamily: 'WorkSans', fontSize: 14.5, lineHeight: 21, color: '#64748B', textAlign: 'center', paddingHorizontal: 10 },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
-    justifyContent: 'center',
-    alignItems: 'center',
+  doneTitle: { ...typography.title, color: colors.ink, textAlign: 'center' },
+  doneText: { ...typography.callout, color: colors.muted, textAlign: 'center', marginTop: 8, paddingHorizontal: 8 },
+  doneStrong: { fontWeight: '600', color: colors.ink },
+
+  footer: {
     paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.line,
+    backgroundColor: colors.bg,
   },
-  modalCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 28,
-    padding: 22,
-    width: '100%',
-    gap: 12,
-  },
-  modalHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  modalTitle: { fontFamily: 'SoraBold', fontSize: 17, color: '#074B36' },
-  ussdSub: { fontFamily: 'WorkSans', fontSize: 12.5, lineHeight: 18, color: '#64748B' },
-  ussdCodeBox: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    paddingVertical: 18,
-    paddingHorizontal: 14,
-    alignItems: 'center',
-  },
-  ussdCodeText: { fontFamily: 'SoraBold', fontSize: 20, color: '#074B36', letterSpacing: 1, textAlign: 'center' },
-  copyBtn: {
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#074B36',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-  },
-  copyBtnCopied: { backgroundColor: '#059669' },
-  copyBtnText: { fontFamily: 'SoraBold', fontSize: 14, color: '#FFFFFF' },
-  primaryBtn: {
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#059669',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-  },
-  primaryBtnText: { fontFamily: 'SoraBold', fontSize: 14, color: '#FFFFFF' },
+
+  /* Feuille USSD */
+  sheetText: { ...typography.body, color: colors.inkSoft },
+  sheetStrong: { fontWeight: '600', color: colors.ink },
+  sheetCode: { marginTop: 16 },
+  sheetActions: { gap: 10, marginTop: 20 },
 });

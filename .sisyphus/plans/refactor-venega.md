@@ -11,7 +11,7 @@ Restructurer le monorepo Venega (tontine digitale/solidarité) en architecture f
 - Design tokens depuis `@venega/design-tokens` — pas de couleurs/tailles/rayons hardcodés
 - Import standardisé: `colors`, `spacing`, `radius` depuis `@venega/design-tokens` (PAS l'import cassé `designTokens`)
 - Marque: Venega — Burkina Faso, XOF, CinetPay, React Native Expo + Next.js + pnpm monorepo
-- Typographie: Sora (titres) + Work Sans (corps), icônes: Lucide uniquement, pas d'icônes emoji
+- Typographie: police système (Roboto / SF Pro) via `typography` de `@venega/design-tokens` — plus de Sora / Work Sans. Icônes: Lucide uniquement, pas d'icônes emoji
 
 ## Progress
 
@@ -43,6 +43,12 @@ Restructurer le monorepo Venega (tontine digitale/solidarité) en architecture f
 - None
 
 ## Key Decisions
+- **Refonte visuelle mobile (oct. 2026)** : style épuré type Pinterest — fonds blancs / gris clair, cartes à bord fin, pas de dégradés ni d'ombres colorées, plus d'en-tête vert + feuille arrondie sur les écrans refaits.
+  - Police système (comme Facebook) : aucune police à télécharger, démarrage plus rapide sur réseaux lents. Échelle : 28 / 22 / 17 / 15 / 14 / 13 / 12.
+  - Palette unifiée dans `packages/design-tokens/src/native.ts` (ink, inkSoft, muted, subtle, line, lineStrong, fill) — remplace le mélange Tailwind / Chakra (96 → ~49 couleurs, dont celles des opérateurs).
+  - Composants partagés : `venega-mobile/src/components/ui` (Button, TextField, IconButton, Sheet, ListRow/ListGroup, Chip, OptionCard, Segmented, NumberStepper, SettingRow, Toggle).
+- **Type de cercle HYBRID supprimé côté mobile** : seuls Tontine (espèces ou nature) et Caisse de solidarité sont proposés. Côté données, « Tontine + nature » reste `CircleType.NATURE` + `contributionMode: NATURE`. ⚠️ L'enum Prisma de `venega-api` contient encore `HYBRID` — à retirer par le responsable backend.
+- **Écran « Prêt à commencer ? » (landing) supprimé** : onboarding (3 slides) → connexion directe.
 - **Import `designTokens` cassé**: Tous les écrans utilisant `import { designTokens } from '@venega/design-tokens/native'` avaient un export inexistant. Standardisé en `import { colors, spacing, radius } from '@venega/design-tokens'`
 - **Chargement des polices centralisé**: Supprimé `useFonts` avec `../../../../../../packages/design-tokens/fonts/...` des écrans individuels
 - **Fichiers `app/` = wrappers fins**: Pattern: `import XScreen from '../../src/features/x/screens/XScreen'; export default XScreen;`

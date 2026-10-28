@@ -10,8 +10,6 @@ export enum CircleType {
   TONTINE_ONLY = 'TONTINE_ONLY',
   /** Caisse de solidarité pure (fonds d'entraide sans rotation) */
   SOLIDARITY_ONLY = 'SOLIDARITY_ONLY',
-  /** Tontine + Caisse de solidarité greffée */
-  HYBRID = 'HYBRID',
   /** Tontine en nature — l'objectif est un bien (moto, kit alimentaire, ciment…) remis à tour de rôle */
   NATURE = 'NATURE',
   /** Appel à l'aide public — contribution possible sans être membre via un lien partagé */

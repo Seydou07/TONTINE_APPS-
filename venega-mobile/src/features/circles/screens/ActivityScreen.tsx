@@ -15,8 +15,9 @@ import {
   Building2,
   CheckCircle2,
   Clock,
-  Filter,
 } from 'lucide-react-native';
+import { colors, radius, typography } from '@venega/design-tokens';
+import { Chip } from '../../../components/ui';
 import { mockTransactions, mockCircles, mockCycles } from '@venega/types';
 import { TransactionType, TransactionStatus } from '@venega/types';
 import { getLedgerEntries } from '../circleStore';
@@ -42,8 +43,8 @@ const formatDateHeader = (dateStr: string) => {
 
 const CREDIT_COLOR = '#0B6E4F';
 const CREDIT_BG = '#E4F0EB';
-const DEBIT_COLOR = '#E53E3E';
-const DEBIT_BG = '#FFECEC';
+const DEBIT_COLOR = '#C1443A';
+const DEBIT_BG = '#F7E7E5';
 
 const typeMeta: Record<string, { label: string; icon: any; color: string; bg: string; doneLabel: string }> = {
   TONTINE_CONTRIBUTION: {
@@ -94,7 +95,6 @@ const monthLabels = ['Janv', 'Févr', 'Mars', 'Avr', 'Mai', 'Juin', 'Juil', 'Ao�
 
 export default function ActivityScreen() {
   const [monthFilter, setMonthFilter] = useState<number | null>(null);
-  const [showMonthFilter, setShowMonthFilter] = useState(false);
   const [selectedTx, setSelectedTx] = useState<any>(null);
 
   // Transactions synthétiques propres : Cotisation, Versement, Frais
@@ -206,118 +206,128 @@ export default function ActivityScreen() {
       else groups.push({ dateLabel: label, items: [tx] });
     });
 
+  const totalIn = filtered
+    .filter((tx) => (typeMeta[tx.type] ?? typeMeta.TONTINE_CONTRIBUTION)!.color === CREDIT_COLOR)
+    .reduce((sum, tx) => sum + tx.amount, 0);
+  const totalOut = filtered
+    .filter((tx) => (typeMeta[tx.type] ?? typeMeta.TONTINE_CONTRIBUTION)!.color !== CREDIT_COLOR)
+    .reduce((sum, tx) => sum + tx.amount, 0);
+
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#074B36" />
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        {/* En-tête vert émeraude */}
-        <View style={styles.header}>
-          <View style={styles.headerRow}>
-            <Text style={styles.headerTitle}>Activité</Text>
-            {monthsWithActivity.length > 1 && (
-              <View style={styles.filterWrap}>
-                <TouchableOpacity
-                  style={styles.filterBtn}
-                  activeOpacity={0.8}
-                  onPress={() => setShowMonthFilter((v) => !v)}
-                >
-                  <Filter size={13} color="#FFFFFF" />
-                  <Text style={styles.filterBtnText}>
-                    {monthFilter !== null ? monthLabels[monthFilter] : 'Filtrer'}
-                  </Text>
-                </TouchableOpacity>
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          <Text style={styles.headerTitle}>Activité</Text>
 
-                {showMonthFilter && (
-                  <View style={styles.monthDropdown}>
-                    <ScrollView style={styles.monthDropdownScroll} showsVerticalScrollIndicator={false}>
-                      <TouchableOpacity
-                        style={styles.monthDropdownItem}
-                        onPress={() => { setMonthFilter(null); setShowMonthFilter(false); }}
-                      >
-                        <Text style={[styles.monthDropdownItemText, monthFilter === null && styles.monthDropdownItemTextActive]}>
-                          Tous les mois
-                        </Text>
-                      </TouchableOpacity>
-                      {monthsWithActivity.map((mIdx) => (
-                        <TouchableOpacity
-                          key={mIdx}
-                          style={styles.monthDropdownItem}
-                          onPress={() => { setMonthFilter(mIdx); setShowMonthFilter(false); }}
-                        >
-                          <Text style={[styles.monthDropdownItemText, monthFilter === mIdx && styles.monthDropdownItemTextActive]}>
-                            {monthLabels[mIdx]} 2026
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-                  </View>
-                )}
-              </View>
-            )}
+          {/* Entrées / sorties de la période */}
+          <View style={styles.summary}>
+            <View style={styles.summaryCol}>
+              <Text style={styles.summaryLabel}>Entrées</Text>
+              <Text style={[styles.summaryValue, { color: CREDIT_COLOR }]} numberOfLines={1} adjustsFontSizeToFit>
+                +{formatXOF(totalIn)}
+              </Text>
+            </View>
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryCol}>
+              <Text style={styles.summaryLabel}>Sorties</Text>
+              <Text style={[styles.summaryValue, { color: colors.ink }]} numberOfLines={1} adjustsFontSizeToFit>
+                −{formatXOF(totalOut)}
+              </Text>
+            </View>
           </View>
-        </View>
 
-        {/* Corps blanc */}
-        <View style={styles.contentBody}>
-          <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-            {groups.length === 0 ? (
-              <View style={styles.emptyCard}>
-                <FileText size={36} color="#CBD5E1" strokeWidth={1.5} />
-                <Text style={styles.emptyTitle}>Aucune transaction</Text>
+          {monthsWithActivity.length > 1 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.chips}
+              style={styles.chipsScroll}
+            >
+              <Chip label="Tout" selected={monthFilter === null} onPress={() => setMonthFilter(null)} />
+              {[...monthsWithActivity].reverse().map((mIdx) => (
+                <Chip
+                  key={mIdx}
+                  label={`${monthLabels[mIdx]} 2026`}
+                  selected={monthFilter === mIdx}
+                  onPress={() => setMonthFilter(mIdx)}
+                />
+              ))}
+            </ScrollView>
+          )}
+
+          {groups.length === 0 ? (
+            <View style={styles.empty}>
+              <View style={styles.emptyIcon}>
+                <FileText size={24} color={colors.subtle} strokeWidth={1.6} />
               </View>
-            ) : (
-              groups.map((group) => (
-                <View key={group.dateLabel} style={styles.dateGroup}>
-                  <Text style={styles.dateGroupLabel}>{group.dateLabel}</Text>
-                  {group.items.map((tx) => {
+              <Text style={styles.emptyTitle}>Aucune transaction</Text>
+              <Text style={styles.emptyText}>Les cotisations et versements de vos cercles apparaîtront ici.</Text>
+            </View>
+          ) : (
+            groups.map((group) => (
+              <View key={group.dateLabel} style={styles.dateGroup}>
+                <Text style={styles.dateGroupLabel}>{group.dateLabel}</Text>
+                <View style={styles.card}>
+                  {group.items.map((tx, i) => {
                     const meta = (typeMeta[tx.type] ?? typeMeta.TONTINE_CONTRIBUTION)!;
                     const IconComp = meta.icon;
-                    const statusLabel =
-                      tx.status === TransactionStatus.PENDING ? 'En attente'
-                      : tx.status === TransactionStatus.FAILED ? 'Échouée'
-                      : meta.doneLabel;
-                    const statusColor =
-                      tx.status === TransactionStatus.PENDING ? '#B9852A'
-                      : tx.status === TransactionStatus.FAILED ? '#E53E3E'
-                      : meta.color;
+                    const isCredit = meta.color === CREDIT_COLOR;
+                    const pending = tx.status === TransactionStatus.PENDING;
+                    const failed = tx.status === TransactionStatus.FAILED;
+                    const statusLabel = pending ? 'En attente' : failed ? 'Échouée' : meta.doneLabel;
                     const label =
                       tx.type === TransactionType.PAYOUT && tx.memberName
-                        ? `Cagnotte reçue par ${tx.memberName}`
+                        ? `Cagnotte versée à ${tx.memberName}`
                         : tx.type === 'SOLIDARITY_DISBURSEMENT' && tx.memberName
-                        ? `Aide solidarité versée à ${tx.memberName}`
+                        ? `Aide versée à ${tx.memberName}`
+                        : tx.memberName && !tx.memberName.includes('(')
+                        ? `${meta.label} de ${tx.memberName}`
                         : meta.label;
 
                     return (
                       <TouchableOpacity
                         key={tx.id}
                         style={styles.txRow}
-                        activeOpacity={0.85}
+                        activeOpacity={0.6}
                         onPress={() => setSelectedTx({ ...tx, label, statusLabel })}
                       >
-                        <View style={[styles.dotBox, { backgroundColor: meta.bg }]}>
-                          {tx.status === TransactionStatus.PENDING
-                            ? <Clock size={16} color="#B9852A" />
-                            : <IconComp size={16} color={meta.color} />}
+                        <View style={[styles.txIcon, { backgroundColor: pending ? colors.accent.tint : meta.bg }]}>
+                          {pending ? (
+                            <Clock size={18} color={colors.accent.dark} />
+                          ) : (
+                            <IconComp size={18} color={meta.color} strokeWidth={2} />
+                          )}
                         </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.txLabel}>{label}</Text>
-                          <Text style={styles.txMeta}>{tx.circleName}</Text>
-                          <Text style={styles.txTime}>{formatTime(tx.createdAt)}</Text>
-                        </View>
-                        <View style={{ alignItems: 'flex-end' }}>
-                          <Text style={[styles.txAmount, { color: meta.color }]}>
-                            {meta.color === CREDIT_COLOR ? '+' : '−'}{formatXOF(tx.amount)}
-                          </Text>
-                          <Text style={[styles.txStatus, { color: statusColor }]}>{statusLabel}</Text>
+                        <View style={[styles.txBody, i < group.items.length - 1 && styles.txBorder]}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.txLabel} numberOfLines={1}>
+                              {label}
+                            </Text>
+                            <Text style={styles.txMeta} numberOfLines={1}>
+                              {tx.circleName} · {formatTime(tx.createdAt)}
+                            </Text>
+                          </View>
+                          <View style={styles.txRight}>
+                            <Text style={[styles.txAmount, { color: isCredit ? CREDIT_COLOR : colors.ink }]}>
+                              {isCredit ? '+' : '−'}
+                              {formatXOF(tx.amount)}
+                            </Text>
+                            {(pending || failed) && (
+                              <Text style={[styles.txStatus, { color: pending ? colors.accent.dark : DEBIT_COLOR }]}>
+                                {statusLabel}
+                              </Text>
+                            )}
+                          </View>
                         </View>
                       </TouchableOpacity>
                     );
                   })}
                 </View>
-              ))
-            )}
-          </ScrollView>
-        </View>
+              </View>
+            ))
+          )}
+        </ScrollView>
       </SafeAreaView>
 
       {selectedTx && (
@@ -341,129 +351,56 @@ export default function ActivityScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#074B36',
-  },
-  header: {
-    backgroundColor: '#074B36',
-    paddingHorizontal: 20,
-    paddingBottom: 60,
-    paddingTop: 8,
-  },
-  headerRow: {
+  container: { flex: 1, backgroundColor: colors.fill },
+  scroll: { paddingHorizontal: 16, paddingBottom: 32 },
+  headerTitle: { ...typography.title, color: colors.ink, paddingHorizontal: 4, paddingTop: 12, paddingBottom: 16 },
+
+  summary: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    backgroundColor: colors.bg,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.line,
+    paddingVertical: 16,
   },
-  headerTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 24,
-    color: '#FFFFFF',
-    letterSpacing: -0.5,
+  summaryCol: { flex: 1, paddingHorizontal: 16 },
+  summaryDivider: { width: 1, height: 36, backgroundColor: colors.line },
+  summaryLabel: { ...typography.footnote, color: colors.muted },
+  summaryValue: { ...typography.headline, fontWeight: '700', marginTop: 4 },
+
+  chipsScroll: { marginTop: 16, marginHorizontal: -16 },
+  chips: { gap: 8, paddingHorizontal: 16 },
+
+  dateGroup: { marginTop: 24 },
+  dateGroupLabel: { ...typography.footnote, fontWeight: '600', color: colors.muted, marginBottom: 8, marginLeft: 4 },
+  card: {
+    backgroundColor: colors.bg,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.line,
+    overflow: 'hidden',
   },
-  filterWrap: { zIndex: 20 },
-  filterBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-  },
-  filterBtnText: { fontFamily: 'WorkSansSemiBold', fontSize: 12.5, color: '#FFFFFF' },
-  monthDropdown: {
-    position: 'absolute',
-    top: 42,
-    right: 0,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    paddingVertical: 4,
-    minWidth: 150,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.18,
-    shadowRadius: 14,
-    elevation: 10,
-  },
-  monthDropdownScroll: { maxHeight: 240 },
-  monthDropdownItem: { paddingVertical: 10, paddingHorizontal: 14 },
-  monthDropdownItemText: { fontFamily: 'WorkSansSemiBold', fontSize: 13, color: '#334155' },
-  monthDropdownItemTextActive: { color: '#074B36' },
-  contentBody: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-    marginTop: -14,
-    paddingTop: 20,
-  },
-  scroll: {
-    paddingHorizontal: 20,
-    paddingBottom: 110,
-  },
-  emptyCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 30,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    alignItems: 'center',
-    gap: 6,
-  },
-  emptyTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 15,
-    color: '#475569',
-  },
-  dateGroup: {
-    gap: 10,
-    marginBottom: 20,
-  },
-  dateGroupLabel: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 11.5,
-    color: '#94A3B8',
-  },
-  txRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  dotBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  txRow: { flexDirection: 'row', alignItems: 'center', paddingLeft: 14, gap: 12 },
+  txIcon: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
+  txBody: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingRight: 14 },
+  txBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
+  txLabel: { ...typography.callout, fontWeight: '600', color: colors.ink },
+  txMeta: { ...typography.footnote, color: colors.muted, marginTop: 2 },
+  txRight: { alignItems: 'flex-end' },
+  txAmount: { ...typography.callout, fontWeight: '700' },
+  txStatus: { ...typography.caption, marginTop: 2 },
+
+  empty: { alignItems: 'center', paddingTop: 64, paddingHorizontal: 32 },
+  emptyIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.bg,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 14,
   },
-  txLabel: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 13.5,
-    color: '#1A202C',
-  },
-  txMeta: {
-    fontFamily: 'WorkSans',
-    fontSize: 11,
-    color: '#94A3B8',
-    marginTop: 1,
-    lineHeight: 14,
-  },
-  txTime: {
-    fontFamily: 'WorkSans',
-    fontSize: 10.5,
-    color: '#CBD5E1',
-    marginTop: 1,
-  },
-  txAmount: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 13,
-    color: '#1A202C',
-  },
-  txStatus: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 10,
-    marginTop: 2,
-  },
+  emptyTitle: { ...typography.headline, color: colors.ink },
+  emptyText: { ...typography.callout, color: colors.muted, textAlign: 'center', marginTop: 6 },
 });

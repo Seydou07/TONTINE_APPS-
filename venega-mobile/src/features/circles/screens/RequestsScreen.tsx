@@ -7,7 +7,6 @@ import {
   ScrollView,
   StatusBar,
   Modal,
-  TextInput,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -15,8 +14,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ArrowLeft,
   UserCheck,
-  Phone,
-  Wallet,
   ShieldCheck,
   FileText,
   CheckCircle2,
@@ -24,12 +21,11 @@ import {
   Check,
   Clock,
   ChevronRight,
-  Eye,
   X,
-  Loader,
   BadgeCheck,
 } from 'lucide-react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import { colors, radius, typography } from '@venega/design-tokens';
+import { Button, Chip, IconButton, Sheet, TextField } from '../../../components/ui';
 import {
   getCircle,
   getCircles,
@@ -54,13 +50,13 @@ const formatDate = (iso?: string) => {
 const statusInfo = (s: MembershipRequestStatus) => {
   switch (s) {
     case MembershipRequestStatus.PENDING:
-      return { label: 'En attente', color: '#B9852A', bg: 'rgba(217, 164, 65, 0.14)' };
+      return { label: 'En attente', color: colors.accent.dark, bg: colors.accent.tint };
     case MembershipRequestStatus.APPROVED:
-      return { label: 'Approuvée', color: '#0B6E4F', bg: 'rgba(11, 110, 79, 0.1)' };
+      return { label: 'Approuvée', color: colors.primary.DEFAULT, bg: colors.primary.tint };
     case MembershipRequestStatus.REJECTED:
-      return { label: 'Refusée', color: '#E53E3E', bg: 'rgba(229, 62, 62, 0.1)' };
+      return { label: 'Refusée', color: colors.danger.DEFAULT, bg: colors.danger.tint };
     default:
-      return { label: 'Intégré', color: '#0B6E4F', bg: 'rgba(11, 110, 79, 0.1)' };
+      return { label: 'Intégré', color: colors.primary.DEFAULT, bg: colors.primary.tint };
   }
 };
 
@@ -128,49 +124,38 @@ export default function RequestsScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#074B36" />
-      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <SafeAreaView style={styles.flex} edges={['top']}>
         {/* En-tête */}
-        <View style={styles.topSection}>
-          <View style={styles.topBar}>
-            <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-              <ArrowLeft size={20} color="#FFFFFF" />
-            </TouchableOpacity>
+        <View style={styles.header}>
+          <IconButton icon={ArrowLeft} variant="plain" accessibilityLabel="Retour" onPress={() => router.back()} />
+          <View style={styles.headerText}>
             <Text style={styles.headerTitle} numberOfLines={1}>Demandes d'adhésion</Text>
-            <View style={[styles.backBtn, styles.countPill]}>
-              <Text style={styles.countPillText}>{pendingCount}</Text>
-            </View>
+            <Text style={styles.headerSub} numberOfLines={1}>{circle.name}</Text>
           </View>
-          <Text style={styles.headerSub}>{circle.name}</Text>
+          <View style={styles.headerSide} />
         </View>
 
-        {/* Corps crème */}
-        <View style={styles.bodySheet}>
+        <View style={styles.body}>
           {/* Filtres */}
           <View style={styles.filterRow}>
-            <TouchableOpacity
-              style={[styles.filterChip, filter === 'pending' && styles.filterChipActive]}
+            <Chip
+              label={`En attente (${pendingCount})`}
+              selected={filter === 'pending'}
               onPress={() => setFilter('pending')}
-            >
-              <Text style={[styles.filterChipText, filter === 'pending' && styles.filterChipTextActive]}>
-                En attente ({pendingCount})
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.filterChip, filter === 'all' && styles.filterChipActive]}
+            />
+            <Chip
+              label={`Toutes (${requests.length})`}
+              selected={filter === 'all'}
               onPress={() => setFilter('all')}
-            >
-              <Text style={[styles.filterChipText, filter === 'all' && styles.filterChipTextActive]}>
-                Toutes ({requests.length})
-              </Text>
-            </TouchableOpacity>
+            />
           </View>
 
           <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
             {visibleRequests.length === 0 ? (
-              <View style={styles.emptyCard}>
+              <View style={styles.empty}>
                 <View style={styles.emptyIcon}>
-                  <UserCheck size={34} color="#10B981" />
+                  <UserCheck size={26} color={colors.primary.DEFAULT} />
                 </View>
                 <Text style={styles.emptyTitle}>
                   {filter === 'pending' ? 'Aucune demande en attente' : 'Aucune demande'}
@@ -180,15 +165,17 @@ export default function RequestsScreen() {
                 </Text>
               </View>
             ) : (
-              <View style={styles.listCard}>
+              <View style={styles.card}>
                 {visibleRequests.map((r, idx) => {
                   const st = statusInfo(r.status);
                   return (
                     <TouchableOpacity
                       key={r.id}
-                      style={[styles.requestRow, idx === visibleRequests.length - 1 && styles.requestRowLast]}
-                      activeOpacity={0.75}
+                      style={[styles.requestRow, idx < visibleRequests.length - 1 && styles.rowDivider]}
+                      activeOpacity={0.6}
                       onPress={() => setSelected(r)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Demande de ${r.fullName}`}
                     >
                       {r.user?.avatarUrl ? (
                         <Image source={{ uri: r.user.avatarUrl }} style={styles.avatar} contentFit="cover" />
@@ -201,14 +188,14 @@ export default function RequestsScreen() {
                         <Text style={styles.rowName} numberOfLines={1}>{r.fullName}</Text>
                         <Text style={styles.rowPhone}>{r.phoneNumber}</Text>
                         <Text style={styles.rowMeta}>
-                          Frais {formatXOF(r.joiningFee)} • Dépôt {formatXOF(r.depositAmount)}
+                          Frais {formatXOF(r.joiningFee)} · Dépôt {formatXOF(r.depositAmount)}
                         </Text>
                       </View>
-                      <View style={{ alignItems: 'flex-end', gap: 6 }}>
-                        <View style={[styles.statusBadge, { backgroundColor: st.bg }]}>
-                          <Text style={[styles.statusBadgeText, { color: st.color }]}>{st.label}</Text>
+                      <View style={styles.rowRight}>
+                        <View style={[styles.badge, { backgroundColor: st.bg }]}>
+                          <Text style={[styles.badgeText, { color: st.color }]}>{st.label}</Text>
                         </View>
-                        <ChevronRight size={17} color="#94A3B8" />
+                        <ChevronRight size={18} color={colors.subtle} />
                       </View>
                     </TouchableOpacity>
                   );
@@ -217,248 +204,184 @@ export default function RequestsScreen() {
             )}
 
             <Text style={styles.hintText}>
-              Cliquez sur une demande pour vérifier l'identité (CNIB) puis approuver ou refuser.
+              Touchez une demande pour vérifier l'identité (CNIB) puis approuver ou refuser.
             </Text>
           </ScrollView>
         </View>
+      </SafeAreaView>
 
-        {/* MODALE DÉTAIL D'UNE DEMANDE */}
-        <Modal visible={!!selected} animationType="fade" transparent={true}>
-          <View style={styles.modalOverlay}>
-            <Animated.View entering={FadeInDown.duration(300)} style={styles.modalCard}>
-              {selected && (
-                <>
-                  {/* En-tête candidat */}
-                  <View style={styles.detailHeader}>
-                    {selected.user?.avatarUrl ? (
-                      <Image source={{ uri: selected.user.avatarUrl }} style={styles.detailAvatar} contentFit="cover" />
-                    ) : (
-                      <View style={styles.detailAvatarFallback}>
-                        <Text style={styles.detailAvatarFallbackText}>{initials(selected.fullName)}</Text>
-                      </View>
-                    )}
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.detailName}>{selected.fullName}</Text>
-                      <Text style={styles.detailSub}>Demande reçue le {formatDate(selected.createdAt)}</Text>
+      {/* FEUILLE DÉTAIL D'UNE DEMANDE */}
+      <Sheet visible={!!selected} onClose={() => setSelected(null)}>
+        {selected && (
+          <>
+            {/* En-tête candidat */}
+            <View style={styles.detailHeader}>
+              {selected.user?.avatarUrl ? (
+                <Image source={{ uri: selected.user.avatarUrl }} style={styles.detailAvatar} contentFit="cover" />
+              ) : (
+                <View style={[styles.avatarFallback, styles.detailAvatar]}>
+                  <Text style={styles.avatarFallbackText}>{initials(selected.fullName)}</Text>
+                </View>
+              )}
+              <View style={styles.flexShrink}>
+                <Text style={styles.detailName}>{selected.fullName}</Text>
+                <Text style={styles.detailSub}>Demande reçue le {formatDate(selected.createdAt)}</Text>
+              </View>
+              <IconButton icon={X} variant="plain" accessibilityLabel="Fermer" onPress={() => setSelected(null)} />
+            </View>
+
+            <ScrollView style={styles.detailScroll} showsVerticalScrollIndicator={false}>
+              {/* 1. Identité */}
+              <Text style={styles.sectionLabel}>Identité</Text>
+              <View style={styles.infoCard}>
+                <InfoRow label="Nom complet" value={selected.fullName} />
+                <View style={styles.infoDivider} />
+                <InfoRow label="Téléphone" value={selected.phoneNumber} />
+                <View style={styles.infoDivider} />
+                <InfoRow label="Numéro de dépôt (MM)" value={selected.depositNumber} />
+              </View>
+
+              {/* 2. Pièce d'identité CNIB */}
+              <Text style={styles.sectionLabel}>Pièce d'identité (CNIB)</Text>
+              <View style={styles.card}>
+                <DocRow icon={FileText} title="Voir le recto" sub="Vérifier la pièce" onPress={() => setCnibFace('front')} />
+                <View style={styles.docRowDivider} />
+                <DocRow icon={FileText} title="Voir le verso" sub="Vérifier la pièce" onPress={() => setCnibFace('back')} />
+                {selected.selfieUrl ? (
+                  <>
+                    <View style={styles.docRowDivider} />
+                    <DocRow icon={UserCheck} title="Voir le selfie" sub="Vérification faciale" onPress={() => setShowSelfie(true)} />
+                  </>
+                ) : null}
+              </View>
+
+              {/* 3. Paiement de l'adhésion */}
+              <Text style={styles.sectionLabel}>Paiement de l'adhésion</Text>
+              <View style={styles.infoCard}>
+                <InfoRow label="Total à payer" value={formatXOF(selected.joiningFee + selected.depositAmount)} />
+                <View style={styles.infoDivider} />
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Statut du paiement</Text>
+                  {paymentReceived(selected) ? (
+                    <View style={[styles.badge, styles.badgeRow, { backgroundColor: colors.primary.tint }]}>
+                      <Check size={13} color={colors.primary.DEFAULT} />
+                      <Text style={[styles.badgeText, { color: colors.primary.DEFAULT }]}>Payé</Text>
                     </View>
-                    <TouchableOpacity onPress={() => setSelected(null)}>
-                      <X size={20} color="#64748B" />
-                    </TouchableOpacity>
-                  </View>
-
-                  <ScrollView style={styles.detailScroll} showsVerticalScrollIndicator={false}>
-                    {/* 1. Identité */}
-                    <Text style={styles.sectionLabel}>Identité</Text>
-                    <View style={styles.infoCard}>
-                      <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>Nom complet</Text>
-                        <Text style={styles.infoValue}>{selected.fullName}</Text>
-                      </View>
-                      <View style={styles.infoDivider} />
-                      <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>Téléphone</Text>
-                        <Text style={styles.infoValue}>{selected.phoneNumber}</Text>
-                      </View>
-                      <View style={styles.infoDivider} />
-                      <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>Numéro de dépôt (MM)</Text>
-                        <Text style={styles.infoValue}>{selected.depositNumber}</Text>
-                      </View>
+                  ) : paymentRequired(selected) ? (
+                    <View style={[styles.badge, styles.badgeRow, { backgroundColor: colors.accent.tint }]}>
+                      <Clock size={13} color={colors.accent.dark} />
+                      <Text style={[styles.badgeText, { color: colors.accent.dark }]}>Non payé</Text>
                     </View>
-
-                    {/* 2. Pièce d'identité CNIB */}
-                    <Text style={styles.sectionLabel}>Pièce d'identité (CNIB)</Text>
-                    <View style={styles.cnibRow}>
-                      <TouchableOpacity style={styles.cnibBtn} activeOpacity={0.8} onPress={() => setCnibFace('front')}>
-                        <View style={styles.cnibIconWrap}>
-                          <FileText size={20} color="#074B36" />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.cnibBtnTitle}>Voir le recto</Text>
-                          <Text style={styles.cnibBtnSub}>Vérifier la pièce</Text>
-                        </View>
-                        <Eye size={17} color="#074B36" />
-                      </TouchableOpacity>
-                      <TouchableOpacity style={styles.cnibBtn} activeOpacity={0.8} onPress={() => setCnibFace('back')}>
-                        <View style={styles.cnibIconWrap}>
-                          <FileText size={20} color="#074B36" />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.cnibBtnTitle}>Voir le verso</Text>
-                          <Text style={styles.cnibBtnSub}>Vérifier la pièce</Text>
-                        </View>
-                        <Eye size={17} color="#074B36" />
-                      </TouchableOpacity>
-                      {selected.selfieUrl ? (
-                        <TouchableOpacity style={styles.cnibBtn} activeOpacity={0.8} onPress={() => setShowSelfie(true)}>
-                          <View style={styles.cnibIconWrap}>
-                            <UserCheck size={20} color="#074B36" />
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.cnibBtnTitle}>Voir le selfie</Text>
-                            <Text style={styles.cnibBtnSub}>Vérification faciale</Text>
-                          </View>
-                          <Eye size={17} color="#074B36" />
-                        </TouchableOpacity>
-                      ) : null}
-                    </View>
-
-                    {/* 3. Paiement de l'adhésion */}
-                    <Text style={styles.sectionLabel}>Paiement de l'adhésion</Text>
-                    <View style={styles.infoCard}>
-                      <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>Total à payer</Text>
-                        <Text style={styles.infoValue}>{formatXOF(selected.joiningFee + selected.depositAmount)}</Text>
-                      </View>
-                      <View style={styles.infoDivider} />
-                      <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>Statut du paiement</Text>
-                        {paymentReceived(selected) ? (
-                          <View style={styles.paidBadge}>
-                            <Check size={13} color="#0B6E4F" />
-                            <Text style={styles.paidBadgeText}>Payé</Text>
-                          </View>
-                        ) : paymentRequired(selected) ? (
-                          <View style={styles.unpaidBadge}>
-                            <Clock size={13} color="#B9852A" />
-                            <Text style={styles.unpaidBadgeText}>Non payé</Text>
-                          </View>
-                        ) : (
-                          <Text style={styles.noPayValue}>Aucun paiement requis</Text>
-                        )}
-                      </View>
-                      {selected.paymentReference ? (
-                        <>
-                          <View style={styles.infoDivider} />
-                          <View style={styles.infoRow}>
-                            <Text style={styles.infoLabel}>Référence</Text>
-                            <Text style={styles.infoValue}>{selected.paymentReference}</Text>
-                          </View>
-                        </>
-                      ) : null}
-                      {selected.paidAt ? (
-                        <>
-                          <View style={styles.infoDivider} />
-                          <View style={styles.infoRow}>
-                            <Text style={styles.infoLabel}>Payé le</Text>
-                            <Text style={styles.infoValue}>{formatDate(selected.paidAt)}</Text>
-                          </View>
-                        </>
-                      ) : null}
-                    </View>
-
-                    {/* 4. Engagements financiers */}
-                    <Text style={styles.sectionLabel}>Engagements financiers</Text>
-                    <View style={styles.infoCard}>
-                      <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>Frais de rachat</Text>
-                        <Text style={styles.infoValue}>{formatXOF(selected.joiningFee)}</Text>
-                      </View>
-                      <View style={styles.infoDivider} />
-                      <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>Dépôt de garantie</Text>
-                        <Text style={styles.infoValue}>{formatXOF(selected.depositAmount)}</Text>
-                      </View>
-                      <View style={styles.infoDivider} />
-                      <View style={styles.infoRow}>
-                        <Text style={styles.infoLabel}>Conditions acceptées</Text>
-                        {selected.conditionsAccepted ? (
-                          <View style={styles.condOk}>
-                            <Check size={13} color="#0B6E4F" />
-                            <Text style={styles.condOkText}>Oui</Text>
-                          </View>
-                        ) : (
-                          <Text style={styles.condNo}>Non</Text>
-                        )}
-                      </View>
-                    </View>
-
-                    {selected.status === MembershipRequestStatus.REJECTED && selected.rejectionReason && (
-                      <View style={styles.reasonBox}>
-                        <XCircle size={16} color="#E53E3E" />
-                        <Text style={styles.reasonText}>
-                          Motif du refus : {selected.rejectionReason}
-                        </Text>
-                      </View>
-                    )}
-                  </ScrollView>
-
-                  {/* Actions */}
-                  {selected.status === MembershipRequestStatus.PENDING ? (
-                    <>
-                      {approveBlocked(selected) ? (
-                        <View style={styles.blockedBanner}>
-                          <Clock size={17} color="#B9852A" />
-                          <Text style={styles.blockedBannerText}>
-                            Paiement non reçu — l'approbation est bloquée tant que le candidat
-                            n'a pas réglé {formatXOF(selected.joiningFee + selected.depositAmount)}.
-                          </Text>
-                        </View>
-                      ) : (
-                        <TouchableOpacity
-                          style={[styles.approveBtn, actionLoading && styles.btnDisabled]}
-                          activeOpacity={0.88}
-                          onPress={() => handleApprove(selected)}
-                          disabled={actionLoading}
-                        >
-                          {actionLoading ? (
-                            <Loader size={18} color="#FFFFFF" />
-                          ) : (
-                            <BadgeCheck size={18} color="#FFFFFF" />
-                          )}
-                          <Text style={styles.approveBtnText}>
-                            {actionLoading ? 'Approbation en cours…' : 'Approuver l\'adhésion'}
-                          </Text>
-                        </TouchableOpacity>
-                      )}
-                      <TouchableOpacity
-                        style={styles.refuseBtn}
-                        activeOpacity={0.8}
-                        onPress={() => setShowRefuse(true)}
-                        disabled={actionLoading}
-                      >
-                        <XCircle size={17} color="#E53E3E" />
-                        <Text style={styles.refuseBtnText}>Refuser</Text>
-                      </TouchableOpacity>
-                    </>
                   ) : (
-                    <View style={styles.decidedBanner}>
-                      <CheckCircle2 size={18} color="#0B6E4F" />
-                      <Text style={styles.decidedBannerText}>
-                        {selected.status === MembershipRequestStatus.APPROVED
-                          ? 'Adhésion approuvée'
-                          : 'Adhésion refusée'}
+                    <Text style={styles.noPayValue}>Aucun paiement requis</Text>
+                  )}
+                </View>
+                {selected.paymentReference ? (
+                  <>
+                    <View style={styles.infoDivider} />
+                    <InfoRow label="Référence" value={selected.paymentReference} />
+                  </>
+                ) : null}
+                {selected.paidAt ? (
+                  <>
+                    <View style={styles.infoDivider} />
+                    <InfoRow label="Payé le" value={formatDate(selected.paidAt)} />
+                  </>
+                ) : null}
+              </View>
+
+              {/* 4. Engagements financiers */}
+              <Text style={styles.sectionLabel}>Engagements financiers</Text>
+              <View style={styles.infoCard}>
+                <InfoRow label="Frais de rachat" value={formatXOF(selected.joiningFee)} />
+                <View style={styles.infoDivider} />
+                <InfoRow label="Dépôt de garantie" value={formatXOF(selected.depositAmount)} />
+                <View style={styles.infoDivider} />
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Conditions acceptées</Text>
+                  {selected.conditionsAccepted ? (
+                    <View style={[styles.badge, styles.badgeRow, { backgroundColor: colors.primary.tint }]}>
+                      <Check size={13} color={colors.primary.DEFAULT} />
+                      <Text style={[styles.badgeText, { color: colors.primary.DEFAULT }]}>Oui</Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.condNo}>Non</Text>
+                  )}
+                </View>
+              </View>
+
+              {selected.status === MembershipRequestStatus.REJECTED && selected.rejectionReason && (
+                <View style={[styles.notice, { backgroundColor: colors.danger.tint }]}>
+                  <XCircle size={16} color={colors.danger.DEFAULT} />
+                  <Text style={[styles.noticeText, { color: colors.danger.dark }]}>
+                    Motif du refus : {selected.rejectionReason}
+                  </Text>
+                </View>
+              )}
+            </ScrollView>
+
+            {/* Actions */}
+            <View style={styles.actions}>
+              {selected.status === MembershipRequestStatus.PENDING ? (
+                <>
+                  {approveBlocked(selected) ? (
+                    <View style={[styles.notice, styles.noticeFlat, { backgroundColor: colors.accent.tint }]}>
+                      <Clock size={16} color={colors.accent.dark} />
+                      <Text style={[styles.noticeText, { color: colors.accent.deep }]}>
+                        Paiement non reçu — l'approbation est bloquée tant que le candidat
+                        n'a pas réglé {formatXOF(selected.joiningFee + selected.depositAmount)}.
                       </Text>
                     </View>
+                  ) : (
+                    <Button
+                      title="Approuver l'adhésion"
+                      icon={BadgeCheck}
+                      loading={actionLoading}
+                      onPress={() => handleApprove(selected)}
+                    />
                   )}
+                  <Button
+                    title="Refuser"
+                    variant="secondary"
+                    icon={XCircle}
+                    disabled={actionLoading}
+                    onPress={() => setShowRefuse(true)}
+                  />
                 </>
+              ) : (
+                <View style={[styles.notice, styles.noticeFlat, styles.noticeCenter, { backgroundColor: colors.primary.tint }]}>
+                  <CheckCircle2 size={18} color={colors.primary.DEFAULT} />
+                  <Text style={[styles.decidedText]}>
+                    {selected.status === MembershipRequestStatus.APPROVED
+                      ? 'Adhésion approuvée'
+                      : 'Adhésion refusée'}
+                  </Text>
+                </View>
               )}
-            </Animated.View>
-          </View>
-        </Modal>
+            </View>
+          </>
+        )}
 
-        {/* VISIONNEUSE CNIB PLEIN ÉCRAN */}
-        <Modal visible={!!cnibFace} animationType="fade" transparent={true}>
+        {/* VISIONNEUSE CNIB PLEIN ÉCRAN (imbriquée pour s'afficher au-dessus de la feuille) */}
+        <Modal visible={!!cnibFace} animationType="fade" transparent onRequestClose={() => setCnibFace(null)}>
           <View style={styles.viewerOverlay}>
             <View style={styles.viewerHeader}>
               <Text style={styles.viewerHeaderText}>
                 CNIB — {cnibFace === 'front' ? 'Recto' : 'Verso'}
               </Text>
-              <TouchableOpacity style={styles.viewerClose} onPress={() => setCnibFace(null)}>
-                <X size={20} color="#FFFFFF" />
-              </TouchableOpacity>
+              <IconButton icon={X} color="#FFFFFF" style={styles.viewerClose} accessibilityLabel="Fermer" onPress={() => setCnibFace(null)} />
             </View>
             <View style={styles.docFrame}>
               <View style={styles.docCard}>
                 <View style={styles.docTopRow}>
-                  <ShieldCheck size={26} color="#074B36" />
+                  <ShieldCheck size={24} color={colors.primary.dark} />
                   <Text style={styles.docTitle}>RÉPUBLIQUE DE BURKINA FASO</Text>
                 </View>
                 <View style={styles.docPhotoRow}>
                   <View style={styles.docPhoto}>
                     <Text style={styles.docPhotoText}>{initials(selected?.fullName ?? '')}</Text>
                   </View>
-                  <View style={{ flex: 1 }}>
+                  <View style={styles.flexShrink}>
                     <Text style={styles.docName}>{selected?.fullName ?? '—'}</Text>
                     <Text style={styles.docMeta}>N° BFA-CNIB-00945271</Text>
                     <Text style={styles.docMeta}>Né(e) le 12/04/1990</Text>
@@ -477,13 +400,11 @@ export default function RequestsScreen() {
         </Modal>
 
         {/* VISIONNEUSE SELFIE PLEIN ÉCRAN */}
-        <Modal visible={showSelfie} animationType="fade" transparent={true}>
+        <Modal visible={showSelfie} animationType="fade" transparent onRequestClose={() => setShowSelfie(false)}>
           <View style={styles.viewerOverlay}>
             <View style={styles.viewerHeader}>
               <Text style={styles.viewerHeaderText}>Selfie du candidat</Text>
-              <TouchableOpacity style={styles.viewerClose} onPress={() => setShowSelfie(false)}>
-                <X size={20} color="#FFFFFF" />
-              </TouchableOpacity>
+              <IconButton icon={X} color="#FFFFFF" style={styles.viewerClose} accessibilityLabel="Fermer" onPress={() => setShowSelfie(false)} />
             </View>
             <View style={styles.docFrame}>
               <View style={styles.selfieCard}>
@@ -493,7 +414,7 @@ export default function RequestsScreen() {
                   contentFit="cover"
                 />
                 <View style={styles.selfieLabel}>
-                  <ShieldCheck size={15} color="#074B36" />
+                  <ShieldCheck size={15} color="#FFFFFF" />
                   <Text style={styles.selfieLabelText}>
                     {selected?.fullName ?? 'Candidat'} — {selected?.phoneNumber ?? ''}
                   </Text>
@@ -504,555 +425,366 @@ export default function RequestsScreen() {
           </View>
         </Modal>
 
-        {/* MODALE MOTIF DE REFUS */}
-        <Modal visible={showRefuse} animationType="fade" transparent={true}>
-          <View style={styles.modalOverlay}>
-            <Animated.View entering={FadeInDown.duration(300)} style={styles.modalCard}>
-              <View style={styles.modalHeaderRow}>
-                <Text style={styles.modalTitle}>Refuser l'adhésion</Text>
-                <TouchableOpacity onPress={() => setShowRefuse(false)}>
-                  <X size={20} color="#64748B" />
-                </TouchableOpacity>
-              </View>
-              <Text style={styles.modalSub}>
-                Indiquez le motif du refus pour {selected?.fullName} (optionnel).
-              </Text>
-              <TextInput
-                style={styles.reasonInput}
-                value={rejectReason}
-                onChangeText={setRejectReason}
-                placeholder="Ex : pièce d'identité illisible"
-                placeholderTextColor="#94A3B8"
-                multiline
-              />
-              <TouchableOpacity
-                style={styles.refuseConfirmBtn}
-                activeOpacity={0.88}
-                onPress={() => selected && handleRefuse(selected)}
-                disabled={actionLoading}
-              >
-                {actionLoading ? (
-                  <Loader size={18} color="#FFFFFF" />
-                ) : (
-                  <XCircle size={18} color="#FFFFFF" />
-                )}
-                <Text style={styles.refuseConfirmBtnText}>
-                  {actionLoading ? 'Refus en cours…' : 'Confirmer le refus'}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.cancelBtn} activeOpacity={0.8} onPress={() => setShowRefuse(false)}>
-                <Text style={styles.cancelBtnText}>Annuler</Text>
-              </TouchableOpacity>
-            </Animated.View>
+        {/* FEUILLE MOTIF DE REFUS */}
+        <Sheet visible={showRefuse} onClose={() => setShowRefuse(false)} title="Refuser l'adhésion">
+          <Text style={styles.sheetText}>
+            Indiquez le motif du refus pour {selected?.fullName} (optionnel).
+          </Text>
+          <TextField
+            label="Motif du refus"
+            value={rejectReason}
+            onChangeText={setRejectReason}
+            placeholder="Ex : pièce d'identité illisible"
+            multiline
+          />
+          <View style={styles.actions}>
+            <Button
+              title="Confirmer le refus"
+              variant="danger"
+              icon={XCircle}
+              loading={actionLoading}
+              onPress={() => selected && handleRefuse(selected)}
+            />
+            <Button title="Annuler" variant="ghost" onPress={() => setShowRefuse(false)} />
           </View>
-        </Modal>
-      </SafeAreaView>
+        </Sheet>
+      </Sheet>
     </View>
   );
 }
 
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.infoRow}>
+      <Text style={styles.infoLabel}>{label}</Text>
+      <Text style={styles.infoValue}>{value}</Text>
+    </View>
+  );
+}
+
+function DocRow({
+  icon: Icon,
+  title,
+  sub,
+  onPress,
+}: {
+  icon: typeof FileText;
+  title: string;
+  sub: string;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity style={styles.docRow} activeOpacity={0.6} onPress={onPress} accessibilityRole="button" accessibilityLabel={title}>
+      <View style={styles.docIcon}>
+        <Icon size={19} color={colors.primary.DEFAULT} />
+      </View>
+      <View style={styles.flexShrink}>
+        <Text style={styles.docRowTitle}>{title}</Text>
+        <Text style={styles.docRowSub}>{sub}</Text>
+      </View>
+      <ChevronRight size={18} color={colors.subtle} />
+    </TouchableOpacity>
+  );
+}
+
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  flexShrink: { flex: 1, flexShrink: 1 },
   container: {
     flex: 1,
-    backgroundColor: '#074B36',
+    backgroundColor: colors.bg,
   },
-  topSection: {
-    backgroundColor: '#074B36',
-    paddingHorizontal: 20,
-    paddingBottom: 24,
-  },
-  topBar: {
+
+  /* ── En-tête ── */
+  header: {
+    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 8,
-    marginBottom: 10,
+    paddingHorizontal: 8,
+    backgroundColor: colors.bg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.line,
   },
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    justifyContent: 'center',
+  headerText: {
+    flex: 1,
     alignItems: 'center',
   },
-  countPill: {
-    backgroundColor: '#D9A441',
-  },
-  countPillText: {
-    fontFamily: 'SoraBold',
-    fontSize: 13,
-    color: '#FFFFFF',
-  },
   headerTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 17,
-    color: '#FFFFFF',
-    flex: 1,
-    textAlign: 'center',
-    marginHorizontal: 10,
+    ...typography.headline,
+    color: colors.ink,
   },
   headerSub: {
-    fontFamily: 'WorkSans',
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.8)',
-    textAlign: 'center',
+    ...typography.caption,
+    fontWeight: '400',
+    color: colors.muted,
   },
-  bodySheet: {
+  headerSide: {
+    width: 40,
+  },
+
+  /* ── Corps ── */
+  body: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    marginTop: -20,
-    paddingTop: 16,
+    backgroundColor: colors.fill,
   },
   filterRow: {
     flexDirection: 'row',
     gap: 8,
-    paddingHorizontal: 20,
-    marginBottom: 12,
-  },
-  filterChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-  },
-  filterChipActive: {
-    backgroundColor: '#074B36',
-    borderColor: '#074B36',
-  },
-  filterChipText: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 12,
-    color: '#64748B',
-  },
-  filterChipTextActive: {
-    color: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 12,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 60,
+    paddingHorizontal: 16,
+    paddingBottom: 40,
     gap: 14,
   },
-  listCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+  card: {
+    backgroundColor: colors.bg,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.line,
     overflow: 'hidden',
   },
   requestRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 13,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-    gap: 11,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 12,
   },
-  requestRowLast: {
-    borderBottomWidth: 0,
+  rowDivider: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.line,
   },
   avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
   },
   avatarFallback: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(7, 75, 54, 0.1)',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primary.tint,
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarFallbackText: {
-    fontFamily: 'SoraBold',
-    fontSize: 15,
-    color: '#074B36',
+    ...typography.callout,
+    fontWeight: '600',
+    color: colors.primary.dark,
   },
   rowInfo: {
     flex: 1,
-    gap: 1,
+    flexShrink: 1,
   },
   rowName: {
-    fontFamily: 'SoraBold',
-    fontSize: 14,
-    color: '#0F172A',
+    ...typography.callout,
+    fontWeight: '600',
+    color: colors.ink,
   },
   rowPhone: {
-    fontFamily: 'WorkSans',
-    fontSize: 11.5,
-    color: '#64748B',
+    ...typography.footnote,
+    color: colors.muted,
   },
   rowMeta: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 10.5,
-    color: '#94A3B8',
+    ...typography.caption,
+    fontWeight: '400',
+    color: colors.subtle,
     marginTop: 2,
   },
-  statusBadge: {
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 9,
+  rowRight: {
+    alignItems: 'flex-end',
+    gap: 6,
   },
-  statusBadgeText: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 10.5,
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
   },
-  emptyCard: {
+  badgeRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    paddingVertical: 34,
-    paddingHorizontal: 20,
-    gap: 10,
+    gap: 4,
+  },
+  badgeText: {
+    ...typography.caption,
+    fontWeight: '600',
+  },
+
+  /* ── État vide ── */
+  empty: {
+    alignItems: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 24,
   },
   emptyIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(11, 110, 79, 0.1)',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primary.tint,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 14,
   },
   emptyTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 16,
-    color: '#0F172A',
+    ...typography.headline,
+    color: colors.ink,
+    textAlign: 'center',
   },
   emptyText: {
-    fontFamily: 'WorkSans',
-    fontSize: 12.5,
-    lineHeight: 18,
-    color: '#64748B',
+    ...typography.callout,
+    color: colors.muted,
     textAlign: 'center',
+    marginTop: 6,
   },
   hintText: {
-    fontFamily: 'WorkSans',
-    fontSize: 11.5,
-    lineHeight: 16,
-    color: '#94A3B8',
+    ...typography.footnote,
+    color: colors.subtle,
     textAlign: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 12,
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  modalCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 28,
-    padding: 22,
-    width: '100%',
-    gap: 12,
-    maxHeight: '92%',
-  },
-  modalHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  modalTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 17,
-    color: '#074B36',
-  },
-  modalSub: {
-    fontFamily: 'WorkSans',
-    fontSize: 12.5,
-    lineHeight: 18,
-    color: '#64748B',
-  },
+
+  /* ── Feuille détail ── */
   detailHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    marginBottom: 4,
   },
   detailAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-  },
-  detailAvatarFallback: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(7, 75, 54, 0.12)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  detailAvatarFallbackText: {
-    fontFamily: 'SoraBold',
-    fontSize: 17,
-    color: '#074B36',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
   },
   detailName: {
-    fontFamily: 'SoraBold',
-    fontSize: 16,
-    color: '#0F172A',
+    ...typography.headline,
+    color: colors.ink,
   },
   detailSub: {
-    fontFamily: 'WorkSans',
-    fontSize: 11.5,
-    color: '#64748B',
-    marginTop: 2,
+    ...typography.footnote,
+    color: colors.muted,
   },
   detailScroll: {
-    maxHeight: 340,
+    flexGrow: 0,
+    flexShrink: 1,
   },
   sectionLabel: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 11,
-    color: '#94A3B8',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    marginTop: 14,
-    marginBottom: 6,
-    marginLeft: 2,
+    ...typography.footnote,
+    fontWeight: '600',
+    color: colors.muted,
+    marginTop: 18,
+    marginBottom: 8,
   },
   infoCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    backgroundColor: colors.bg,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.line,
     paddingHorizontal: 14,
-    paddingVertical: 4,
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 11,
-    gap: 10,
+    paddingVertical: 12,
+    gap: 12,
   },
   infoDivider: {
-    height: 1,
-    backgroundColor: '#F1F5F9',
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.line,
   },
   infoLabel: {
-    fontFamily: 'WorkSans',
-    fontSize: 12.5,
-    color: '#64748B',
+    ...typography.callout,
+    color: colors.muted,
+    flexShrink: 1,
   },
   infoValue: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 13,
-    color: '#0F172A',
+    ...typography.callout,
+    fontWeight: '600',
+    color: colors.ink,
     textAlign: 'right',
     flexShrink: 1,
   },
-  cnibRow: {
-    gap: 8,
+  noPayValue: {
+    ...typography.callout,
+    color: colors.muted,
   },
-  cnibBtn: {
+  condNo: {
+    ...typography.callout,
+    fontWeight: '600',
+    color: colors.danger.DEFAULT,
+  },
+  docRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    padding: 12,
-    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 12,
   },
-  cnibIconWrap: {
+  docRowDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.line,
+    marginLeft: 64,
+  },
+  docIcon: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(7, 75, 54, 0.08)',
+    backgroundColor: colors.primary.tint,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  cnibBtnTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 13.5,
-    color: '#0F172A',
+  docRowTitle: {
+    ...typography.callout,
+    fontWeight: '600',
+    color: colors.ink,
   },
-  cnibBtnSub: {
-    fontFamily: 'WorkSans',
-    fontSize: 11,
-    color: '#64748B',
-    marginTop: 1,
+  docRowSub: {
+    ...typography.footnote,
+    color: colors.muted,
   },
-  condOk: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(11, 110, 79, 0.1)',
-    paddingHorizontal: 9,
-    paddingVertical: 3,
-    borderRadius: 9,
-  },
-  condOkText: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 11.5,
-    color: '#0B6E4F',
-  },
-  paidBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(11, 110, 79, 0.1)',
-    paddingHorizontal: 9,
-    paddingVertical: 3,
-    borderRadius: 9,
-  },
-  paidBadgeText: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 11.5,
-    color: '#0B6E4F',
-  },
-  unpaidBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(217, 164, 65, 0.14)',
-    paddingHorizontal: 9,
-    paddingVertical: 3,
-    borderRadius: 9,
-  },
-  unpaidBadgeText: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 11.5,
-    color: '#B9852A',
-  },
-  noPayValue: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 12.5,
-    color: '#64748B',
-  },
-  blockedBanner: {
+  notice: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: 'rgba(217, 164, 65, 0.14)',
-    borderRadius: 14,
-    padding: 13,
-    marginTop: 10,
-  },
-  blockedBannerText: {
-    flex: 1,
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 12,
-    lineHeight: 17,
-    color: '#92400E',
-  },
-  selfieCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    overflow: 'hidden',
-    alignSelf: 'center',
-    width: '86%',
-    aspectRatio: 0.85,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-    elevation: 12,
-  },
-  selfieImage: {
-    flex: 1,
-  },
-  selfieLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 7,
-    backgroundColor: '#074B36',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-  },
-  selfieLabelText: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 12.5,
-    color: '#FFFFFF',
-  },
-  condNo: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 12.5,
-    color: '#E53E3E',
-  },
-  reasonBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(229, 62, 62, 0.08)',
-    borderRadius: 12,
+    borderRadius: radius.md,
     padding: 12,
-    marginTop: 14,
+    marginTop: 16,
   },
-  reasonText: {
+  noticeFlat: {
+    marginTop: 0,
+  },
+  noticeCenter: {
+    justifyContent: 'center',
+  },
+  noticeText: {
     flex: 1,
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 12,
-    color: '#B91C1C',
+    ...typography.footnote,
+    fontWeight: '500',
   },
-  approveBtn: {
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#0B6E4F',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 10,
-    shadowColor: '#0B6E4F',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+  decidedText: {
+    ...typography.callout,
+    fontWeight: '600',
+    color: colors.primary.dark,
   },
-  approveBtnText: {
-    fontFamily: 'SoraBold',
-    fontSize: 14.5,
-    color: '#FFFFFF',
+  actions: {
+    gap: 10,
+    marginTop: 16,
   },
-  btnDisabled: {
-    opacity: 0.7,
+  sheetText: {
+    ...typography.callout,
+    color: colors.muted,
+    marginBottom: 16,
   },
-  refuseBtn: {
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#FECACA',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-  },
-  refuseBtnText: {
-    fontFamily: 'SoraBold',
-    fontSize: 13.5,
-    color: '#E53E3E',
-  },
-  decidedBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(11, 110, 79, 0.1)',
-    borderRadius: 14,
-    padding: 14,
-    marginTop: 10,
-  },
-  decidedBannerText: {
-    fontFamily: 'SoraBold',
-    fontSize: 13.5,
-    color: '#065F46',
-  },
+
+  /* ── Visionneuses plein écran ── */
   viewerOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(2, 6, 23, 0.96)',
-    paddingTop: 60,
-    paddingHorizontal: 24,
+    backgroundColor: 'rgba(22, 24, 29, 0.96)',
+    paddingTop: 56,
+    paddingHorizontal: 20,
   },
   viewerHeader: {
     flexDirection: 'row',
@@ -1061,34 +793,23 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   viewerHeaderText: {
-    fontFamily: 'SoraBold',
-    fontSize: 16,
+    ...typography.headline,
     color: '#FFFFFF',
   },
   viewerClose: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
     backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   docFrame: {
     flex: 1,
     justifyContent: 'center',
   },
   docCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 22,
+    backgroundColor: colors.bg,
+    borderRadius: radius.md,
+    padding: 20,
     aspectRatio: 1.6,
     justifyContent: 'center',
     gap: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-    elevation: 12,
   },
   docTopRow: {
     flexDirection: 'row',
@@ -1096,10 +817,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   docTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 12,
-    color: '#074B36',
-    letterSpacing: 0.5,
+    ...typography.caption,
+    fontWeight: '700',
+    color: colors.primary.dark,
   },
   docPhotoRow: {
     flexDirection: 'row',
@@ -1110,82 +830,66 @@ const styles = StyleSheet.create({
     width: 72,
     height: 88,
     borderRadius: 8,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: colors.fill,
+    borderWidth: 1,
+    borderColor: colors.line,
     justifyContent: 'center',
     alignItems: 'center',
   },
   docPhotoText: {
-    fontFamily: 'SoraBold',
-    fontSize: 22,
-    color: '#94A3B8',
+    ...typography.title,
+    color: colors.subtle,
   },
   docName: {
-    fontFamily: 'SoraBold',
-    fontSize: 15,
-    color: '#0F172A',
+    ...typography.bodyStrong,
+    color: colors.ink,
   },
   docMeta: {
-    fontFamily: 'WorkSans',
-    fontSize: 12,
-    color: '#475569',
+    ...typography.caption,
+    fontWeight: '400',
+    color: colors.inkSoft,
     marginTop: 3,
   },
   docDivider: {
-    height: 1,
-    backgroundColor: '#E2E8F0',
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.line,
   },
   docFoot: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 11.5,
-    color: '#64748B',
+    ...typography.caption,
+    color: colors.muted,
     textAlign: 'center',
   },
   docHint: {
-    fontFamily: 'WorkSans',
-    fontSize: 11.5,
+    ...typography.caption,
+    fontWeight: '400',
     color: 'rgba(255, 255, 255, 0.6)',
     textAlign: 'center',
     marginTop: 16,
   },
-  reasonInput: {
-    minHeight: 96,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    padding: 14,
-    fontFamily: 'WorkSans',
-    fontSize: 13.5,
-    color: '#0F172A',
-    textAlignVertical: 'top',
+  selfieCard: {
+    backgroundColor: colors.bg,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+    alignSelf: 'center',
+    width: '86%',
+    aspectRatio: 0.85,
   },
-  refuseConfirmBtn: {
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#E53E3E',
+  selfieImage: {
+    flex: 1,
+  },
+  selfieLabel: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 2,
+    justifyContent: 'center',
+    gap: 7,
+    backgroundColor: colors.primary.dark,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
   },
-  refuseConfirmBtnText: {
-    fontFamily: 'SoraBold',
-    fontSize: 14.5,
+  selfieLabelText: {
+    ...typography.footnote,
+    fontWeight: '600',
     color: '#FFFFFF',
-  },
-  cancelBtn: {
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cancelBtnText: {
-    fontFamily: 'SoraBold',
-    fontSize: 13.5,
-    color: '#64748B',
+    flexShrink: 1,
   },
 });

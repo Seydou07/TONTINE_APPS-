@@ -2,6 +2,10 @@
  * VENEGA — Design Tokens pour React Native
  * Export TypeScript des valeurs brutes pour NativeWind et les composants natifs.
  * Source de vérité côté mobile — doit rester synchronisé avec tokens.css.
+ *
+ * Typographie : police système (Roboto sur Android, SF Pro sur iOS), comme
+ * les applications grand public. Aucune police à télécharger : démarrage plus
+ * rapide et application plus légère sur les réseaux lents.
  */
 
 export const colors = {
@@ -10,21 +14,33 @@ export const colors = {
     dark: '#074B36',
     light: '#0F8563',
     tint: '#E4F0EB',
+    soft: '#C9E3D8',
   },
   accent: {
     DEFAULT: '#D9A441',
     dark: '#B9852A',
+    deep: '#8A5A12',
     tint: '#FBF1DD',
   },
   purple: {
     DEFAULT: '#7A4E9C',
     tint: '#EFE6F4',
   },
+
+  /** Neutres — texte, traits et fonds */
+  ink: '#16181D',
+  inkSoft: '#3D424A',
+  muted: '#5E6470',
+  subtle: '#8F96A0',
+  line: '#E5E7EB',
+  lineStrong: '#CFD4DA',
+  fill: '#F4F5F7',
+
   bg: '#FFFFFF',
   surface: '#FFFFFF',
-  text: '#22271F',
-  textMuted: '#6E7568',
-  border: '#E9E4D8',
+  text: '#16181D',
+  textMuted: '#5E6470',
+  border: '#E5E7EB',
   button: {
     start: '#0C7A57',
     end: '#074B36',
@@ -32,6 +48,7 @@ export const colors = {
   success: '#0B6E4F',
   danger: {
     DEFAULT: '#C1443A',
+    dark: '#9E352D',
     tint: '#F7E7E5',
   },
   warning: {
@@ -46,8 +63,8 @@ export const colors = {
 
 export const radius = {
   sm: 10,
-  md: 16,
-  lg: 22,
+  md: 14,
+  lg: 20,
   pill: 999,
 } as const;
 
@@ -67,29 +84,57 @@ export const spacing = {
 
 export const shadows = {
   sm: {
-    shadowColor: '#0B6E4F',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 2,
+    shadowColor: '#16181D',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
   },
   md: {
-    shadowColor: '#0B6E4F',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 24,
-    elevation: 4,
+    shadowColor: '#16181D',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.07,
+    shadowRadius: 12,
+    elevation: 3,
   },
   lg: {
-    shadowColor: '#0B6E4F',
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.22,
-    shadowRadius: 30,
-    elevation: 8,
+    shadowColor: '#16181D',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 6,
   },
 } as const;
 
+/** Graisses de la police système. */
 export const fonts = {
-  heading: 'Sora',
-  body: 'WorkSans',
+  regular: '400',
+  medium: '500',
+  semibold: '600',
+  bold: '700',
+} as const;
+
+/**
+ * Échelle typographique — alignée sur les applications grand public
+ * (corps de texte 15, titres d'écran 22, jamais au-delà de 28).
+ */
+export const typography = {
+  display: { fontSize: 28, lineHeight: 34, fontWeight: '700' },
+  title: { fontSize: 22, lineHeight: 28, fontWeight: '700' },
+  headline: { fontSize: 17, lineHeight: 22, fontWeight: '600' },
+  body: { fontSize: 15, lineHeight: 21, fontWeight: '400' },
+  bodyStrong: { fontSize: 15, lineHeight: 21, fontWeight: '600' },
+  callout: { fontSize: 14, lineHeight: 20, fontWeight: '400' },
+  footnote: { fontSize: 13, lineHeight: 18, fontWeight: '400' },
+  caption: { fontSize: 12, lineHeight: 16, fontWeight: '500' },
+} as const;
+
+/** Dimensions des composants interactifs (cibles tactiles ≥ 48 px). */
+export const sizes = {
+  button: 52,
+  buttonSmall: 40,
+  input: 52,
+  listItem: 64,
+  icon: 20,
+  iconButton: 40,
 } as const;

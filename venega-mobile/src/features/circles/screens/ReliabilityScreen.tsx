@@ -2,21 +2,36 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import {
-  ShieldCheck,
-  ArrowLeft,
-  CheckCircle2,
-  Clock,
-  AlertTriangle,
-  ChevronDown,
-  ChevronUp,
-  Award,
-  TrendingUp,
-  HelpCircle,
-} from 'lucide-react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import { ArrowLeft, CheckCircle2, Clock, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react-native';
+import type { LucideIcon } from 'lucide-react-native';
+import { colors, radius, typography } from '@venega/design-tokens';
 import { mockUsers, mockCircles, mockMemberships, mockReliabilityEvents } from '@venega/types';
 import { ReliabilityEventType } from '@venega/types';
+import { IconButton } from '../../../components/ui';
+
+const rules: { icon: LucideIcon; fg: string; bg: string; title: string; sub: string }[] = [
+  {
+    icon: CheckCircle2,
+    fg: colors.primary.DEFAULT,
+    bg: colors.primary.tint,
+    title: 'Paiement à temps (+1 point)',
+    sub: 'Chaque virement effectué avant l’échéance renforce votre score.',
+  },
+  {
+    icon: Clock,
+    fg: colors.accent.dark,
+    bg: colors.accent.tint,
+    title: 'Retard de paiement (−1 point)',
+    sub: 'Cotisation effectuée après la date limite du tour.',
+  },
+  {
+    icon: AlertTriangle,
+    fg: colors.danger.DEFAULT,
+    bg: colors.danger.tint,
+    title: 'Cotisation manquée (−3 points)',
+    sub: 'Non-paiement du tour à la clôture du cercle.',
+  },
+];
 
 export default function ReliabilityScreen() {
   const router = useRouter();
@@ -28,107 +43,70 @@ export default function ReliabilityScreen() {
   const lateEvents = userEvents.filter((e: typeof userEvents[0]) => e.type === ReliabilityEventType.LATE).length;
   const missedEvents = userEvents.filter((e: typeof userEvents[0]) => e.type === ReliabilityEventType.MISSED).length;
   const onTimeEvents = userEvents.filter((e: typeof userEvents[0]) => e.type === ReliabilityEventType.ON_TIME).length;
-  
+
   const avgScore = userMemberships.length > 0
     ? Math.round(userMemberships.reduce((sum, m) => sum + (m.reliabilityScore || 0), 0) / userMemberships.length)
     : 98;
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#074B36" />
-      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        {/* En-tête vert */}
-        <View style={styles.topSection}>
-          <View style={styles.topBar}>
-            <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-              <ArrowLeft size={20} color="#FFFFFF" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Score de Fiabilité</Text>
-            <View style={{ width: 38 }} />
-          </View>
-
-          <View style={styles.heroTextGroup}>
-            <Text style={styles.heroTitle}>Niveau d'engagement</Text>
-            <Text style={styles.heroSubtitle}>
-              Votre réputation de paiement dans vos cercles d'épargne
-            </Text>
-          </View>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        {/* ── En-tête ── */}
+        <View style={styles.header}>
+          <IconButton icon={ArrowLeft} variant="plain" accessibilityLabel="Retour" onPress={() => router.back()} />
+          <Text style={styles.headerTitle}>Score de fiabilité</Text>
+          <View style={styles.headerSpacer} />
         </View>
 
-        {/* Corps emboîté crème */}
-        <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.formCardSheet}>
-          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-            
-            {/* Carte de score global */}
-            <View style={styles.globalScoreCard}>
-              <View style={styles.scoreGaugeCircle}>
-                <Text style={styles.scoreGaugeValue}>{avgScore}%</Text>
-                <Text style={styles.scoreGaugeTag}>Excellent</Text>
-              </View>
-
-              <View style={styles.scoreMetaCol}>
-                <Text style={styles.globalScoreTitle}>Fiabilité Globale</Text>
-                <Text style={styles.globalScoreSub}>
-                  Basée sur l'ensemble de vos cotisations passées
-                </Text>
-
-                <View style={styles.statsMiniGrid}>
-                  <View style={styles.statMiniItem}>
-                    <View style={[styles.statDot, { backgroundColor: '#10B981' }]} />
-                    <Text style={styles.statMiniText}>{onTimeEvents || 12} à temps</Text>
-                  </View>
-                  <View style={styles.statMiniItem}>
-                    <View style={[styles.statDot, { backgroundColor: '#D9A441' }]} />
-                    <Text style={styles.statMiniText}>{lateEvents || 1} retard</Text>
-                  </View>
-                  <View style={styles.statMiniItem}>
-                    <View style={[styles.statDot, { backgroundColor: '#EF4444' }]} />
-                    <Text style={styles.statMiniText}>{missedEvents || 0} manqué</Text>
-                  </View>
-                </View>
+        <ScrollView style={styles.flex} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          {/* ── Score global ── */}
+          <View style={styles.scoreCard}>
+            <Text style={styles.scoreLabel}>Fiabilité globale</Text>
+            <View style={styles.scoreValueRow}>
+              <Text style={styles.scoreValue}>{avgScore}%</Text>
+              <View style={styles.scoreTag}>
+                <Text style={styles.scoreTagText}>Excellent</Text>
               </View>
             </View>
-
-            {/* Explication du système de calcul */}
-            <Text style={styles.sectionHeading}>Comment est calculé votre score ?</Text>
-            <View style={styles.explainCard}>
-              <View style={styles.explainRow}>
-                <View style={[styles.explainIconWrap, { backgroundColor: 'rgba(16, 185, 129, 0.12)' }]}>
-                  <CheckCircle2 size={18} color="#10B981" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.explainTitle}>Paiement à temps (+1 point)</Text>
-                  <Text style={styles.explainSub}>Chaque virement effectué avant l'échéance renforce votre score.</Text>
-                </View>
+            <Text style={styles.scoreSub}>Basée sur l’ensemble de vos cotisations passées</Text>
+            <View style={styles.scoreStats}>
+              <View style={styles.scoreStat}>
+                <Text style={styles.scoreStatValue}>{onTimeEvents || 12}</Text>
+                <Text style={styles.scoreStatLabel}>À temps</Text>
               </View>
-
-              <View style={styles.explainDivider} />
-
-              <View style={styles.explainRow}>
-                <View style={[styles.explainIconWrap, { backgroundColor: 'rgba(217, 164, 65, 0.12)' }]}>
-                  <Clock size={18} color="#D9A441" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.explainTitle}>Retard de paiement (-1 point)</Text>
-                  <Text style={styles.explainSub}>Cotisation effectuée après la date limite du tour.</Text>
-                </View>
+              <View style={styles.scoreDivider} />
+              <View style={styles.scoreStat}>
+                <Text style={styles.scoreStatValue}>{lateEvents || 1}</Text>
+                <Text style={styles.scoreStatLabel}>En retard</Text>
               </View>
-
-              <View style={styles.explainDivider} />
-
-              <View style={styles.explainRow}>
-                <View style={[styles.explainIconWrap, { backgroundColor: 'rgba(239, 68, 68, 0.12)' }]}>
-                  <AlertTriangle size={18} color="#EF4444" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.explainTitle}>Cotisation manquée (-3 points)</Text>
-                  <Text style={styles.explainSub}>Non paiement du tour à la clôture du cercle.</Text>
-                </View>
+              <View style={styles.scoreDivider} />
+              <View style={styles.scoreStat}>
+                <Text style={styles.scoreStatValue}>{missedEvents || 0}</Text>
+                <Text style={styles.scoreStatLabel}>Manquées</Text>
               </View>
             </View>
+          </View>
 
-            {/* Score détaillé par cercle */}
-            <Text style={styles.sectionHeading}>Détails par cercle</Text>
+          {/* ── Calcul du score ── */}
+          <Text style={styles.sectionTitle}>Comment est calculé votre score ?</Text>
+          <View style={styles.card}>
+            {rules.map(({ icon: Icon, fg, bg, title, sub }, i) => (
+              <View key={title} style={styles.row}>
+                <View style={[styles.rowIcon, { backgroundColor: bg }]}>
+                  <Icon size={20} color={fg} strokeWidth={1.8} />
+                </View>
+                <View style={[styles.rowBody, i < rules.length - 1 && styles.rowBorder]}>
+                  <Text style={styles.rowTitle}>{title}</Text>
+                  <Text style={styles.rowSub}>{sub}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+
+          {/* ── Détail par cercle ── */}
+          <Text style={styles.sectionTitle}>Détails par cercle</Text>
+          <View style={styles.circleList}>
             {userMemberships.map((membership) => {
               const circle = mockCircles.find((c) => c.id === membership.circleId);
               const circleEvents = userEvents.filter((e: typeof userEvents[0]) => e.circleId === membership.circleId);
@@ -136,36 +114,42 @@ export default function ReliabilityScreen() {
               if (!circle) return null;
 
               return (
-                <View key={membership.circleId} style={styles.circleScoreCard}>
+                <View key={membership.circleId} style={styles.card}>
                   <TouchableOpacity
-                    style={styles.circleScoreHeader}
-                    activeOpacity={0.8}
+                    style={styles.circleHeader}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded: isExpanded }}
                     onPress={() => setExpandedCircle(isExpanded ? null : membership.circleId)}
                   >
-                    <View style={styles.circleScoreBadge}>
-                      <Text style={styles.circleScoreBadgeText}>{membership.reliabilityScore || 98}%</Text>
+                    <View style={styles.circleBadge}>
+                      <Text style={styles.circleBadgeText}>{membership.reliabilityScore || 98}%</Text>
                     </View>
-
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.circleNameText}>{circle.name}</Text>
-                      <Text style={styles.circleMetaText}>
-                        Tour {membership.turnOrder || 1} • {circleEvents.length || 4} transactions
+                    <View style={styles.flex}>
+                      <Text style={styles.rowTitle} numberOfLines={1}>
+                        {circle.name}
+                      </Text>
+                      <Text style={styles.rowSub}>
+                        Tour {membership.turnOrder || 1} · {circleEvents.length || 4} transactions
                       </Text>
                     </View>
-
-                    {isExpanded ? <ChevronUp size={18} color="#074B36" /> : <ChevronDown size={18} color="#94A3B8" />}
+                    {isExpanded ? (
+                      <ChevronUp size={18} color={colors.muted} />
+                    ) : (
+                      <ChevronDown size={18} color={colors.subtle} />
+                    )}
                   </TouchableOpacity>
 
                   {isExpanded && (
-                    <View style={styles.eventsListWrap}>
+                    <View style={styles.events}>
                       {(circleEvents.length > 0 ? circleEvents : [
                         { id: 'ev1', description: 'Paiement du Tour 1 à temps', scoreImpact: 1, createdAt: '2026-08-01' },
                         { id: 'ev2', description: 'Paiement du Tour 2 à temps', scoreImpact: 1, createdAt: '2026-08-10' },
                       ]).map((event: any) => (
-                        <View key={event.id} style={styles.eventRowItem}>
-                          <CheckCircle2 size={16} color="#10B981" />
-                          <Text style={styles.eventDescText}>{event.description}</Text>
-                          <Text style={styles.eventImpactText}>+{event.scoreImpact}</Text>
+                        <View key={event.id} style={styles.eventRow}>
+                          <CheckCircle2 size={16} color={colors.primary.DEFAULT} />
+                          <Text style={styles.eventText}>{event.description}</Text>
+                          <Text style={styles.eventImpact}>+{event.scoreImpact}</Text>
                         </View>
                       ))}
                     </View>
@@ -173,239 +157,98 @@ export default function ReliabilityScreen() {
                 </View>
               );
             })}
-          </ScrollView>
-        </Animated.View>
+          </View>
+        </ScrollView>
       </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#074B36',
-  },
-  topSection: {
-    backgroundColor: '#074B36',
-    paddingHorizontal: 20,
-    paddingBottom: 36,
-  },
-  topBar: {
+  container: { flex: 1, backgroundColor: colors.fill },
+  safe: { flex: 1, backgroundColor: colors.bg },
+  flex: { flex: 1 },
+
+  header: {
+    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 8,
-    marginBottom: 12,
+    paddingHorizontal: 8,
+    backgroundColor: colors.bg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.line,
   },
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
+  headerTitle: { flex: 1, ...typography.headline, color: colors.ink, textAlign: 'center' },
+  headerSpacer: { width: 40 },
+
+  scroll: { padding: 16, paddingBottom: 40, backgroundColor: colors.fill, flexGrow: 1 },
+
+  scoreCard: {
+    backgroundColor: colors.primary.dark,
+    borderRadius: 24,
+    padding: 20,
   },
-  headerTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 20,
-    color: '#FFFFFF',
+  scoreLabel: { ...typography.footnote, color: 'rgba(255,255,255,0.72)' },
+  scoreValueRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 4 },
+  scoreValue: { ...typography.display, color: '#FFFFFF' },
+  scoreTag: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,255,255,0.16)',
   },
-  heroTextGroup: {
-    marginTop: 4,
-  },
-  heroTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 26,
-    color: '#FFFFFF',
-  },
-  heroSubtitle: {
-    fontFamily: 'WorkSans',
-    fontSize: 13.5,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginTop: 2,
-  },
-  formCardSheet: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    marginTop: -20,
-    paddingTop: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -6 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 60,
-    gap: 16,
-  },
-  globalScoreCard: {
+  scoreTagText: { ...typography.caption, color: '#FFFFFF' },
+  scoreSub: { ...typography.footnote, color: 'rgba(255,255,255,0.72)', marginTop: 4 },
+  scoreStats: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    padding: 18,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    gap: 16,
+    marginTop: 18,
+    paddingTop: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.2)',
   },
-  scoreGaugeCircle: {
-    width: 82,
-    height: 82,
-    borderRadius: 41,
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
-    borderColor: '#10B981',
-  },
-  scoreGaugeValue: {
-    fontFamily: 'SoraBold',
-    fontSize: 24,
-    color: '#074B36',
-  },
-  scoreGaugeTag: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 10,
-    color: '#10B981',
-    marginTop: -2,
-  },
-  scoreMetaCol: {
-    flex: 1,
-  },
-  globalScoreTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 16,
-    color: '#0F172A',
-  },
-  globalScoreSub: {
-    fontFamily: 'WorkSans',
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 2,
-    marginBottom: 8,
-  },
-  statsMiniGrid: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  statMiniItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  statDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  statMiniText: {
-    fontFamily: 'WorkSansMedium',
-    fontSize: 11,
-    color: '#334155',
-  },
-  sectionHeading: {
-    fontFamily: 'SoraBold',
-    fontSize: 15,
-    color: '#074B36',
-    marginTop: 6,
-  },
-  explainCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    gap: 12,
-  },
-  explainRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  explainIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  explainTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 13.5,
-    color: '#0F172A',
-  },
-  explainSub: {
-    fontFamily: 'WorkSans',
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 1,
-  },
-  explainDivider: {
-    height: 1,
-    backgroundColor: '#F1F5F9',
-  },
-  circleScoreCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+  scoreStat: { flex: 1 },
+  scoreStatValue: { ...typography.bodyStrong, color: '#FFFFFF' },
+  scoreStatLabel: { ...typography.caption, fontWeight: '400', color: 'rgba(255,255,255,0.72)', marginTop: 2 },
+  scoreDivider: { width: 1, height: 28, backgroundColor: 'rgba(255,255,255,0.2)', marginHorizontal: 12 },
+
+  sectionTitle: { ...typography.headline, color: colors.ink, marginTop: 28, marginBottom: 10, marginHorizontal: 4 },
+
+  card: {
+    backgroundColor: colors.bg,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.line,
     overflow: 'hidden',
   },
-  circleScoreHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-    gap: 12,
-  },
-  circleScoreBadge: {
+  circleList: { gap: 10 },
+
+  row: { flexDirection: 'row', alignItems: 'center', paddingLeft: 14, gap: 12 },
+  rowIcon: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  rowBody: { flex: 1, paddingVertical: 14, paddingRight: 14 },
+  rowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
+  rowTitle: { ...typography.callout, fontWeight: '600', color: colors.ink },
+  rowSub: { ...typography.footnote, color: colors.muted, marginTop: 2 },
+
+  circleHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
+  circleBadge: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(7, 75, 54, 0.08)',
+    backgroundColor: colors.primary.tint,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  circleScoreBadgeText: {
-    fontFamily: 'SoraBold',
-    fontSize: 14,
-    color: '#074B36',
-  },
-  circleNameText: {
-    fontFamily: 'SoraBold',
-    fontSize: 14,
-    color: '#0F172A',
-  },
-  circleMetaText: {
-    fontFamily: 'WorkSans',
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 1,
-  },
-  eventsListWrap: {
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-    padding: 14,
+  circleBadgeText: { ...typography.footnote, fontWeight: '700', color: colors.primary.dark },
+
+  events: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.line,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     gap: 10,
-    backgroundColor: '#FFFFFF',
   },
-  eventRowItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  eventDescText: {
-    fontFamily: 'WorkSansMedium',
-    fontSize: 12.5,
-    color: '#0F172A',
-    flex: 1,
-  },
-  eventImpactText: {
-    fontFamily: 'SoraBold',
-    fontSize: 12.5,
-    color: '#10B981',
-  },
+  eventRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  eventText: { ...typography.footnote, color: colors.inkSoft, flex: 1 },
+  eventImpact: { ...typography.footnote, fontWeight: '700', color: colors.primary.DEFAULT },
 });

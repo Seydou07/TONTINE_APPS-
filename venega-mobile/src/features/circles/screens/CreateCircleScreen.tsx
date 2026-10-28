@@ -3,65 +3,59 @@ import {
   View,
   Text,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   ScrollView,
-  Switch,
   StatusBar,
   KeyboardAvoidingView,
   Platform,
+  Alert,
+  Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
+import * as Clipboard from 'expo-clipboard';
 import {
   ArrowLeft,
+  Banknote,
   Check,
-  Camera,
-  Clock,
-  Heart,
-  Layers,
-  Package,
-  Minus,
-  Plus,
+  Copy,
+  HeartHandshake,
+  ImagePlus,
   Info,
+  Package,
+  Repeat,
+  Share2,
+  X,
 } from 'lucide-react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
-import { addCircle, CIRCLE_CREATION_FEE } from '../circleStore';
+import Animated, { FadeIn } from 'react-native-reanimated';
+import { colors, radius, typography } from '@venega/design-tokens';
 import type { Circle } from '@venega/types';
 import { ReplacementRule, UnlockRule, RefundRule, KycRequirement } from '@venega/types';
+import { addCircle, CIRCLE_CREATION_FEE } from '../circleStore';
+import {
+  Button,
+  Chip,
+  IconButton,
+  NumberStepper,
+  OptionCard,
+  Segmented,
+  SettingRow,
+  TextField,
+  Toggle,
+} from '../../../components/ui';
 
-const circleTypes = [
-  {
-    key: 'TONTINE_ONLY',
-    label: 'Tontine',
-    desc: 'Chaque membre cotise à tour de rôle et reçoit la cagnotte à son tour',
-    icon: Clock,
-  },
-  {
-    key: 'SOLIDARITY_ONLY',
-    label: 'Caisse de solidarité',
-    desc: "Un fonds commun pour venir en aide aux membres en cas de besoin, sans rotation",
-    icon: Heart,
-  },
-  {
-    key: 'HYBRID',
-    label: 'Hybride',
-    desc: 'Tontine et caisse de solidarité réunies dans un seul cercle',
-    icon: Layers,
-  },
-  {
-    key: 'NATURE',
-    label: 'Tontine en nature',
-    desc: 'Cagnotte distribuée en biens ou produits (moto, vivres, pagnes...)',
-    icon: Package,
-  },
-] as const;
+type Kind = 'TONTINE' | 'SOLIDARITY';
+type Mode = 'CASH' | 'NATURE';
+
+const STEPS = ['Type', 'Cotisations', 'Règles', 'Récapitulatif'];
 
 const frequencies = [
-  { key: 'DAILY', label: 'Journalier', desc: 'Chaque jour' },
-  { key: 'WEEKLY', label: 'Hebdomadaire', desc: 'Chaque semaine' },
-  { key: 'MONTHLY', label: 'Mensuel', desc: 'Chaque mois' },
-  { key: 'CUSTOM', label: 'Personnalisé', desc: 'Intervalle sur mesure' },
+  { key: 'DAILY', label: 'Chaque jour' },
+  { key: 'WEEKLY', label: 'Chaque semaine' },
+  { key: 'MONTHLY', label: 'Chaque mois' },
+  { key: 'CUSTOM', label: 'Personnalisée' },
 ] as const;
 
 const frequencyLabel: Record<string, string> = {
@@ -71,902 +65,803 @@ const frequencyLabel: Record<string, string> = {
   CUSTOM: 'Personnalisée',
 };
 
-const kycRequirementOptions = [
-  { key: 'REQUIRE_NONE', label: 'Aucun document', desc: 'À vos risques et périls (membres de confiance)' },
-  { key: 'REQUIRE_CNIB', label: 'CNIB obligatoire', desc: 'Une pièce d\'identité valide requise' },
-  { key: 'REQUIRE_CNIB_SELFIE', label: 'CNIB + Selfie (Recommandé)', desc: 'Sécurité maximale et vérification faciale' },
+const kycOptions = [
+  { key: KycRequirement.CNIB_SELFIE, label: 'CNIB + selfie', desc: 'Vérification complète de l’identité', badge: 'Recommandé' },
+  { key: KycRequirement.CNIB, label: 'CNIB uniquement', desc: 'Pièce d’identité recto et verso' },
+  { key: KycRequirement.NONE, label: 'Aucun document', desc: 'Pour un cercle entre proches de confiance' },
 ];
 
-const leavingRuleOptions = [
-  { key: 'BUYOUT_REQUIRED', label: 'Rachat du tour obligatoire', desc: 'Le nouvel entrant rachète les cotisations passées' },
-  { key: 'REDUCE_POOL', label: 'Réduction de la cagnotte', desc: 'La cagnotte s\'ajuste au nombre de membres restants' },
+const leavingOptions = [
+  { key: 'BUYOUT_REQUIRED', label: 'Rachat des tours passés', desc: 'Le remplaçant rachète les cotisations déjà versées' },
+  { key: 'REDUCE_POOL', label: 'Cagnotte ajustée', desc: 'La cagnotte s’adapte au nombre de membres restants' },
 ];
 
 const exclusionOptions = ['2', '3', '4', '5'];
 
-const stepLabels = ['Type', 'Paramètres', 'Règles', 'Résumé'];
-
-const formatXOF = (amount: number) =>
-  new Intl.NumberFormat('fr-FR').format(amount) + ' F CFA';
+const formatXOF = (amount: number) => new Intl.NumberFormat('fr-FR').format(Math.round(amount)) + ' F CFA';
+const toNumber = (v: string) => parseInt(v.replace(/\D/g, ''), 10) || 0;
 
 export default function CreateCircleScreen() {
   const router = useRouter();
-
   const [step, setStep] = useState(1);
+
+  // Étape 1 — type
+  const [kind, setKind] = useState<Kind>('TONTINE');
+  const [mode, setMode] = useState<Mode>('CASH');
+  const [goalItem, setGoalItem] = useState('');
+  const [goalDetails, setGoalDetails] = useState('');
+  const [goalValue, setGoalValue] = useState('');
+  const [goalImage, setGoalImage] = useState<string | null>(null);
+
+  // Étape 2 — cotisations
   const [name, setName] = useState('');
-  const [type, setType] = useState<string>('HYBRID');
+  const [amount, setAmount] = useState('');
+  const [managementFee, setManagementFee] = useState('');
   const [frequency, setFrequency] = useState<string>('MONTHLY');
-  const [customDays, setCustomDays] = useState('3');
+  const [customDays, setCustomDays] = useState('');
+  const [maxMembers, setMaxMembers] = useState(10);
 
-  // Tontine en nature / Box
-  const [natureDescription, setNatureDescription] = useState('');
-  const [naturePhotoUploaded, setNaturePhotoUploaded] = useState(false);
-
-  // Cotisations & Dépôt
-  const [tontineAmount, setTontineAmount] = useState('10000');
-  const [solidarityAmount, setSolidarityAmount] = useState('2000');
-  const [managementFee, setManagementFee] = useState('500');
-  const [maxMembers, setMaxMembers] = useState('10');
-
-  // Règles du bureau
+  // Étape 3 — règles
   const [beneficiariesPerTurn, setBeneficiariesPerTurn] = useState(1);
   const [exclusionThreshold, setExclusionThreshold] = useState('3');
   const [depositRequired, setDepositRequired] = useState(false);
-  const [kycRequirement, setKycRequirement] = useState('REQUIRE_CNIB_SELFIE');
+  const [kycRequirement, setKycRequirement] = useState<KycRequirement>(KycRequirement.CNIB_SELFIE);
   const [leavingRule, setLeavingRule] = useState('BUYOUT_REQUIRED');
   const [conditions, setConditions] = useState('');
 
-  // Cercle créé (en attente d'activation)
   const [createdCircle, setCreatedCircle] = useState<Circle | null>(null);
 
-  const usesTontine = type === 'TONTINE_ONLY' || type === 'HYBRID' || type === 'NATURE';
-  const usesSolidarity = type === 'SOLIDARITY_ONLY' || type === 'HYBRID';
+  const isTontine = kind === 'TONTINE';
+  const isNature = isTontine && mode === 'NATURE';
+  const contribution = toNumber(amount);
+  const fee = toNumber(managementFee);
+  const value = toNumber(goalValue);
+  const perMember = contribution + fee;
+  const potPerTurn = isTontine ? (contribution * maxMembers) / Math.max(beneficiariesPerTurn, 1) : 0;
+  const suggestedNature = isNature && value > 0 ? Math.ceil(value / maxMembers / 100) * 100 : 0;
 
-  const tontine = usesTontine ? parseFloat(tontineAmount) || 0 : 0;
-  const solidarity = usesSolidarity ? parseFloat(solidarityAmount) || 0 : 0;
-  const fee = parseFloat(managementFee) || 0;
-  const total = tontine + solidarity + fee;
+  const typeLabel = !isTontine ? 'Caisse de solidarité' : isNature ? 'Tontine en nature' : 'Tontine en espèces';
 
-  const buildCircle = (id: string, inviteCodeValue: string): Circle => ({
+  const stepValid =
+    step === 1
+      ? !isNature || goalItem.trim().length > 1
+      : step === 2
+      ? name.trim().length >= 3 && contribution > 0 && (frequency !== 'CUSTOM' || toNumber(customDays) > 0)
+      : true;
+
+  const pickGoalImage = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Accès à la galerie requis', 'Autorisez l’accès à vos photos pour ajouter la photo du bien.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.7,
+    });
+    if (!result.canceled && result.assets[0]) setGoalImage(result.assets[0].uri);
+  };
+
+  const buildCircle = (id: string, inviteCode: string): Circle => ({
     id,
     name: name.trim(),
-    type: type as Circle['type'],
-    tontineAmount: usesTontine ? tontine : 0,
-    solidarityAmount: usesSolidarity ? solidarity : 0,
+    type: (isTontine ? (isNature ? 'NATURE' : 'TONTINE_ONLY') : 'SOLIDARITY_ONLY') as Circle['type'],
+    tontineAmount: isTontine ? contribution : 0,
+    solidarityAmount: isTontine ? 0 : contribution,
     frequency: frequency as Circle['frequency'],
-    contributionMode:
-      type === 'NATURE' ? ('NATURE' as Circle['contributionMode']) : ('CASH' as Circle['contributionMode']),
-    beneficiariesPerTurn: usesTontine ? beneficiariesPerTurn : 1,
-    inviteCode: inviteCodeValue,
+    contributionMode: (isNature ? 'NATURE' : 'CASH') as Circle['contributionMode'],
+    beneficiariesPerTurn: isTontine ? beneficiariesPerTurn : 1,
+    inviteCode,
     memberCount: 1,
-    maxMembers: parseInt(maxMembers, 10) || 10,
+    maxMembers,
     createdAt: new Date().toISOString(),
     rules: {
       refundRule: RefundRule.AT_CYCLE_END,
-      replacementRule:
-        leavingRule === 'BUYOUT_REQUIRED'
-          ? ReplacementRule.PAY_PAST_TURNS
-          : ReplacementRule.REDUCED_POT,
+      replacementRule: !isTontine
+        ? ReplacementRule.NONE
+        : leavingRule === 'BUYOUT_REQUIRED'
+        ? ReplacementRule.PAY_PAST_TURNS
+        : ReplacementRule.REDUCED_POT,
       unlockRule: UnlockRule.ALL_APPROVERS,
       approversRequired: 3,
       reservePercent: 5,
       allowPublicContributions: false,
       minContribution: undefined,
-      goalAmount: undefined,
-      goalItem: undefined,
-      kycRequirement: kycRequirement as KycRequirement,
+      goalAmount: isNature && value > 0 ? value : undefined,
+      goalItem: isNature ? goalItem.trim() : undefined,
+      goalDetails: isNature && goalDetails.trim() ? goalDetails.trim() : undefined,
+      goalImageUrl: isNature && goalImage ? goalImage : undefined,
+      kycRequirement,
     },
     managementFee: fee,
     depositRequired,
-    recalculateOnLeave: leavingRule === 'REDUCE_POOL',
+    recalculateOnLeave: isTontine && leavingRule === 'REDUCE_POOL',
     exclusionThreshold: parseInt(exclusionThreshold, 10) || 3,
     nextPaymentRequired: false,
     conditions: conditions.trim(),
     isActive: false,
   });
 
-  const handleCreateCircle = () => {
+  const handleCreate = () => {
     const prefix = (name.replace(/[^a-zA-Z]/g, '').substring(0, 4) || 'VENE').toUpperCase();
     const code = prefix + Math.floor(1000 + Math.random() * 9000).toString();
-    const id = 'c' + Date.now().toString(36);
-    const circle = buildCircle(id, code);
+    const circle = buildCircle('c' + Date.now().toString(36), code);
     addCircle(circle);
     setCreatedCircle(circle);
   };
 
+  const goBack = () => (step > 1 ? setStep(step - 1) : router.back());
+  const goNext = () => (step < STEPS.length ? setStep(step + 1) : handleCreate());
+
   if (createdCircle) {
-    return (
-      <View style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="#074B36" />
-        <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-          <View style={styles.successTopSection}>
-            <View style={styles.successTopBar}>
-              <View style={{ width: 38 }} />
-              <Text style={styles.successStepText}>Cercle créé</Text>
-              <View style={{ width: 38 }} />
-            </View>
-            <View style={styles.welcomeHero}>
-              <View style={styles.welcomeIcon}>
-                <Check size={44} color="#FFFFFF" />
-              </View>
-              <Text style={styles.welcomeTitle}>Cercle créé !</Text>
-              <Text style={styles.welcomeSub}>
-                Bienvenue dans votre nouveau cercle{'\n'}
-                <Text style={{ fontFamily: 'SoraBold' }}>{createdCircle.name}</Text>
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.successCardSheet}>
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-              <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.welcomeCard}>
-                <View style={styles.welcomeCardHeader}>
-                  <Clock size={20} color="#074B36" />
-                  <Text style={styles.welcomeCardTitle}>En attente d'activation</Text>
-                </View>
-                <Text style={styles.welcomeCardText}>
-                  Votre cercle apparaît maintenant dans votre liste de cercles, grisé. Appuyez
-                  dessus pour régler les frais d'activation ({formatXOF(CIRCLE_CREATION_FEE)}) par mobile money et
-                  mettre votre cercle en service.
-                </Text>
-
-                <View style={styles.welcomeInviteRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.welcomeInviteLabel}>Code d'invitation</Text>
-                    <Text style={styles.welcomeInviteCode}>{createdCircle.inviteCode}</Text>
-                  </View>
-                </View>
-
-                <TouchableOpacity
-                  style={styles.primaryPillBtn}
-                  activeOpacity={0.88}
-                  onPress={() => router.replace('/(tabs)/circles')}
-                >
-                  <Text style={styles.primaryPillBtnText}>Voir mes cercles</Text>
-                </TouchableOpacity>
-              </Animated.View>
-            </ScrollView>
-          </View>
-        </SafeAreaView>
-      </View>
-    );
+    return <CreatedView circle={createdCircle} onDone={() => router.replace('/(tabs)/circles')} />;
   }
-
-  const typeMeta = circleTypes.find((t) => t.key === type)!;
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }} edges={['top', 'bottom']}>
-        <View style={styles.wizardHeader}>
-          <View style={styles.wizardHeaderRow}>
-            <TouchableOpacity
-              style={styles.wizardBackBtn}
-              activeOpacity={0.7}
-              onPress={() => (step > 1 ? setStep(step - 1) : router.back())}
-            >
-              <ArrowLeft size={20} color="#0F172A" />
-            </TouchableOpacity>
-            <Text style={styles.wizardHeaderTitle}>Créer un cercle</Text>
-          </View>
-
-          <View style={styles.stepperRow}>
-            {stepLabels.map((label, idx) => {
-              const completed = idx < step - 1;
-              const current = idx === step - 1;
-              return (
-                <React.Fragment key={label}>
-                  <View style={styles.stepperCol}>
-                    <View style={[styles.stepperDot, (completed || current) && styles.stepperDotDone]}>
-                      {completed ? (
-                        <Check size={12} color="#FFFFFF" strokeWidth={3} />
-                      ) : (
-                        <Text style={[styles.stepperDotNum, current && styles.stepperDotNumActive]}>{idx + 1}</Text>
-                      )}
-                    </View>
-                    <Text style={[styles.stepperLabel, current && styles.stepperLabelActive]} numberOfLines={1}>
-                      {label}
-                    </Text>
-                  </View>
-                  {idx < stepLabels.length - 1 && (
-                    <View style={[styles.stepperLine, idx < step - 1 && styles.stepperLineDone]} />
-                  )}
-                </React.Fragment>
-              );
-            })}
-          </View>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <SafeAreaView style={styles.flex} edges={['top', 'bottom']}>
+        {/* ── En-tête + progression ── */}
+        <View style={styles.header}>
+          <IconButton icon={ArrowLeft} variant="plain" accessibilityLabel="Retour" onPress={goBack} />
+          <Text style={styles.headerTitle}>Nouveau cercle</Text>
+          <Text style={styles.headerStep}>
+            {step}/{STEPS.length}
+          </Text>
+        </View>
+        <View style={styles.progress}>
+          {STEPS.map((label, i) => (
+            <View key={label} style={[styles.progressSeg, i < step && styles.progressSegDone]} />
+          ))}
         </View>
 
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView
-            contentContainerStyle={styles.wizardScrollContent}
+            contentContainerStyle={styles.scroll}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {/* ÉTAPE 1 — TYPE */}
-            {step === 1 && (
-              <Animated.View entering={FadeInDown.duration(350)} style={styles.stepGroup}>
-                <Text style={styles.stepTitle}>Quel type de cercle voulez-vous créer ?</Text>
-                <Text style={styles.stepSubtitle}>
-                  Ce choix détermine le fonctionnement du cercle. Vous pourrez y ajouter des membres ensuite.
-                </Text>
+            <Animated.View key={step} entering={FadeIn.duration(220)}>
+              <Text style={styles.eyebrow}>{STEPS[step - 1]}</Text>
 
-                <View style={styles.typeCardsCol}>
-                  {circleTypes.map((t) => {
-                    const active = type === t.key;
-                    const Icon = t.icon;
-                    return (
-                      <TouchableOpacity
-                        key={t.key}
-                        style={[styles.typeCard, active && styles.typeCardActive]}
-                        activeOpacity={0.85}
-                        onPress={() => setType(t.key)}
-                      >
-                        <View style={styles.typeCardIconWrap}>
-                          <Icon size={20} color="#0B6E4F" />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.typeCardTitle}>{t.label}</Text>
-                          <Text style={styles.typeCardDesc}>{t.desc}</Text>
-                        </View>
-                        {active && (
-                          <View style={styles.typeCardCheck}>
-                            <Check size={13} color="#FFFFFF" strokeWidth={3} />
-                          </View>
-                        )}
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
+              {/* ── ÉTAPE 1 — TYPE ── */}
+              {step === 1 && (
+                <>
+                  <Text style={styles.stepTitle}>Quel cercle voulez-vous créer ?</Text>
+                  <Text style={styles.stepSubtitle}>Ce choix définit le fonctionnement du cercle.</Text>
 
-                {type === 'NATURE' && (
-                  <Animated.View entering={FadeInDown.duration(400)} style={styles.natureBoxSection}>
-                    <Text style={styles.fieldLabel}>Description du lot / Box en nature *</Text>
-                    <TextInput
-                      style={[styles.pillInput, styles.textAreaInput]}
-                      placeholder="Ex: Moto Yamaha 125cc OU Box (5 sacs de riz 25kg + 5L huile + 2 cartons sardines)..."
-                      placeholderTextColor="#94A3B8"
-                      multiline
-                      value={natureDescription}
-                      onChangeText={setNatureDescription}
+                  <View style={styles.stack}>
+                    <OptionCard
+                      icon={Repeat}
+                      title="Tontine"
+                      description="Chaque membre cotise et reçoit la cagnotte à son tour."
+                      selected={isTontine}
+                      onPress={() => setKind('TONTINE')}
                     />
-                    <Text style={styles.fieldLabel}>Photo du lot / de la cagnotte</Text>
-                    <TouchableOpacity
-                      style={[styles.naturePhotoCard, naturePhotoUploaded && styles.naturePhotoCardDone]}
-                      onPress={() => setNaturePhotoUploaded(true)}
-                    >
-                      <Camera size={22} color={naturePhotoUploaded ? '#10B981' : '#074B36'} />
-                      <Text style={styles.naturePhotoText}>
-                        {naturePhotoUploaded ? 'Photo du lot ajoutée avec succès' : 'Prendre ou uploader une photo du lot'}
-                      </Text>
-                    </TouchableOpacity>
-                  </Animated.View>
-                )}
-
-                <TouchableOpacity style={styles.primaryPillBtn} onPress={() => setStep(2)}>
-                  <Text style={styles.primaryPillBtnText}>Continuer</Text>
-                </TouchableOpacity>
-              </Animated.View>
-            )}
-
-            {/* ÉTAPE 2 — PARAMÈTRES */}
-            {step === 2 && (
-              <Animated.View entering={FadeInDown.duration(350)} style={styles.stepGroup}>
-                <Text style={styles.stepTitle}>Paramètres du cercle</Text>
-                <Text style={styles.stepSubtitle}>Nom, montants et fréquence des cotisations.</Text>
-
-                <Text style={styles.fieldLabel}>Nom du cercle *</Text>
-                <TextInput
-                  style={styles.pillInput}
-                  placeholder="Ex: Tontine Commerçants Dassasgho"
-                  placeholderTextColor="#94A3B8"
-                  value={name}
-                  onChangeText={setName}
-                />
-
-                {usesTontine && (
-                  <>
-                    <Text style={styles.fieldLabel}>Cotisation tontine (F CFA / tour) *</Text>
-                    <TextInput
-                      style={styles.pillInput}
-                      placeholder="Ex: 10000"
-                      placeholderTextColor="#94A3B8"
-                      keyboardType="numeric"
-                      value={tontineAmount}
-                      onChangeText={setTontineAmount}
-                    />
-                  </>
-                )}
-
-                {usesSolidarity && (
-                  <>
-                    <Text style={styles.fieldLabel}>Cotisation caisse solidarité (F CFA) *</Text>
-                    <TextInput
-                      style={styles.pillInput}
-                      placeholder="Ex: 2000"
-                      placeholderTextColor="#94A3B8"
-                      keyboardType="numeric"
-                      value={solidarityAmount}
-                      onChangeText={setSolidarityAmount}
-                    />
-                  </>
-                )}
-
-                <Text style={styles.fieldLabel}>Frais de gestion du Président (F CFA)</Text>
-                <TextInput
-                  style={styles.pillInput}
-                  placeholder="Ex: 500"
-                  placeholderTextColor="#94A3B8"
-                  keyboardType="numeric"
-                  value={managementFee}
-                  onChangeText={setManagementFee}
-                />
-
-                <View style={styles.summaryTotalBox}>
-                  <Text style={styles.summaryTotalLabel}>Cotisation totale par membre et par tour</Text>
-                  <Text style={styles.summaryTotalAmount}>{formatXOF(total)}</Text>
-                  <Text style={styles.summarySubNote}>Cotisation + Frais de gestion président inclus</Text>
-                </View>
-
-                <Text style={styles.fieldLabel}>Fréquence des cotisations *</Text>
-                <View style={styles.frequencyGrid}>
-                  {frequencies.map((f) => {
-                    const isSelected = frequency === f.key;
-                    return (
-                      <TouchableOpacity
-                        key={f.key}
-                        style={[styles.frequencyCard, isSelected && styles.frequencyCardActive]}
-                        onPress={() => setFrequency(f.key)}
-                        activeOpacity={0.8}
-                      >
-                        <View style={styles.frequencyTitleRow}>
-                          <Text style={[styles.frequencyTitle, isSelected && styles.frequencyTitleActive]}>
-                            {f.label}
-                          </Text>
-                          {isSelected && (
-                            <View style={styles.frequencyCheck}>
-                              <Check size={11} color="#FFFFFF" strokeWidth={3} />
-                            </View>
-                          )}
-                        </View>
-                        <Text style={[styles.frequencySub, isSelected && styles.frequencySubActive]}>
-                          {f.desc}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-
-                {frequency === 'CUSTOM' && (
-                  <View style={styles.customFrequencyBox}>
-                    <Text style={styles.fieldLabel}>Intervalle de cotisation (en jours) *</Text>
-                    <TextInput
-                      style={styles.pillInput}
-                      placeholder="Ex: 3 (tous les 3 jours) ou 14 (tous les 14 jours)"
-                      placeholderTextColor="#94A3B8"
-                      keyboardType="numeric"
-                      value={customDays}
-                      onChangeText={setCustomDays}
+                    <OptionCard
+                      icon={HeartHandshake}
+                      title="Caisse de solidarité"
+                      description="Un fonds commun pour aider un membre dans le besoin."
+                      selected={!isTontine}
+                      onPress={() => setKind('SOLIDARITY')}
                     />
                   </View>
-                )}
 
-                <Text style={styles.fieldLabel}>Nombre maximum de membres *</Text>
-                <TextInput
-                  style={styles.pillInput}
-                  placeholder="Ex: 10"
-                  placeholderTextColor="#94A3B8"
-                  keyboardType="numeric"
-                  value={maxMembers}
-                  onChangeText={setMaxMembers}
-                />
+                  {isTontine && (
+                    <Animated.View entering={FadeIn.duration(220)} style={styles.section}>
+                      <Text style={styles.sectionTitle}>Que reçoit le bénéficiaire ?</Text>
+                      <Segmented<Mode>
+                        value={mode}
+                        onChange={setMode}
+                        options={[
+                          { key: 'CASH', label: 'De l’argent', icon: Banknote },
+                          { key: 'NATURE', label: 'Un bien', icon: Package },
+                        ]}
+                      />
+                      <Text style={styles.sectionHint}>
+                        {isNature
+                          ? 'Les cotisations servent à acheter un bien, remis à tour de rôle.'
+                          : 'La cagnotte est versée en mobile money au bénéficiaire du tour.'}
+                      </Text>
+                    </Animated.View>
+                  )}
 
-                <TouchableOpacity
-                  style={[styles.primaryPillBtn, !name.trim() && styles.primaryPillBtnDisabled]}
-                  disabled={!name.trim()}
-                  onPress={() => setStep(3)}
-                >
-                  <Text style={styles.primaryPillBtnText}>Continuer</Text>
-                </TouchableOpacity>
-              </Animated.View>
-            )}
+                  {isNature && (
+                    <Animated.View entering={FadeIn.duration(260)} style={styles.natureCard}>
+                      <Text style={styles.natureTitle}>Le bien à remettre</Text>
 
-            {/* ÉTAPE 3 — RÈGLES */}
-            {step === 3 && (
-              <Animated.View entering={FadeInDown.duration(350)} style={styles.stepGroup}>
-                <Text style={styles.stepTitle}>Règles du cercle</Text>
-                <Text style={styles.stepSubtitle}>
-                  Ces règles protègent le cercle et s'appliqueront à tous les membres, y compris vous.
-                </Text>
+                      <TouchableOpacity
+                        style={[styles.photoTile, goalImage && styles.photoTileFilled]}
+                        activeOpacity={0.85}
+                        onPress={pickGoalImage}
+                        accessibilityRole="button"
+                        accessibilityLabel="Ajouter une photo du bien"
+                      >
+                        {goalImage ? (
+                          <>
+                            <Image source={{ uri: goalImage }} style={styles.photo} contentFit="cover" />
+                            <TouchableOpacity
+                              style={styles.photoRemove}
+                              onPress={() => setGoalImage(null)}
+                              hitSlop={8}
+                              accessibilityLabel="Retirer la photo"
+                            >
+                              <X size={16} color="#FFFFFF" />
+                            </TouchableOpacity>
+                          </>
+                        ) : (
+                          <>
+                            <View style={styles.photoIcon}>
+                              <ImagePlus size={22} color={colors.primary.DEFAULT} strokeWidth={1.8} />
+                            </View>
+                            <Text style={styles.photoText}>Ajouter une photo</Text>
+                            <Text style={styles.photoHint}>Les membres verront ce qu’ils vont recevoir</Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
 
-                {usesTontine && (
-                  <>
-                    <Text style={styles.fieldLabel}>Combien de membres reçoivent la cagnotte à chaque tour ?</Text>
-                    <View style={styles.stepperFieldRow}>
-                      <Text style={styles.stepperFieldLabel}>Bénéficiaires par tour</Text>
-                      <View style={styles.stepperControl}>
+                      <View style={styles.fields}>
+                        <TextField
+                          label="Nom du bien"
+                          placeholder="Ex. Moto Bajaj Boxer 100cc"
+                          value={goalItem}
+                          onChangeText={setGoalItem}
+                        />
+                        <TextField
+                          label="Détails (facultatif)"
+                          placeholder="Ex. 2 sacs de riz 25 kg, 5 L d’huile, 1 carton de savon"
+                          multiline
+                          value={goalDetails}
+                          onChangeText={setGoalDetails}
+                        />
+                        <TextField
+                          label="Valeur estimée"
+                          placeholder="0"
+                          keyboardType="number-pad"
+                          suffix="F CFA"
+                          value={goalValue}
+                          onChangeText={setGoalValue}
+                          hint="Sert à calculer la cotisation conseillée."
+                        />
+                      </View>
+                    </Animated.View>
+                  )}
+                </>
+              )}
+
+              {/* ── ÉTAPE 2 — COTISATIONS ── */}
+              {step === 2 && (
+                <>
+                  <Text style={styles.stepTitle}>Nom et cotisations</Text>
+                  <Text style={styles.stepSubtitle}>Combien chaque membre verse, et à quel rythme.</Text>
+
+                  <View style={styles.fields}>
+                    <TextField
+                      label="Nom du cercle"
+                      placeholder={isTontine ? 'Ex. Tontine des commerçants de Dassasgho' : 'Ex. Mutuelle du quartier'}
+                      value={name}
+                      onChangeText={setName}
+                      maxLength={48}
+                    />
+                    <View>
+                      <TextField
+                        label={isTontine ? 'Cotisation par membre et par tour' : 'Cotisation par membre'}
+                        placeholder="0"
+                        keyboardType="number-pad"
+                        suffix="F CFA"
+                        value={amount}
+                        onChangeText={setAmount}
+                      />
+                      {suggestedNature > 0 && contribution !== suggestedNature && (
                         <TouchableOpacity
-                          style={styles.stepperBtn}
-                          activeOpacity={0.8}
-                          onPress={() => setBeneficiariesPerTurn((n) => Math.max(1, n - 1))}
+                          style={styles.suggestion}
+                          onPress={() => setAmount(String(suggestedNature))}
+                          activeOpacity={0.7}
                         >
-                          <Minus size={15} color="#074B36" />
+                          <Text style={styles.suggestionText}>
+                            Conseillé pour {maxMembers} membres :{' '}
+                            <Text style={styles.suggestionStrong}>{formatXOF(suggestedNature)}</Text>
+                          </Text>
+                          <Text style={styles.suggestionAction}>Appliquer</Text>
                         </TouchableOpacity>
-                        <Text style={styles.stepperValue}>{beneficiariesPerTurn}</Text>
-                        <TouchableOpacity
-                          style={styles.stepperBtn}
-                          activeOpacity={0.8}
-                          onPress={() => setBeneficiariesPerTurn((n) => n + 1)}
-                        >
-                          <Plus size={15} color="#074B36" />
-                        </TouchableOpacity>
+                      )}
+                    </View>
+                    <TextField
+                      label="Frais de gestion (facultatif)"
+                      placeholder="0"
+                      keyboardType="number-pad"
+                      suffix="F CFA"
+                      value={managementFee}
+                      onChangeText={setManagementFee}
+                      hint="Votre commission de président, prélevée à chaque tour."
+                    />
+                  </View>
+
+                  <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Fréquence</Text>
+                    <View style={styles.chips}>
+                      {frequencies.map((f) => (
+                        <Chip key={f.key} label={f.label} selected={frequency === f.key} onPress={() => setFrequency(f.key)} />
+                      ))}
+                    </View>
+                    {frequency === 'CUSTOM' && (
+                      <TextField
+                        containerStyle={styles.customDays}
+                        placeholder="Ex. 14"
+                        keyboardType="number-pad"
+                        suffix="jours"
+                        value={customDays}
+                        onChangeText={setCustomDays}
+                        hint="Intervalle entre deux cotisations."
+                      />
+                    )}
+                  </View>
+
+                  <View style={styles.section}>
+                    <SettingRow title="Nombre de membres" description="Vous compris" last>
+                      <NumberStepper value={maxMembers} onChange={setMaxMembers} min={2} max={50} />
+                    </SettingRow>
+                  </View>
+
+                  {contribution > 0 && (
+                    <View style={styles.totalCard}>
+                      <View style={styles.totalRow}>
+                        <Text style={styles.totalLabel}>Chaque membre verse</Text>
+                        <Text style={styles.totalValue}>{formatXOF(perMember)}</Text>
+                      </View>
+                      {isTontine && (
+                        <View style={styles.totalRow}>
+                          <Text style={styles.totalLabel}>{isNature ? 'Budget par tour' : 'Cagnotte par tour'}</Text>
+                          <Text style={styles.totalValueStrong}>{formatXOF(potPerTurn)}</Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+                </>
+              )}
+
+              {/* ── ÉTAPE 3 — RÈGLES ── */}
+              {step === 3 && (
+                <>
+                  <Text style={styles.stepTitle}>Règles du cercle</Text>
+                  <Text style={styles.stepSubtitle}>Elles protègent le groupe et s’appliquent à tous, vous compris.</Text>
+
+                  <View style={styles.group}>
+                    {isTontine && (
+                      <SettingRow title="Bénéficiaires par tour" description="Membres servis à chaque tour">
+                        <NumberStepper
+                          value={beneficiariesPerTurn}
+                          onChange={setBeneficiariesPerTurn}
+                          min={1}
+                          max={Math.max(1, Math.floor(maxMembers / 2))}
+                        />
+                      </SettingRow>
+                    )}
+                    <SettingRow
+                      title="Dépôt de garantie"
+                      description="Une cotisation versée à l’entrée, rendue en fin de cercle"
+                      last
+                    >
+                      <Toggle value={depositRequired} onValueChange={setDepositRequired} />
+                    </SettingRow>
+                  </View>
+
+                  <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Retards tolérés avant exclusion</Text>
+                    <View style={styles.chips}>
+                      {exclusionOptions.map((opt) => (
+                        <Chip
+                          key={opt}
+                          label={`${opt} retards`}
+                          selected={exclusionThreshold === opt}
+                          onPress={() => setExclusionThreshold(opt)}
+                        />
+                      ))}
+                    </View>
+                    <Text style={styles.sectionHint}>Au-delà, le bureau peut voter l’exclusion du membre.</Text>
+                  </View>
+
+                  <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Documents demandés aux membres</Text>
+                    <View style={styles.stack}>
+                      {kycOptions.map((opt) => (
+                        <OptionCard
+                          key={opt.key}
+                          title={opt.label}
+                          description={opt.desc}
+                          badge={opt.badge}
+                          selected={kycRequirement === opt.key}
+                          onPress={() => setKycRequirement(opt.key)}
+                        />
+                      ))}
+                    </View>
+                  </View>
+
+                  {isTontine && (
+                    <View style={styles.section}>
+                      <Text style={styles.sectionTitle}>Si un membre quitte le cercle</Text>
+                      <View style={styles.stack}>
+                        {leavingOptions.map((opt) => (
+                          <OptionCard
+                            key={opt.key}
+                            title={opt.label}
+                            description={opt.desc}
+                            selected={leavingRule === opt.key}
+                            onPress={() => setLeavingRule(opt.key)}
+                          />
+                        ))}
                       </View>
                     </View>
-                  </>
-                )}
-
-                <View style={styles.switchBox}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.switchTitle}>Dépôt de garantie à l'entrée</Text>
-                    <Text style={styles.switchSub}>Chaque nouveau membre verse une avance remboursable en quittant le cercle</Text>
-                  </View>
-                  <Switch
-                    value={depositRequired}
-                    onValueChange={setDepositRequired}
-                    trackColor={{ true: '#074B36' }}
-                  />
-                </View>
-
-                <Text style={styles.fieldLabel}>Combien de retards tolérés avant exclusion ?</Text>
-                <View style={styles.exclusionRow}>
-                  {exclusionOptions.map((opt) => (
-                    <TouchableOpacity
-                      key={opt}
-                      style={[styles.exclusionBtn, exclusionThreshold === opt && styles.exclusionBtnActive]}
-                      onPress={() => setExclusionThreshold(opt)}
-                    >
-                      <Text style={[styles.exclusionBtnText, exclusionThreshold === opt && styles.exclusionBtnTextActive]}>
-                        {opt}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-                <Text style={styles.helperNote}>
-                  Au-delà, vous pourrez proposer son exclusion au vote du bureau.
-                </Text>
-
-                <Text style={styles.fieldLabel}>Conditions d'adhésion à afficher aux nouveaux membres</Text>
-                <TextInput
-                  style={[styles.pillInput, styles.textAreaInput]}
-                  placeholder="Ex. : Le membre s'engage à cotiser avant le 5 de chaque mois et à prévenir le bureau en cas d'empêchement…"
-                  placeholderTextColor="#94A3B8"
-                  multiline
-                  value={conditions}
-                  onChangeText={setConditions}
-                />
-
-                <Text style={[styles.fieldLabel, { marginTop: 4 }]}>Exigence de documents pour les membres *</Text>
-                <View style={styles.typeOptionsCol}>
-                  {kycRequirementOptions.map((opt) => (
-                    <TouchableOpacity
-                      key={opt.key}
-                      style={[styles.typeOptionCard, kycRequirement === opt.key && styles.typeOptionCardActive]}
-                      onPress={() => setKycRequirement(opt.key)}
-                      activeOpacity={0.8}
-                    >
-                      <View style={styles.typeOptionHeader}>
-                        <Text style={[styles.typeOptionTitle, kycRequirement === opt.key && styles.typeOptionTitleActive]}>
-                          {opt.label}
-                        </Text>
-                        {kycRequirement === opt.key && (
-                          <View style={styles.typeOptionCheck}>
-                            <Check size={12} color="#FFFFFF" strokeWidth={3} />
-                          </View>
-                        )}
-                      </View>
-                      <Text style={[styles.typeOptionDesc, kycRequirement === opt.key && styles.typeOptionDescActive]}>
-                        {opt.desc}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                <Text style={styles.fieldLabel}>Règle en cas de départ d'un membre *</Text>
-                <View style={styles.typeOptionsCol}>
-                  {leavingRuleOptions.map((rule) => (
-                    <TouchableOpacity
-                      key={rule.key}
-                      style={[styles.typeOptionCard, leavingRule === rule.key && styles.typeOptionCardActive]}
-                      onPress={() => setLeavingRule(rule.key)}
-                      activeOpacity={0.8}
-                    >
-                      <View style={styles.typeOptionHeader}>
-                        <Text style={[styles.typeOptionTitle, leavingRule === rule.key && styles.typeOptionTitleActive]}>
-                          {rule.label}
-                        </Text>
-                        {leavingRule === rule.key && (
-                          <View style={styles.typeOptionCheck}>
-                            <Check size={12} color="#FFFFFF" strokeWidth={3} />
-                          </View>
-                        )}
-                      </View>
-                      <Text style={[styles.typeOptionDesc, leavingRule === rule.key && styles.typeOptionDescActive]}>
-                        {rule.desc}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                <TouchableOpacity style={styles.primaryPillBtn} onPress={() => setStep(4)}>
-                  <Text style={styles.primaryPillBtnText}>Continuer</Text>
-                </TouchableOpacity>
-              </Animated.View>
-            )}
-
-            {/* ÉTAPE 4 — RÉSUMÉ */}
-            {step === 4 && (
-              <Animated.View entering={FadeInDown.duration(350)} style={styles.stepGroup}>
-                <Text style={styles.stepTitle}>Vérifiez avant de créer</Text>
-                <Text style={styles.stepSubtitle}>
-                  Vous pourrez modifier ces réglages plus tard depuis les paramètres du cercle.
-                </Text>
-
-                <View style={styles.summaryList}>
-                  <SummaryRow label="Nom du cercle" value={name || '—'} />
-                  <SummaryRow
-                    label="Type"
-                    valueNode={
-                      <View style={styles.summaryTypePill}>
-                        <Text style={styles.summaryTypePillText}>{typeMeta.label}</Text>
-                      </View>
-                    }
-                  />
-                  {usesTontine && <SummaryRow label="Cotisation tontine" value={formatXOF(tontine)} />}
-                  {usesSolidarity && <SummaryRow label="Cotisation solidarité" value={formatXOF(solidarity)} />}
-                  <SummaryRow
-                    label="Fréquence"
-                    value={frequency === 'CUSTOM' ? `Tous les ${customDays} jours` : frequencyLabel[frequency]}
-                    last={!usesTontine}
-                  />
-                  {usesTontine && (
-                    <SummaryRow
-                      label="Bénéficiaires par tour"
-                      value={`${beneficiariesPerTurn} membre${beneficiariesPerTurn > 1 ? 's' : ''}`}
-                      last
-                    />
                   )}
-                </View>
 
-                <View style={styles.infoBanner}>
-                  <Info size={16} color="#B9852A" />
-                  <Text style={styles.infoBannerText}>
-                    Un code d'invitation sera généré pour partager ce cercle avec vos futurs membres.
-                  </Text>
-                </View>
+                  <TextField
+                    containerStyle={styles.section}
+                    label="Conditions d’adhésion (facultatif)"
+                    placeholder="Ex. Cotisation avant le 5 de chaque mois. Prévenir le bureau en cas d’empêchement."
+                    multiline
+                    value={conditions}
+                    onChangeText={setConditions}
+                    hint="Chaque nouveau membre devra les accepter."
+                  />
+                </>
+              )}
 
-                <TouchableOpacity style={styles.primaryPillBtn} activeOpacity={0.88} onPress={handleCreateCircle}>
-                  <Text style={styles.primaryPillBtnText}>Créer le cercle</Text>
-                </TouchableOpacity>
-              </Animated.View>
-            )}
+              {/* ── ÉTAPE 4 — RÉCAPITULATIF ── */}
+              {step === 4 && (
+                <>
+                  <Text style={styles.stepTitle}>Tout est correct ?</Text>
+                  <Text style={styles.stepSubtitle}>Vous pourrez modifier ces réglages plus tard.</Text>
+
+                  <SummaryCard title="Cercle" onEdit={() => setStep(1)}>
+                    {isNature && goalImage ? (
+                      <Image source={{ uri: goalImage }} style={styles.summaryPhoto} contentFit="cover" />
+                    ) : null}
+                    <SummaryRow label="Nom" value={name.trim()} />
+                    <SummaryRow label="Type" value={typeLabel} />
+                    {isNature && <SummaryRow label="Bien remis" value={goalItem.trim()} />}
+                    {isNature && value > 0 && <SummaryRow label="Valeur estimée" value={formatXOF(value)} />}
+                    <SummaryRow label="Membres" value={`${maxMembers}`} last />
+                  </SummaryCard>
+
+                  <SummaryCard title="Cotisations" onEdit={() => setStep(2)}>
+                    <SummaryRow label="Cotisation" value={formatXOF(contribution)} />
+                    {fee > 0 && <SummaryRow label="Frais de gestion" value={formatXOF(fee)} />}
+                    <SummaryRow
+                      label="Fréquence"
+                      value={frequency === 'CUSTOM' ? `Tous les ${toNumber(customDays)} jours` : frequencyLabel[frequency] ?? '—'}
+                    />
+                    <SummaryRow label="Total par membre" value={formatXOF(perMember)} strong last={!isTontine} />
+                    {isTontine && <SummaryRow label="Cagnotte par tour" value={formatXOF(potPerTurn)} strong last />}
+                  </SummaryCard>
+
+                  <SummaryCard title="Règles" onEdit={() => setStep(3)}>
+                    {isTontine && <SummaryRow label="Bénéficiaires par tour" value={`${beneficiariesPerTurn}`} />}
+                    <SummaryRow label="Retards tolérés" value={exclusionThreshold} />
+                    <SummaryRow label="Dépôt de garantie" value={depositRequired ? 'Oui' : 'Non'} />
+                    <SummaryRow
+                      label="Documents"
+                      value={kycOptions.find((o) => o.key === kycRequirement)?.label ?? '—'}
+                      last={!isTontine}
+                    />
+                    {isTontine && (
+                      <SummaryRow
+                        label="En cas de départ"
+                        value={leavingOptions.find((o) => o.key === leavingRule)?.label ?? '—'}
+                        last
+                      />
+                    )}
+                  </SummaryCard>
+
+                  <View style={styles.notice}>
+                    <Info size={18} color={colors.accent.deep} />
+                    <Text style={styles.noticeText}>
+                      Frais d’activation de {formatXOF(CIRCLE_CREATION_FEE)}, à régler par mobile money une fois le
+                      cercle créé.
+                    </Text>
+                  </View>
+                </>
+              )}
+            </Animated.View>
           </ScrollView>
+
+          <View style={styles.footer}>
+            <Button
+              title={step === STEPS.length ? 'Créer le cercle' : 'Continuer'}
+              onPress={goNext}
+              disabled={!stepValid}
+            />
+          </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
   );
 }
 
-function SummaryRow({ label, value, valueNode, last }: { label: string; value?: string; valueNode?: React.ReactNode; last?: boolean }) {
+function SummaryCard({ title, onEdit, children }: { title: string; onEdit: () => void; children: React.ReactNode }) {
+  return (
+    <View style={styles.summaryCard}>
+      <View style={styles.summaryHeader}>
+        <Text style={styles.summaryTitle}>{title}</Text>
+        <TouchableOpacity onPress={onEdit} hitSlop={8} activeOpacity={0.6}>
+          <Text style={styles.summaryEdit}>Modifier</Text>
+        </TouchableOpacity>
+      </View>
+      {children}
+    </View>
+  );
+}
+
+function SummaryRow({ label, value, strong, last }: { label: string; value: string; strong?: boolean; last?: boolean }) {
   return (
     <View style={[styles.summaryRow, !last && styles.summaryRowBorder]}>
-      <Text style={styles.summaryRowLabel}>{label}</Text>
-      {valueNode ?? <Text style={styles.summaryRowValue}>{value}</Text>}
+      <Text style={styles.summaryLabel}>{label}</Text>
+      <Text style={[styles.summaryValue, strong && styles.summaryValueStrong]} numberOfLines={2}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+function CreatedView({ circle, onDone }: { circle: Circle; onDone: () => void }) {
+  const [copied, setCopied] = useState(false);
+
+  const copy = async () => {
+    await Clipboard.setStringAsync(circle.inviteCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const share = () =>
+    Share.share({
+      message: `Rejoins mon cercle « ${circle.name} » sur Venega avec le code ${circle.inviteCode}.`,
+    }).catch(() => {});
+
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <SafeAreaView style={styles.flex} edges={['top', 'bottom']}>
+        <ScrollView contentContainerStyle={styles.createdScroll} showsVerticalScrollIndicator={false}>
+          <Animated.View entering={FadeIn.duration(300)} style={styles.createdHero}>
+            <View style={styles.createdIcon}>
+              <Check size={32} color={colors.primary.DEFAULT} strokeWidth={2.5} />
+            </View>
+            <Text style={styles.createdTitle}>Votre cercle est créé</Text>
+            <Text style={styles.createdName}>{circle.name}</Text>
+          </Animated.View>
+
+          <View style={styles.codeCard}>
+            <Text style={styles.codeLabel}>Code d’invitation</Text>
+            <Text style={styles.code}>{circle.inviteCode}</Text>
+            <View style={styles.codeActions}>
+              <Button
+                title={copied ? 'Copié' : 'Copier'}
+                icon={copied ? Check : Copy}
+                variant="secondary"
+                size="sm"
+                onPress={copy}
+                style={styles.flex}
+              />
+              <Button title="Partager" icon={Share2} variant="secondary" size="sm" onPress={share} style={styles.flex} />
+            </View>
+          </View>
+
+          <View style={styles.notice}>
+            <Info size={18} color={colors.accent.deep} />
+            <Text style={styles.noticeText}>
+              Le cercle s’active après le paiement des frais de {formatXOF(CIRCLE_CREATION_FEE)}. Retrouvez-le dans
+              « Mes cercles » pour le régler.
+            </Text>
+          </View>
+        </ScrollView>
+
+        <View style={styles.footer}>
+          <Button title="Voir mes cercles" onPress={onDone} />
+        </View>
+      </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#074B36' },
+  container: { flex: 1, backgroundColor: colors.bg },
+  flex: { flex: 1 },
 
-  /* ── En-tête vert (écran de succès) ── */
-  successTopSection: { backgroundColor: '#074B36', paddingHorizontal: 20, paddingBottom: 36 },
-  successTopBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8, marginBottom: 14 },
-  successStepText: { fontFamily: 'WorkSansSemiBold', fontSize: 13, color: '#36E395' },
-  successCardSheet: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    marginTop: -20,
-    paddingTop: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -6 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  scrollContent: { paddingHorizontal: 20, paddingBottom: 50 },
-
-  /* ── En-tête blanc de l'assistant (Type / Paramètres / Règles / Résumé) ── */
-  wizardHeader: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 18, backgroundColor: '#FFFFFF' },
-  wizardHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 18 },
-  wizardBackBtn: {
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  wizardHeaderTitle: { fontFamily: 'SoraBold', fontSize: 18, color: '#0F172A' },
-  stepperRow: { flexDirection: 'row', alignItems: 'flex-start' },
-  stepperCol: { alignItems: 'center', width: 56 },
-  stepperDot: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#F1F3F6',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  stepperDotDone: { backgroundColor: '#074B36', borderColor: '#074B36' },
-  stepperDotNum: { fontFamily: 'WorkSansSemiBold', fontSize: 11, color: '#94A3B8' },
-  stepperDotNumActive: { color: '#FFFFFF' },
-  stepperLabel: { fontFamily: 'WorkSansMedium', fontSize: 9.5, color: '#94A3B8', marginTop: 5, textAlign: 'center' },
-  stepperLabelActive: { fontFamily: 'WorkSansSemiBold', color: '#0F172A' },
-  stepperLine: { flex: 1, height: 1.5, backgroundColor: '#E2E8F0', marginTop: 12 },
-  stepperLineDone: { backgroundColor: '#074B36' },
-
-  wizardScrollContent: { paddingHorizontal: 20, paddingBottom: 50, paddingTop: 4 },
-  stepGroup: { gap: 16 },
-  stepTitle: { fontFamily: 'SoraBold', fontSize: 20, color: '#0F172A' },
-  stepSubtitle: { fontFamily: 'WorkSans', fontSize: 13, color: '#64748B', lineHeight: 18, marginTop: -10 },
-
-  sectionTitle: { fontFamily: 'SoraBold', fontSize: 20, color: '#074B36', marginBottom: 8 },
-  fieldLabel: { fontFamily: 'WorkSansSemiBold', fontSize: 13, color: '#334155', marginBottom: 4 },
-  pillInput: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    height: 52,
-    fontFamily: 'WorkSans',
-    fontSize: 14.5,
-    color: '#0F172A',
-  },
-  textAreaInput: { height: 100, paddingTop: 14, borderRadius: 16 },
-
-  /* ── Étape Type ── */
-  typeCardsCol: { gap: 10 },
-  typeCard: {
+  header: {
+    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 14,
-    borderWidth: 1.5,
-    borderColor: '#F1F3F6',
+    paddingHorizontal: 8,
   },
-  typeCardActive: { borderColor: '#0B6E4F', backgroundColor: 'rgba(11, 110, 79, 0.06)' },
-  typeCardIconWrap: {
+  headerTitle: {
+    flex: 1,
+    ...typography.headline,
+    color: colors.ink,
+    textAlign: 'center',
+  },
+  headerStep: {
     width: 40,
-    height: 40,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(11, 110, 79, 0.08)',
+    ...typography.footnote,
+    fontWeight: '600',
+    color: colors.muted,
+    textAlign: 'center',
   },
-  typeCardTitle: { fontFamily: 'SoraBold', fontSize: 14.5, color: '#0F172A' },
-  typeCardDesc: { fontFamily: 'WorkSans', fontSize: 12, color: '#64748B', marginTop: 2, lineHeight: 16 },
-  typeCardCheck: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#0B6E4F',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 2,
-  },
-
-  typeOptionsCol: { gap: 10 },
-  typeOptionCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 15,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-  },
-  typeOptionCardActive: { borderColor: '#0B6E4F', backgroundColor: 'rgba(11, 110, 79, 0.05)' },
-  typeOptionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, gap: 8 },
-  typeOptionTitle: { flex: 1, fontFamily: 'SoraBold', fontSize: 14, color: '#0F172A' },
-  typeOptionTitleActive: { color: '#0B6E4F' },
-  typeOptionDesc: { fontFamily: 'WorkSans', fontSize: 12, color: '#64748B' },
-  typeOptionDescActive: { color: '#334155' },
-  typeOptionCheck: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#0B6E4F',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  frequencyGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  frequencyCard: {
-    width: '48%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-  },
-  frequencyCardActive: { borderColor: '#0B6E4F', backgroundColor: 'rgba(11, 110, 79, 0.05)' },
-  frequencyTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
-  frequencyTitle: { fontFamily: 'SoraBold', fontSize: 14, color: '#0F172A' },
-  frequencyTitleActive: { color: '#0B6E4F' },
-  frequencySub: { fontFamily: 'WorkSans', fontSize: 11.5, color: '#64748B', marginTop: 2 },
-  frequencySubActive: { color: '#0B6E4F' },
-  frequencyCheck: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: '#0B6E4F',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  summaryTotalBox: {
-    backgroundColor: 'rgba(7, 75, 54, 0.08)',
-    borderRadius: 18,
-    padding: 16,
-    alignItems: 'center',
-  },
-  summaryTotalLabel: { fontFamily: 'WorkSans', fontSize: 13, color: '#074B36', marginBottom: 4 },
-  summaryTotalAmount: { fontFamily: 'SoraBold', fontSize: 24, color: '#074B36' },
-  summarySubNote: { fontFamily: 'WorkSans', fontSize: 11.5, color: '#074B36', opacity: 0.8, marginTop: 2 },
-
-  /* ── Étape Règles ── */
-  stepperFieldRow: {
+  progress: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 15,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    gap: 6,
+    paddingHorizontal: 20,
+    paddingBottom: 4,
   },
-  stepperFieldLabel: { fontFamily: 'WorkSans', fontSize: 13.5, color: '#334155' },
-  stepperControl: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  stepperBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(7, 75, 54, 0.08)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  stepperValue: { fontFamily: 'SoraBold', fontSize: 16, color: '#0F172A', minWidth: 26, textAlign: 'center' },
-
-  switchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 15,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    gap: 12,
-  },
-  switchTitle: { fontFamily: 'WorkSansSemiBold', fontSize: 13.5, color: '#0F172A' },
-  switchSub: { fontFamily: 'WorkSans', fontSize: 11.5, color: '#64748B', marginTop: 2 },
-
-  exclusionRow: { flexDirection: 'row', gap: 8 },
-  exclusionBtn: {
+  progressSeg: {
     flex: 1,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    justifyContent: 'center',
-    alignItems: 'center',
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.line,
   },
-  exclusionBtnActive: { backgroundColor: '#0B6E4F', borderColor: '#0B6E4F' },
-  exclusionBtnText: { fontFamily: 'SoraBold', fontSize: 15, color: '#334155' },
-  exclusionBtnTextActive: { color: '#FFFFFF' },
-  helperNote: { fontFamily: 'WorkSans', fontSize: 11.5, color: '#94A3B8', marginTop: -8, lineHeight: 16 },
+  progressSegDone: {
+    backgroundColor: colors.primary.DEFAULT,
+  },
 
-  customFrequencyBox: { marginTop: 4 },
-  natureBoxSection: { gap: 8 },
-  naturePhotoCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+  scroll: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 32 },
+  eyebrow: {
+    ...typography.caption,
+    color: colors.primary.DEFAULT,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: 6,
+  },
+  stepTitle: { ...typography.title, color: colors.ink },
+  stepSubtitle: { ...typography.callout, color: colors.muted, marginTop: 6, marginBottom: 24 },
+
+  stack: { gap: 12 },
+  fields: { gap: 20 },
+  section: { marginTop: 28 },
+  sectionTitle: { ...typography.bodyStrong, color: colors.ink, marginBottom: 12 },
+  sectionHint: { ...typography.footnote, color: colors.muted, marginTop: 10 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  customDays: { marginTop: 16 },
+  group: {
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.line,
+    paddingHorizontal: 16,
+  },
+
+  /* ── Bloc « bien à remettre » ── */
+  natureCard: {
+    marginTop: 24,
     padding: 16,
+    borderRadius: radius.lg,
+    backgroundColor: colors.fill,
+  },
+  natureTitle: { ...typography.bodyStrong, color: colors.ink, marginBottom: 14 },
+  photoTile: {
+    height: 168,
+    borderRadius: radius.md,
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    gap: 12,
     borderStyle: 'dashed',
-  },
-  naturePhotoCardDone: { borderColor: '#10B981', backgroundColor: 'rgba(16, 185, 129, 0.04)', borderStyle: 'solid' },
-  naturePhotoText: { fontFamily: 'WorkSansMedium', fontSize: 13, color: '#0F172A', flex: 1 },
-
-  /* ── Étape Résumé ── */
-  summaryList: { backgroundColor: '#FFFFFF', borderRadius: 18, borderWidth: 1.5, borderColor: '#E2E8F0', paddingHorizontal: 16 },
-  summaryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14 },
-  summaryRowBorder: { borderBottomWidth: 1, borderBottomColor: '#F1F3F6' },
-  summaryRowLabel: { fontFamily: 'WorkSans', fontSize: 13, color: '#64748B' },
-  summaryRowValue: { fontFamily: 'WorkSansSemiBold', fontSize: 13.5, color: '#0F172A' },
-  summaryTypePill: { backgroundColor: '#E4F0EB', paddingHorizontal: 11, paddingVertical: 4, borderRadius: 10 },
-  summaryTypePillText: { fontFamily: 'WorkSansSemiBold', fontSize: 12, color: '#0B6E4F' },
-  infoBanner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    backgroundColor: '#FBF1DD',
-    borderRadius: 16,
-    padding: 14,
-  },
-  infoBannerText: { flex: 1, fontFamily: 'WorkSans', fontSize: 12, lineHeight: 17, color: '#8A6416' },
-
-  primaryPillBtn: {
-    height: 52,
-    backgroundColor: '#074B36',
-    borderRadius: 14,
-    flexDirection: 'row',
+    borderColor: colors.lineStrong,
+    backgroundColor: colors.bg,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
-    shadowColor: '#074B36',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.22,
-    shadowRadius: 12,
-    elevation: 4,
+    marginBottom: 20,
+    overflow: 'hidden',
   },
-  primaryPillBtnDisabled: { opacity: 0.45 },
-  primaryPillBtnText: { fontFamily: 'SoraBold', fontSize: 15.5, color: '#FFFFFF' },
-
-  // Écran de succès
-  welcomeHero: { alignItems: 'center', paddingVertical: 16, gap: 10 },
-  welcomeIcon: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: 'rgba(54, 227, 149, 0.2)',
-    borderWidth: 2,
-    borderColor: '#36E395',
+  photoTileFilled: { borderStyle: 'solid', borderWidth: 0 },
+  photo: { width: '100%', height: '100%' },
+  photoRemove: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(22, 24, 29, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  welcomeTitle: { fontFamily: 'SoraBold', fontSize: 26, color: '#FFFFFF' },
-  welcomeSub: { fontFamily: 'WorkSans', fontSize: 14, color: 'rgba(255, 255, 255, 0.85)', textAlign: 'center', lineHeight: 20 },
-  welcomeCard: {
-    backgroundColor: '#FFFFFF',
+  photoIcon: {
+    width: 48,
+    height: 48,
     borderRadius: 24,
-    padding: 22,
-    gap: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 14,
-    elevation: 4,
+    backgroundColor: colors.primary.tint,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
   },
-  welcomeCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  welcomeCardTitle: { fontFamily: 'SoraBold', fontSize: 17, color: '#074B36', flex: 1 },
-  welcomeCardText: { fontFamily: 'WorkSans', fontSize: 13.5, lineHeight: 21, color: '#475569' },
-  welcomeInviteRow: {
+  photoText: { ...typography.callout, fontWeight: '600', color: colors.ink },
+  photoHint: { ...typography.footnote, color: colors.muted, marginTop: 2 },
+
+  suggestion: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(7, 75, 54, 0.05)',
-    borderRadius: 18,
-    padding: 16,
+    justifyContent: 'space-between',
     gap: 12,
+    marginTop: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: radius.sm,
+    backgroundColor: colors.primary.tint,
   },
-  welcomeInviteLabel: { fontFamily: 'WorkSans', fontSize: 11.5, color: '#64748B' },
-  welcomeInviteCode: { fontFamily: 'SoraBold', fontSize: 20, color: '#074B36', letterSpacing: 2 },
+  suggestionText: { flex: 1, ...typography.footnote, color: colors.inkSoft },
+  suggestionStrong: { fontWeight: '600', color: colors.ink },
+  suggestionAction: { ...typography.footnote, fontWeight: '600', color: colors.primary.DEFAULT },
+
+  totalCard: {
+    marginTop: 24,
+    padding: 16,
+    gap: 10,
+    borderRadius: radius.lg,
+    backgroundColor: colors.primary.tint,
+  },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
+  totalLabel: { ...typography.callout, color: colors.inkSoft },
+  totalValue: { ...typography.bodyStrong, color: colors.ink },
+  totalValueStrong: { ...typography.headline, fontWeight: '700', color: colors.primary.dark },
+
+  /* ── Récapitulatif ── */
+  summaryCard: {
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.line,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 4,
+    marginBottom: 16,
+  },
+  summaryHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  summaryTitle: { ...typography.bodyStrong, color: colors.ink },
+  summaryEdit: { ...typography.footnote, fontWeight: '600', color: colors.primary.DEFAULT },
+  summaryPhoto: { height: 140, borderRadius: radius.md, marginTop: 10, marginBottom: 4 },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 16, paddingVertical: 12 },
+  summaryRowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
+  summaryLabel: { ...typography.callout, color: colors.muted },
+  summaryValue: { flexShrink: 1, ...typography.callout, fontWeight: '500', color: colors.ink, textAlign: 'right' },
+  summaryValueStrong: { fontWeight: '700' },
+
+  notice: {
+    flexDirection: 'row',
+    gap: 10,
+    padding: 14,
+    borderRadius: radius.md,
+    backgroundColor: colors.accent.tint,
+    marginTop: 4,
+  },
+  noticeText: { flex: 1, ...typography.footnote, color: colors.inkSoft },
+
+  footer: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.line,
+    backgroundColor: colors.bg,
+  },
+
+  /* ── Cercle créé ── */
+  createdScroll: { paddingHorizontal: 20, paddingTop: 56, paddingBottom: 32 },
+  createdHero: { alignItems: 'center', marginBottom: 32 },
+  createdIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: colors.primary.tint,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  createdTitle: { ...typography.title, color: colors.ink, textAlign: 'center' },
+  createdName: { ...typography.body, color: colors.muted, marginTop: 6, textAlign: 'center' },
+  codeCard: {
+    alignItems: 'center',
+    padding: 20,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.line,
+    marginBottom: 16,
+  },
+  codeLabel: { ...typography.footnote, color: colors.muted },
+  code: { ...typography.display, color: colors.ink, letterSpacing: 3, marginTop: 6, marginBottom: 18 },
+  codeActions: { flexDirection: 'row', gap: 10, alignSelf: 'stretch' },
 });

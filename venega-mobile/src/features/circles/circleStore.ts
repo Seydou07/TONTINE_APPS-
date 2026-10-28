@@ -339,11 +339,10 @@ export function getCirclePhase(circle: Circle, cycle?: Cycle): CirclePhase {
   return currentTurn > 0 ? 'ACTIVE' : 'CONSTITUTION';
 }
 
-/** Les types rotatifs (tontine / hybride / nature) sont concernés par le rachat des tours passés. */
+/** Les types rotatifs (tontine en espèces ou en nature) sont concernés par le rachat des tours passés. */
 export function isRotative(circle: Circle): boolean {
   return (
     circle.type === CircleType.TONTINE_ONLY ||
-    circle.type === CircleType.HYBRID ||
     circle.type === CircleType.NATURE
   );
 }
@@ -392,7 +391,6 @@ const frequencyLabel: Record<string, string> = {
 const typeLabel: Record<string, string> = {
   TONTINE_ONLY: 'Tontine rotative',
   SOLIDARITY_ONLY: 'Caisse de solidarité',
-  HYBRID: 'Tontine + Solidarité',
   NATURE: 'Tontine en nature',
   AID_APPEAL: 'Appel à l\'aide',
 };
@@ -432,9 +430,6 @@ export function buildConditionsText(
     lines.push(`Total à payer pour adhérer : ${fmt(total)}.`);
   }
 
-  if (phase === 'ACTIVE' && circle.type === CircleType.HYBRID) {
-    lines.push(`La caisse de solidarité n'est pas incluse dans le rachat : vous cotisez à la caisse seulement pour les tours à venir.`);
-  }
 
   if (kyc === KycRequirement.NONE) {
     lines.push(`Aucun document d'identité exigé.`);

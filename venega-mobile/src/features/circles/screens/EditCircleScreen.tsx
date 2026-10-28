@@ -3,25 +3,20 @@ import {
   View,
   Text,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   ScrollView,
-  Switch,
   StatusBar,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import {
-  ArrowLeft,
-  Check,
-  RefreshCw,
-  ShieldCheck,
-  AlertTriangle,
-} from 'lucide-react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import { ArrowLeft, RefreshCw, ShieldCheck, AlertTriangle } from 'lucide-react-native';
+import { colors, radius, typography } from '@venega/design-tokens';
 import { getCircle, updateCircle } from '../circleStore';
 import { KycRequirement, ReplacementRule } from '@venega/types';
 import type { Circle } from '@venega/types';
+import { Button, Chip, IconButton, OptionCard, SettingRow, TextField, Toggle } from '../../../components/ui';
 
 const formatXOF = (n: number) => new Intl.NumberFormat('fr-FR').format(n) + ' F CFA';
 
@@ -116,363 +111,251 @@ export default function EditCircleScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#074B36" />
-      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        <View style={styles.topSection}>
-          <View style={styles.topBar}>
-            <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-              <ArrowLeft size={20} color="#FFFFFF" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle} numberOfLines={1}>Modifier le cercle</Text>
-            <View style={styles.spacer} />
-          </View>
-          <Text style={styles.headerSub}>Les modifications s'appliquent immédiatement</Text>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <SafeAreaView style={styles.flex} edges={['top', 'bottom']}>
+        <View style={styles.header}>
+          <IconButton icon={ArrowLeft} variant="plain" accessibilityLabel="Retour" onPress={() => router.back()} />
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            Modifier le cercle
+          </Text>
+          <View style={styles.headerSpacer} />
         </View>
 
-        <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.bodySheet}>
-          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <Text style={styles.intro}>Les modifications s'appliquent immédiatement.</Text>
+
             {/* 1. Informations générales */}
-            <Text style={styles.sectionLabel}>Informations générales</Text>
-            <Text style={styles.fieldLabel}>Nom du cercle *</Text>
-            <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Nom du cercle" placeholderTextColor="#94A3B8" />
-
-            <Text style={styles.fieldLabel}>Fréquence des cotisations</Text>
-            <View style={styles.pillsRow}>
-              {frequencies.map((f) => (
-                <TouchableOpacity
-                  key={f.key}
-                  style={[styles.pill, frequency === f.key && styles.pillActive]}
-                  onPress={() => setFrequency(f.key)}
-                >
-                  <Text style={[styles.pillText, frequency === f.key && styles.pillTextActive]}>
-                    {f.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Text style={styles.fieldLabel}>Nombre maximum de membres</Text>
-            <TextInput
-              style={styles.input}
-              value={maxMembers}
-              onChangeText={setMaxMembers}
-              keyboardType="numeric"
-              placeholder="Ex: 10"
-              placeholderTextColor="#94A3B8"
-            />
-
-            {/* 2. Montants */}
-            <Text style={styles.sectionLabel}>Montants</Text>
-            <Text style={styles.fieldLabel}>Cotisation tontine (FCFA / tour)</Text>
-            <TextInput
-              style={styles.input}
-              value={tontineAmount}
-              onChangeText={setTontineAmount}
-              keyboardType="numeric"
-              placeholder="Ex: 10000"
-              placeholderTextColor="#94A3B8"
-            />
-
-            <Text style={styles.fieldLabel}>Cotisation solidarité (FCFA)</Text>
-            <TextInput
-              style={styles.input}
-              value={solidarityAmount}
-              onChangeText={setSolidarityAmount}
-              keyboardType="numeric"
-              placeholder="Ex: 2000"
-              placeholderTextColor="#94A3B8"
-            />
-
-            <Text style={styles.fieldLabel}>Frais de gestion du fondateur (FCFA / tour)</Text>
-            <TextInput
-              style={styles.input}
-              value={managementFee}
-              onChangeText={setManagementFee}
-              keyboardType="numeric"
-              placeholder="Ex: 500"
-              placeholderTextColor="#94A3B8"
-            />
-
-            {/* 3. Adhésion & remplacement */}
-            <Text style={styles.sectionLabel}>Adhésion & remplacement</Text>
-            <Text style={styles.fieldLabel}>Documents exigés des nouveaux membres</Text>
-            <View style={styles.optionCol}>
-              {kycOptions.map((opt) => (
-                <TouchableOpacity
-                  key={opt.key}
-                  style={[styles.optionCard, kycRequirement === opt.key && styles.optionCardActive]}
-                  onPress={() => setKycRequirement(opt.key)}
-                >
-                  <View style={styles.optionHeader}>
-                    <Text style={[styles.optionTitle, kycRequirement === opt.key && styles.optionTitleActive]}>
-                      {opt.label}
-                    </Text>
-                    {kycRequirement === opt.key && <Check size={16} color="#074B36" />}
-                  </View>
-                  <Text style={styles.optionDesc}>{opt.desc}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Text style={styles.fieldLabel}>Si un membre quitte le cercle</Text>
-            <View style={styles.optionCol}>
-              {leavingOptions.map((opt) => (
-                <TouchableOpacity
-                  key={opt.key}
-                  style={[styles.optionCard, leavingRule === opt.key && styles.optionCardActive]}
-                  onPress={() => setLeavingRule(opt.key)}
-                >
-                  <View style={styles.optionHeader}>
-                    <Text style={[styles.optionTitle, leavingRule === opt.key && styles.optionTitleActive]}>
-                      {opt.label}
-                    </Text>
-                    {leavingRule === opt.key && <Check size={16} color="#074B36" />}
-                  </View>
-                  <Text style={styles.optionDesc}>{opt.desc}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Text style={styles.fieldLabel}>Seuil d'exclusion (retards autorisés)</Text>
-            <View style={styles.pillsRow}>
-              {exclusionOptions.map((opt) => (
-                <TouchableOpacity
-                  key={opt}
-                  style={[styles.pill, exclusionThreshold === opt && styles.pillActive]}
-                  onPress={() => setExclusionThreshold(opt)}
-                >
-                  <Text style={[styles.pillText, exclusionThreshold === opt && styles.pillTextActive]}>
-                    {opt} retards
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <View style={styles.switchBox}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.switchTitle}>Dépôt de garantie obligatoire</Text>
-                <Text style={styles.switchSub}>1 tour de cotisation déposé d'avance (cercle en cours)</Text>
+            <Text style={styles.sectionTitle}>Informations générales</Text>
+            <View style={styles.fields}>
+              <TextField label="Nom du cercle" value={name} onChangeText={setName} placeholder="Nom du cercle" />
+              <View>
+                <Text style={styles.fieldLabel}>Fréquence des cotisations</Text>
+                <View style={styles.chips}>
+                  {frequencies.map((f) => (
+                    <Chip key={f.key} label={f.label} selected={frequency === f.key} onPress={() => setFrequency(f.key)} />
+                  ))}
+                </View>
               </View>
-              <Switch
-                value={depositRequired}
-                onValueChange={setDepositRequired}
-                trackColor={{ true: '#074B36' }}
+              <TextField
+                label="Nombre maximum de membres"
+                value={maxMembers}
+                onChangeText={setMaxMembers}
+                keyboardType="numeric"
+                placeholder="Ex. 10"
               />
             </View>
 
-            {/* 4. Règlement */}
-            <Text style={styles.sectionLabel}>Règlement du cercle</Text>
-            <Text style={styles.fieldLabel}>Conditions (lues et approuvées par les nouveaux membres)</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              value={conditions}
-              onChangeText={setConditions}
-              placeholder="Ex: Cotisation le 1er de chaque mois avant 18h…"
-              placeholderTextColor="#94A3B8"
-              multiline
-            />
-
-            {/* 5. Code d'invitation */}
-            <Text style={styles.sectionLabel}>Code d'invitation</Text>
-            <View style={styles.inviteRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.inviteCode}>{inviteCode}</Text>
-                <Text style={styles.inviteHint}>Les nouveaux membres l'utilisent pour vous rejoindre</Text>
-              </View>
-              <TouchableOpacity style={styles.regenerateBtn} onPress={regenerateCode}>
-                <RefreshCw size={15} color="#074B36" />
-                <Text style={styles.regenerateText}>Générer</Text>
-              </TouchableOpacity>
+            {/* 2. Montants */}
+            <Text style={[styles.sectionTitle, styles.section]}>Montants</Text>
+            <View style={styles.fields}>
+              <TextField
+                label="Cotisation tontine (par tour)"
+                value={tontineAmount}
+                onChangeText={setTontineAmount}
+                keyboardType="numeric"
+                suffix="F CFA"
+                placeholder="Ex. 10000"
+              />
+              <TextField
+                label="Cotisation solidarité"
+                value={solidarityAmount}
+                onChangeText={setSolidarityAmount}
+                keyboardType="numeric"
+                suffix="F CFA"
+                placeholder="Ex. 2000"
+              />
+              <TextField
+                label="Frais de gestion du fondateur (par tour)"
+                value={managementFee}
+                onChangeText={setManagementFee}
+                keyboardType="numeric"
+                suffix="F CFA"
+                placeholder="Ex. 500"
+              />
             </View>
 
-            {/* Info sécurité */}
-            <View style={styles.safeBox}>
-              <ShieldCheck size={18} color="#059669" />
-              <Text style={styles.safeText}>
-                Le fondateur ne touche jamais les fonds : toutes les sommes versées (cotisations, rachat, dépôt)
-                vont directement dans le compte du cercle.
-              </Text>
+            {/* 3. Adhésion et remplacement */}
+            <Text style={[styles.sectionTitle, styles.section]}>Adhésion et remplacement</Text>
+            <Text style={styles.fieldLabel}>Documents exigés des nouveaux membres</Text>
+            <View style={styles.stack}>
+              {kycOptions.map((opt) => (
+                <OptionCard
+                  key={opt.key}
+                  title={opt.label}
+                  description={opt.desc}
+                  selected={kycRequirement === opt.key}
+                  onPress={() => setKycRequirement(opt.key)}
+                />
+              ))}
             </View>
 
-            <TouchableOpacity style={styles.saveBtn} activeOpacity={0.9} onPress={handleSave}>
-              <Check size={19} color="#FFFFFF" />
-              <Text style={styles.saveBtnText}>Enregistrer les modifications</Text>
-            </TouchableOpacity>
-
+            <Text style={[styles.fieldLabel, styles.subSection]}>Si un membre quitte le cercle</Text>
+            <View style={styles.stack}>
+              {leavingOptions.map((opt) => (
+                <OptionCard
+                  key={opt.key}
+                  title={opt.label}
+                  description={opt.desc}
+                  selected={leavingRule === opt.key}
+                  onPress={() => setLeavingRule(opt.key)}
+                />
+              ))}
+            </View>
             {leavingRule !== ReplacementRule.PAY_PAST_TURNS && (
-              <View style={styles.warnBox}>
-                <AlertTriangle size={16} color="#B47818" />
-                <Text style={styles.warnText}>
+              <View style={[styles.notice, styles.noticeWarn]}>
+                <AlertTriangle size={18} color={colors.accent.deep} />
+                <Text style={styles.noticeText}>
                   Sans rachat des tours passés, les nouveaux membres n'auront pas de frais à payer pour adhérer.
                 </Text>
               </View>
             )}
+
+            <Text style={[styles.fieldLabel, styles.subSection]}>Retards tolérés avant exclusion</Text>
+            <View style={styles.chips}>
+              {exclusionOptions.map((opt) => (
+                <Chip
+                  key={opt}
+                  label={`${opt} retards`}
+                  selected={exclusionThreshold === opt}
+                  onPress={() => setExclusionThreshold(opt)}
+                />
+              ))}
+            </View>
+
+            <View style={[styles.group, styles.subSection]}>
+              <SettingRow
+                title="Dépôt de garantie obligatoire"
+                description="Un tour de cotisation déposé d'avance (cercle en cours)"
+                last
+              >
+                <Toggle value={depositRequired} onValueChange={setDepositRequired} />
+              </SettingRow>
+            </View>
+
+            {/* 4. Règlement */}
+            <Text style={[styles.sectionTitle, styles.section]}>Règlement du cercle</Text>
+            <TextField
+              label="Conditions d'adhésion"
+              value={conditions}
+              onChangeText={setConditions}
+              placeholder="Ex. Cotisation le 1er de chaque mois avant 18 h…"
+              multiline
+              hint="Lues et acceptées par chaque nouveau membre."
+            />
+
+            {/* 5. Code d'invitation */}
+            <Text style={[styles.sectionTitle, styles.section]}>Code d'invitation</Text>
+            <View style={styles.inviteCard}>
+              <View style={styles.inviteText}>
+                <Text style={styles.inviteCode}>{inviteCode}</Text>
+                <Text style={styles.inviteHint}>Les nouveaux membres l'utilisent pour vous rejoindre</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.regenerateBtn}
+                onPress={regenerateCode}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Générer un nouveau code"
+              >
+                <RefreshCw size={16} color={colors.primary.DEFAULT} />
+                <Text style={styles.regenerateText}>Générer</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.notice}>
+              <ShieldCheck size={18} color={colors.primary.DEFAULT} />
+              <Text style={styles.noticeText}>
+                Le fondateur ne touche jamais les fonds : toutes les sommes versées (cotisations, rachat, dépôt) vont
+                directement dans le compte du cercle.
+              </Text>
+            </View>
           </ScrollView>
-        </Animated.View>
+
+          <View style={styles.footer}>
+            <Button title="Enregistrer les modifications" onPress={handleSave} />
+          </View>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#074B36' },
-  topSection: { backgroundColor: '#074B36', paddingHorizontal: 20, paddingBottom: 24 },
-  topBar: {
+  container: { flex: 1, backgroundColor: colors.bg },
+  flex: { flex: 1 },
+
+  header: {
+    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 8,
-    marginBottom: 10,
+    paddingHorizontal: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.line,
   },
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  spacer: { width: 38 },
-  headerTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 17,
-    color: '#FFFFFF',
-    flex: 1,
-    textAlign: 'center',
-    marginHorizontal: 10,
-  },
-  headerSub: {
-    fontFamily: 'WorkSans',
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.8)',
-    textAlign: 'center',
-  },
-  bodySheet: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    marginTop: -20,
-    paddingTop: 20,
-  },
-  scrollContent: { paddingHorizontal: 20, paddingBottom: 60, gap: 12 },
-  sectionLabel: {
-    fontFamily: 'SoraBold',
-    fontSize: 15,
-    color: '#074B36',
-    marginTop: 14,
-  },
-  fieldLabel: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 12.5,
-    color: '#334155',
-    marginTop: 6,
-    marginBottom: 2,
-  },
-  input: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    borderRadius: 16,
+  headerTitle: { flex: 1, ...typography.headline, color: colors.ink, textAlign: 'center' },
+  headerSpacer: { width: 40 },
+
+  scroll: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 32 },
+  intro: { ...typography.callout, color: colors.muted, marginBottom: 20 },
+
+  section: { marginTop: 32 },
+  subSection: { marginTop: 24 },
+  sectionTitle: { ...typography.headline, color: colors.ink, marginBottom: 16 },
+  fieldLabel: { ...typography.footnote, fontWeight: '600', color: colors.inkSoft, marginBottom: 10 },
+  fields: { gap: 20 },
+  stack: { gap: 12 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  group: {
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.line,
     paddingHorizontal: 16,
-    height: 50,
-    fontFamily: 'WorkSans',
-    fontSize: 14,
-    color: '#0F172A',
   },
-  textArea: { height: 110, paddingTop: 14, textAlignVertical: 'top' },
-  pillsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  pill: {
-    paddingHorizontal: 15,
-    paddingVertical: 9,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-  },
-  pillActive: { backgroundColor: '#074B36', borderColor: '#074B36' },
-  pillText: { fontFamily: 'WorkSansMedium', fontSize: 12.5, color: '#64748B' },
-  pillTextActive: { color: '#FFFFFF', fontFamily: 'WorkSansSemiBold' },
-  optionCol: { gap: 8 },
-  optionCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 13,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-  },
-  optionCardActive: { borderColor: '#074B36', backgroundColor: 'rgba(7, 75, 54, 0.04)' },
-  optionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 },
-  optionTitle: { fontFamily: 'SoraBold', fontSize: 13.5, color: '#0F172A' },
-  optionTitleActive: { color: '#074B36' },
-  optionDesc: { fontFamily: 'WorkSans', fontSize: 12, color: '#64748B' },
-  switchBox: {
+
+  inviteCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
     gap: 12,
-    marginTop: 8,
+    padding: 16,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.line,
   },
-  switchTitle: { fontFamily: 'WorkSansSemiBold', fontSize: 13.5, color: '#0F172A' },
-  switchSub: { fontFamily: 'WorkSans', fontSize: 11.5, color: '#64748B', marginTop: 2 },
-  inviteRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    gap: 12,
-  },
-  inviteCode: { fontFamily: 'SoraBold', fontSize: 16, color: '#074B36', letterSpacing: 2 },
-  inviteHint: { fontFamily: 'WorkSans', fontSize: 11.5, color: '#64748B', marginTop: 2 },
+  inviteText: { flex: 1 },
+  inviteCode: { ...typography.headline, fontWeight: '700', color: colors.ink, letterSpacing: 2 },
+  inviteHint: { ...typography.footnote, color: colors.muted, marginTop: 2 },
   regenerateBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(7, 75, 54, 0.08)',
-    paddingHorizontal: 13,
-    paddingVertical: 9,
-    borderRadius: 13,
+    height: 40,
+    paddingHorizontal: 14,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary.tint,
   },
-  regenerateText: { fontFamily: 'WorkSansSemiBold', fontSize: 12, color: '#074B36' },
-  safeBox: {
+  regenerateText: { ...typography.footnote, fontWeight: '600', color: colors.primary.DEFAULT },
+
+  notice: {
     flexDirection: 'row',
     gap: 10,
-    backgroundColor: 'rgba(16, 185, 129, 0.08)',
-    borderRadius: 16,
-    padding: 13,
-    marginTop: 8,
-  },
-  safeText: { flex: 1, fontFamily: 'WorkSans', fontSize: 12, lineHeight: 17, color: '#065F46' },
-  saveBtn: {
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#074B36',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
+    padding: 14,
     marginTop: 16,
-    shadowColor: '#074B36',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.22,
-    shadowRadius: 12,
-    elevation: 4,
+    borderRadius: radius.md,
+    backgroundColor: colors.primary.tint,
   },
-  saveBtnText: { fontFamily: 'SoraBold', fontSize: 15, color: '#FFFFFF' },
-  warnBox: {
-    flexDirection: 'row',
-    gap: 8,
-    backgroundColor: 'rgba(217, 164, 65, 0.12)',
-    borderRadius: 14,
-    padding: 12,
+  noticeWarn: { backgroundColor: colors.accent.tint },
+  noticeText: { flex: 1, ...typography.footnote, color: colors.inkSoft },
+
+  footer: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.line,
+    backgroundColor: colors.bg,
   },
-  warnText: { flex: 1, fontFamily: 'WorkSansSemiBold', fontSize: 12, color: '#92400E' },
 });

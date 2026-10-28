@@ -1,10 +1,20 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, spacing, radius } from '@venega/design-tokens';
+import { colors, radius, typography } from '@venega/design-tokens';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Calculator, TrendingDown, TrendingUp, Check, AlertTriangle, Info } from 'lucide-react-native';
+import { ArrowRight, Calculator, Info, TrendingUp } from 'lucide-react-native';
 import { mockCircles, mockMemberships, mockCycles } from '@venega/types';
+import { Button, Chip } from '../../../components/ui';
+import {
+  ScreenHeader,
+  ScreenFooter,
+  Card,
+  SectionTitle,
+  Notice,
+  KeyValue,
+  actionStyles,
+} from '../components/ActionScreenParts';
 
 const formatXOF = (amount: number) =>
   new Intl.NumberFormat('fr-BF', { style: 'currency', currency: 'XOF', minimumFractionDigits: 0 }).format(amount);
@@ -59,24 +69,16 @@ export default function RecalculateScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <ArrowLeft size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Recalcul des cotisations</Text>
-        <View style={{ width: 44 }} />
-      </View>
+    <SafeAreaView style={actionStyles.container} edges={['top', 'bottom']}>
+      <ScreenHeader title="Recalcul des cotisations" subtitle={circle.name} onBack={() => router.back()} />
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={styles.infoCard}>
-          <Info size={16} color="#0369A1" style={{ marginRight: 8, marginTop: 2 }} />
-          <Text style={styles.infoText}>
-            Un membre est parti sans remplaçant. Les cotisations restantes sont recalculées pour {membersAfterDeparture} membres.
-          </Text>
-        </View>
+      <ScrollView contentContainerStyle={actionStyles.scroll} showsVerticalScrollIndicator={false}>
+        <Notice icon={Info} tone="info">
+          Un membre est parti sans remplaçant. Les cotisations restantes sont recalculées pour {membersAfterDeparture}{' '}
+          membres.
+        </Notice>
 
-        {/* Current vs New */}
+        {/* Avant / après */}
         <View style={styles.compareRow}>
           <View style={styles.compareCard}>
             <Text style={styles.compareLabel}>Avant</Text>
@@ -84,108 +86,93 @@ export default function RecalculateScreen() {
             <Text style={styles.compareMeta}>{totalMembers} membres</Text>
           </View>
           <View style={styles.compareArrow}>
-            <TrendingUp size={20} color={colors.primary.DEFAULT} />
+            <ArrowRight size={16} color={colors.muted} strokeWidth={2} />
           </View>
           <View style={[styles.compareCard, styles.compareCardNew]}>
-            <Text style={[styles.compareLabel, { color: colors.primary.DEFAULT }]}>Après</Text>
-            <Text style={[styles.compareValue, { color: colors.primary.DEFAULT }]}>{formatXOF(newTotal)}</Text>
+            <Text style={[styles.compareLabel, styles.compareLabelNew]}>Après</Text>
+            <Text style={[styles.compareValue, styles.compareValueNew]}>{formatXOF(newTotal)}</Text>
             <Text style={styles.compareMeta}>{membersAfterDeparture} membres</Text>
           </View>
         </View>
 
-        {/* Increase option */}
-        <Text style={styles.sectionTitle}>Optionnel : augmenter les cotisations</Text>
+        {/* Hausse facultative */}
+        <SectionTitle style={styles.sectionGap}>Augmenter les cotisations (facultatif)</SectionTitle>
         <Text style={styles.hint}>
-          Vous pouvez augmenter les cotisations pour compenser le départ du membre et maintenir les gains des bénéficiaires.
+          Une hausse compense le départ du membre et maintient les gains des bénéficiaires.
         </Text>
-
-        <View style={styles.optionsRow}>
+        <View style={styles.chips}>
           {['0', '5', '10', '15', '20'].map((opt) => (
-            <TouchableOpacity
+            <Chip
               key={opt}
-              style={[styles.optionBtn, increasePercent === opt && styles.optionBtnActive]}
+              label={opt === '0' ? 'Aucune' : `+${opt} %`}
+              selected={increasePercent === opt}
               onPress={() => setIncreasePercent(opt)}
-            >
-              <Text style={[styles.optionText, increasePercent === opt && styles.optionTextActive]}>
-                {opt === '0' ? 'Aucune' : `+${opt}%`}
-              </Text>
-            </TouchableOpacity>
+            />
           ))}
         </View>
 
         {increase > 0 && (
-          <View style={styles.increaseInfo}>
-            <TrendingUp size={14} color={colors.primary.DEFAULT} />
-            <Text style={styles.increaseText}>
-              Augmentation de {increase}% : chaque membre paiera {formatXOF(diff)} de plus par tour
-            </Text>
-          </View>
+          <Notice icon={TrendingUp} tone="primary" style={styles.increaseNotice}>
+            Hausse de {increase} % : chaque membre paiera {formatXOF(diff)} de plus par tour.
+          </Notice>
         )}
 
-        {/* Impact summary */}
-        <View style={styles.impactCard}>
-          <Text style={styles.impactTitle}>Impact sur le cycle</Text>
-          <View style={styles.impactRow}>
-            <Text style={styles.impactLabel}>Tours restants</Text>
-            <Text style={styles.impactValue}>{remainingTurns}</Text>
-          </View>
-          <View style={styles.impactRow}>
-            <Text style={styles.impactLabel}>Gain bénéficiaire par tour</Text>
-            <Text style={[styles.impactValue, { color: colors.success }]}>{formatXOF(newTontine * membersAfterDeparture)}</Text>
-          </View>
-          <View style={styles.impactRow}>
-            <Text style={styles.impactLabel}>Impact total sur le cycle</Text>
-            <Text style={[styles.impactValue, increase > 0 ? { color: colors.primary.DEFAULT } : { color: colors.danger.DEFAULT }]}>
-              {increase > 0 ? '+' : ''}{formatXOF(poolImpact)}
-            </Text>
-          </View>
-        </View>
-
-        <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit}>
-          <Calculator size={18} color="#fff" />
-          <Text style={styles.submitText}>Appliquer le recalcul</Text>
-        </TouchableOpacity>
+        {/* Impact */}
+        <SectionTitle style={styles.sectionGap}>Impact sur le cycle</SectionTitle>
+        <Card style={styles.impactCard}>
+          <KeyValue label="Tours restants" value={String(remainingTurns)} />
+          <KeyValue
+            label="Gain bénéficiaire par tour"
+            value={formatXOF(newTontine * membersAfterDeparture)}
+            valueColor={colors.primary.DEFAULT}
+          />
+          <KeyValue
+            label="Impact total sur le cycle"
+            value={`${increase > 0 ? '+' : ''}${formatXOF(poolImpact)}`}
+            valueColor={increase > 0 ? colors.primary.DEFAULT : colors.danger.DEFAULT}
+            last
+          />
+        </Card>
       </ScrollView>
+
+      <ScreenFooter>
+        <Button title="Appliquer le recalcul" icon={Calculator} onPress={handleSubmit} />
+      </ScreenFooter>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing[4], paddingVertical: spacing[3] },
-  backBtn: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: colors.text, fontFamily: 'Sora' },
-  scroll: { padding: spacing[5], paddingBottom: 40 },
+  sectionGap: { marginTop: 24 },
+  hint: { ...typography.footnote, color: colors.muted, marginBottom: 12, marginLeft: 4 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  increaseNotice: { marginTop: 12 },
 
-  infoCard: { flexDirection: 'row', backgroundColor: '#F0F9FF', borderWidth: 1, borderColor: '#BAE6FD', borderRadius: 14, padding: spacing[4], marginBottom: spacing[5] },
-  infoText: { flex: 1, fontSize: 13, color: '#0C4A6E', fontFamily: 'WorkSans', lineHeight: 18 },
+  compareRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 20 },
+  compareCard: {
+    flex: 1,
+    backgroundColor: colors.bg,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.lg,
+    paddingVertical: 16,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+  },
+  compareCardNew: { borderColor: colors.primary.DEFAULT, backgroundColor: colors.primary.tint },
+  compareLabel: { ...typography.footnote, color: colors.muted },
+  compareLabelNew: { color: colors.primary.dark, fontWeight: '600' },
+  compareValue: { ...typography.headline, color: colors.ink, marginTop: 4, textAlign: 'center' },
+  compareValueNew: { color: colors.primary.dark },
+  compareMeta: { ...typography.caption, fontWeight: '400', color: colors.muted, marginTop: 2 },
+  compareArrow: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.fill,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 
-  compareRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], marginBottom: spacing[5] },
-  compareCard: { flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 14, padding: spacing[4], alignItems: 'center' },
-  compareCardNew: { backgroundColor: '#ECFDF5', borderColor: '#10B981' },
-  compareLabel: { fontSize: 12, color: colors.textMuted, fontFamily: 'WorkSans', marginBottom: spacing[2] },
-  compareValue: { fontSize: 20, fontWeight: '700', color: colors.text, fontFamily: 'Sora' },
-  compareMeta: { fontSize: 11, color: colors.textMuted, fontFamily: 'WorkSans', marginTop: spacing[1] },
-  compareArrow: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.primary.tint, justifyContent: 'center', alignItems: 'center' },
-
-  sectionTitle: { fontSize: 17, fontWeight: '700', color: colors.text, fontFamily: 'Sora', marginBottom: spacing[2] },
-  hint: { fontSize: 13, color: colors.textMuted, fontFamily: 'WorkSans', lineHeight: 18, marginBottom: spacing[4] },
-
-  optionsRow: { flexDirection: 'row', gap: spacing[2], marginBottom: spacing[4] },
-  optionBtn: { flex: 1, backgroundColor: '#F8F9FA', borderWidth: 1.5, borderColor: '#E9ECEF', borderRadius: 12, paddingVertical: 10, alignItems: 'center' },
-  optionBtnActive: { backgroundColor: '#ECFDF5', borderColor: '#10B981' },
-  optionText: { fontSize: 13, fontWeight: '600', color: colors.text, fontFamily: 'WorkSans' },
-  optionTextActive: { color: '#059669' },
-
-  increaseInfo: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.primary.tint, borderRadius: 10, padding: spacing[3], marginBottom: spacing[4] },
-  increaseText: { flex: 1, fontSize: 12, color: colors.primary.DEFAULT, fontFamily: 'WorkSans', fontWeight: '600' },
-
-  impactCard: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 14, padding: spacing[4], marginBottom: spacing[4] },
-  impactTitle: { fontSize: 14, fontWeight: '600', color: colors.text, fontFamily: 'WorkSans', marginBottom: spacing[3] },
-  impactRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing[2] },
-  impactLabel: { fontSize: 13, color: colors.textMuted, fontFamily: 'WorkSans' },
-  impactValue: { fontSize: 14, fontWeight: '600', color: colors.text, fontFamily: 'WorkSans' },
-
-  submitBtn: { flexDirection: 'row', backgroundColor: colors.primary.DEFAULT, borderRadius: 14, paddingVertical: 16, alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: spacing[2] },
-  submitText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700', fontFamily: 'WorkSans' },
+  impactCard: { paddingVertical: 4 },
 });

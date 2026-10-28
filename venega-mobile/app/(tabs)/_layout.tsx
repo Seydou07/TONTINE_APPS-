@@ -1,7 +1,9 @@
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import { Home, Users, Activity, User, Plus } from 'lucide-react-native';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import React from 'react';
+import { colors, typography } from '@venega/design-tokens';
 
 export default function TabLayout() {
   return (
@@ -15,75 +17,53 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Accueil',
-          tabBarIcon: ({ color, focused }) => (
-            <Home size={21} color={color as string} strokeWidth={focused ? 2.3 : 1.8} />
-          ),
+          tabBarIcon: ({ color, focused }) => <Home size={24} color={color as string} strokeWidth={focused ? 2.2 : 1.7} />,
         }}
       />
       <Tabs.Screen
         name="circles"
         options={{
           title: 'Cercles',
-          tabBarIcon: ({ color, focused }) => (
-            <Users size={21} color={color as string} strokeWidth={focused ? 2.3 : 1.8} />
-          ),
+          tabBarIcon: ({ color, focused }) => <Users size={24} color={color as string} strokeWidth={focused ? 2.2 : 1.7} />,
         }}
       />
       <Tabs.Screen
         name="messages"
         options={{
           title: 'Activité',
-          tabBarIcon: ({ color, focused }) => (
-            <Activity size={21} color={color as string} strokeWidth={focused ? 2.3 : 1.8} />
-          ),
+          tabBarIcon: ({ color, focused }) => <Activity size={24} color={color as string} strokeWidth={focused ? 2.2 : 1.7} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Profil',
-          tabBarIcon: ({ color, focused }) => (
-            <User size={21} color={color as string} strokeWidth={focused ? 2.3 : 1.8} />
-          ),
+          tabBarIcon: ({ color, focused }) => <User size={24} color={color as string} strokeWidth={focused ? 2.2 : 1.7} />,
         }}
       />
-      <Tabs.Screen
-        name="create"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="notifications"
-        options={{
-          href: null,
-        }}
-      />
+      <Tabs.Screen name="create" options={{ href: null }} />
+      <Tabs.Screen name="notifications" options={{ href: null }} />
     </Tabs>
   );
 }
 
 function CustomTabBar({ state, descriptors, navigation }: any) {
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
   const routes = state.routes.filter((route: any) => !['create', 'notifications'].includes(route.name));
 
   const onPressTab = (route: any) => {
-    const event = navigation.emit({
-      type: 'tabPress',
-      target: route.key,
-      canPreventDefault: true,
-    });
-    if (!event.defaultPrevented) {
-      navigation.navigate(route.name);
-    }
+    const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+    if (!event.defaultPrevented) navigation.navigate(route.name);
   };
 
   return (
-    <View style={styles.tabBar}>
+    <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
       {routes.map((route: any, index: number) => {
         const { options } = descriptors[route.key];
         const label = options.title ?? route.name;
         const isFocused = state.index === state.routes.indexOf(route);
-        const color = isFocused ? '#0B6E4F' : '#94A3B8';
+        const color = isFocused ? colors.ink : colors.subtle;
 
         return (
           <React.Fragment key={route.key}>
@@ -91,20 +71,25 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
               style={styles.tabItem}
               onPress={() => onPressTab(route)}
               activeOpacity={0.7}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: isFocused }}
+              accessibilityLabel={label}
             >
-              {options.tabBarIcon ? options.tabBarIcon({ color, focused: isFocused, size: 21 }) : null}
-              <Text style={[styles.tabLabel, { color }]} numberOfLines={1}>
+              {options.tabBarIcon ? options.tabBarIcon({ color, focused: isFocused, size: 24 }) : null}
+              <Text style={[styles.tabLabel, { color }, isFocused && styles.tabLabelActive]} numberOfLines={1}>
                 {label}
               </Text>
             </TouchableOpacity>
             {index === 1 && (
-              <View style={styles.createTabItem}>
+              <View style={styles.tabItem}>
                 <TouchableOpacity
                   style={styles.createBtn}
-                  onPress={() => navigation.navigate('create')}
+                  onPress={() => router.push('/circles/create')}
                   activeOpacity={0.85}
+                  accessibilityRole="button"
+                  accessibilityLabel="Créer un cercle"
                 >
-                  <Plus size={26} color="#FFFFFF" strokeWidth={2.4} />
+                  <Plus size={24} color="#FFFFFF" strokeWidth={2.4} />
                 </TouchableOpacity>
               </View>
             )}
@@ -119,39 +104,31 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#EEF1F4',
+    backgroundColor: colors.bg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.lineStrong,
     paddingTop: 8,
-    paddingBottom: 22,
   },
   tabItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-  },
-  createTabItem: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'flex-start',
+    gap: 3,
   },
   createBtn: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#D9A441',
+    width: 48,
+    height: 40,
+    borderRadius: 14,
+    backgroundColor: colors.primary.DEFAULT,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: -26,
-    shadowColor: '#D9A441',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 6,
   },
   tabLabel: {
-    fontFamily: 'WorkSansMedium',
-    fontSize: 10.5,
+    ...typography.caption,
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  tabLabelActive: {
+    fontWeight: '600',
   },
 });

@@ -1,19 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Modal, AppState, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, StatusBar, AppState, Linking } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Check } from 'lucide-react-native';
+import { ArrowLeft, Info } from 'lucide-react-native';
+import { colors, radius, typography } from '@venega/design-tokens';
 import { getCircle, getCircles, getCurrentUser, buildUssdCode, activateCircle, CIRCLE_CREATION_FEE } from '../circleStore';
 import { CircleType } from '@venega/types';
+import { Button, IconButton, Sheet } from '../../../components/ui';
+import OperatorPicker, { operatorLogos } from '../components/OperatorPicker';
 
 const formatXOF = (n: number) => new Intl.NumberFormat('fr-FR').format(n) + ' F CFA';
-
-const operatorLogos: Record<string, any> = {
-  ORANGE: require('../../../../assets/operators/orange.png'),
-  MOOV: require('../../../../assets/operators/moov.png'),
-  WAVE: require('../../../../assets/operators/wave.png'),
-};
 
 const OPERATORS = [
   { id: 'ORANGE', name: 'Orange Money' },
@@ -70,261 +67,156 @@ export default function PaymentScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }} edges={['top']}>
-        <View style={styles.topBar}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-            <ArrowLeft size={20} color="#1A202C" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <SafeAreaView style={styles.flex} edges={['top', 'bottom']}>
+        <View style={styles.header}>
+          <IconButton icon={ArrowLeft} variant="plain" accessibilityLabel="Retour" onPress={() => router.back()} />
+          <Text style={styles.headerTitle} numberOfLines={1}>
             {paymentType === 'ACTIVATION' ? 'Activer le cercle' : 'Payer ma cotisation'}
           </Text>
+          <View style={styles.headerSpacer} />
         </View>
 
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Montant — bloc héros */}
-          <View style={styles.heroCard}>
-            <Text style={styles.heroLabel}>Montant à payer</Text>
-            <Text style={styles.heroValue}>{formatXOF(amount)}</Text>
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          {/* Montant */}
+          <View style={styles.amountCard}>
+            <Text style={styles.amountLabel}>Montant à payer</Text>
+            <Text style={styles.amountValue}>{formatXOF(amount)}</Text>
+            <Text style={styles.amountSub} numberOfLines={1}>{circle.name}</Text>
           </View>
 
           {paymentType === 'ACTIVATION' && (
-            <Text style={styles.reasonHint}>
-              Votre cercle est créé mais pas encore actif. Réglez les frais d'activation pour le mettre en service.
-            </Text>
+            <View style={styles.notice}>
+              <Info size={18} color={colors.accent.deep} />
+              <Text style={styles.noticeText}>
+                Votre cercle est créé mais pas encore actif. Réglez les frais d'activation pour le mettre en service.
+              </Text>
+            </View>
           )}
 
           {/* Résumé */}
-          <View style={styles.summaryCard}>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Cercle</Text>
-              <Text style={styles.summaryValue} numberOfLines={1}>{circle.name}</Text>
-            </View>
-
-            <View style={styles.summaryDivider} />
-
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>{paymentType === 'ACTIVATION' ? 'Type de frais' : 'Type de cotisation'}</Text>
-              <Text style={styles.summaryValue}>{typeLabel}</Text>
-            </View>
-
-            <View style={styles.summaryDivider} />
-
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Numéro Mobile Money</Text>
-              <Text style={styles.summaryValue}>{me.phoneNumber}</Text>
-            </View>
-
-            <View style={styles.summaryDivider} />
-
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Montant</Text>
-              <Text style={styles.summaryValueGreen}>{formatXOF(amount)}</Text>
-            </View>
+          <View style={styles.card}>
+            <SummaryRow label="Cercle" value={circle.name} />
+            <SummaryRow label={paymentType === 'ACTIVATION' ? 'Type de frais' : 'Type de cotisation'} value={typeLabel} />
+            <SummaryRow label="Numéro Mobile Money" value={me.phoneNumber} />
+            <SummaryRow label="Montant" value={formatXOF(amount)} strong last />
           </View>
-          <Text style={styles.reasonHint}>Le paiement est envoyé directement depuis votre numéro Mobile Money.</Text>
+          <Text style={styles.hint}>Le paiement est envoyé directement depuis votre numéro Mobile Money.</Text>
 
           {/* Opérateur */}
-          <Text style={styles.sectionLabel}>Choisissez l'opérateur</Text>
-          <View style={styles.operatorsRow}>
-            {OPERATORS.map((op) => {
-              const isSelected = op.id === selectedOperator;
-              return (
-                <TouchableOpacity
-                  key={op.id}
-                  style={[styles.operatorCard, isSelected && styles.operatorCardSelected]}
-                  activeOpacity={0.8}
-                  onPress={() => setSelectedOperator(op.id)}
-                >
-                  <View style={[styles.operatorCheck, isSelected && styles.operatorCheckSelected]}>
-                    {isSelected && <Check size={11} color="#FFFFFF" strokeWidth={3.2} />}
-                  </View>
-                  <Image source={operatorLogos[op.id]} style={styles.operatorLogo} contentFit="contain" />
-                  <Text style={[styles.opNameText, isSelected && styles.opNameTextSelected]}>{op.name}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+          <Text style={styles.sectionTitle}>Choisissez l'opérateur</Text>
+          <OperatorPicker operators={OPERATORS} value={selectedOperator} onChange={setSelectedOperator} />
         </ScrollView>
 
         <View style={styles.footer}>
-          <TouchableOpacity
-            style={[styles.confirmBtn, !selectedOperator && styles.confirmBtnDisabled]}
-            activeOpacity={0.88}
-            disabled={!selectedOperator}
-            onPress={handleOpenConfirm}
-          >
-            <Text style={styles.confirmBtnText}>Payer {formatXOF(amount)}</Text>
-          </TouchableOpacity>
+          <Button title={`Payer ${formatXOF(amount)}`} disabled={!selectedOperator} onPress={handleOpenConfirm} />
         </View>
-
-        {/* DEMANDE DE CONFIRMATION DE PAIEMENT */}
-        <Modal visible={showConfirmModal} animationType="fade" transparent={true}>
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>Demande de confirmation de paiement</Text>
-              <Text style={styles.modalText}>
-                Vous êtes sur le point de payer {formatXOF(amount)} depuis le numéro{' '}
-                <Text style={styles.modalTextBold}>{me.phoneNumber}</Text>.
-              </Text>
-
-              {selectedOperator && (
-                <View style={styles.modalPayVia}>
-                  <Text style={styles.modalPayViaLabel}>Paiement via</Text>
-                  <Image source={operatorLogos[selectedOperator]} style={styles.modalPayViaLogo} contentFit="contain" />
-                </View>
-              )}
-
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={styles.modalCancelBtn}
-                  activeOpacity={0.85}
-                  onPress={() => setShowConfirmModal(false)}
-                >
-                  <Text style={styles.modalCancelBtnText}>Annuler</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.modalConfirmBtn} activeOpacity={0.85} onPress={handleDial}>
-                  <Text style={styles.modalConfirmBtnText}>Confirmer</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
       </SafeAreaView>
+
+      {/* Confirmation du paiement */}
+      <Sheet visible={showConfirmModal} onClose={() => setShowConfirmModal(false)} title="Confirmer le paiement">
+        <Text style={styles.sheetText}>
+          Vous êtes sur le point de payer <Text style={styles.sheetStrong}>{formatXOF(amount)}</Text> depuis le numéro{' '}
+          <Text style={styles.sheetStrong}>{me.phoneNumber}</Text>.
+        </Text>
+
+        {selectedOperator && (
+          <View style={styles.payVia}>
+            <Image source={operatorLogos[selectedOperator]} style={styles.payViaLogo} contentFit="contain" />
+            <Text style={styles.payViaText}>
+              Paiement via {OPERATORS.find((o) => o.id === selectedOperator)?.name}
+            </Text>
+          </View>
+        )}
+
+        <View style={styles.sheetActions}>
+          <Button title="Annuler" variant="secondary" onPress={() => setShowConfirmModal(false)} style={styles.flex} />
+          <Button title="Confirmer" onPress={handleDial} style={styles.flex} />
+        </View>
+      </Sheet>
+    </View>
+  );
+}
+
+function SummaryRow({ label, value, strong, last }: { label: string; value: string; strong?: boolean; last?: boolean }) {
+  return (
+    <View style={[styles.row, !last && styles.rowBorder]}>
+      <Text style={styles.rowLabel}>{label}</Text>
+      <Text style={[styles.rowValue, strong && styles.rowValueStrong]} numberOfLines={2}>
+        {value}
+      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  topBar: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 20, paddingTop: 4, paddingBottom: 10 },
-  backBtn: { width: 32, height: 32, justifyContent: 'center', alignItems: 'center', marginLeft: -6 },
-  headerTitle: { fontFamily: 'SoraBold', fontSize: 18, color: '#1A202C' },
-  scrollContent: { paddingHorizontal: 20, paddingBottom: 24 },
-  heroCard: {
+  container: { flex: 1, backgroundColor: colors.bg },
+  flex: { flex: 1 },
+
+  header: { height: 56, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8 },
+  headerTitle: { flex: 1, ...typography.headline, color: colors.ink, textAlign: 'center' },
+  headerSpacer: { width: 40 },
+
+  scroll: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 32 },
+
+  amountCard: {
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#E4F0EB',
-    borderRadius: 20,
-    paddingVertical: 22,
-    marginBottom: 18,
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+    borderRadius: 24,
+    backgroundColor: colors.primary.dark,
+    marginBottom: 20,
   },
-  heroLabel: { fontFamily: 'WorkSansMedium', fontSize: 12.5, color: '#0B6E4F' },
-  heroValue: { fontFamily: 'SoraBold', fontSize: 30, color: '#074B36', letterSpacing: -0.5 },
-  summaryCard: {
-    borderWidth: 1.5,
-    borderColor: '#E7EAEE',
-    borderRadius: 18,
-    overflow: 'hidden',
-  },
-  summaryRow: {
+  amountLabel: { ...typography.footnote, color: '#FFFFFF', opacity: 0.8 },
+  amountValue: { ...typography.display, color: '#FFFFFF', marginTop: 4 },
+  amountSub: { ...typography.footnote, color: '#FFFFFF', opacity: 0.8, marginTop: 4 },
+
+  notice: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
+    gap: 10,
+    padding: 14,
+    borderRadius: radius.md,
+    backgroundColor: colors.accent.tint,
+    marginBottom: 20,
+  },
+  noticeText: { flex: 1, ...typography.footnote, color: colors.inkSoft },
+
+  card: {
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.bg,
     paddingHorizontal: 16,
   },
-  summaryDivider: { height: 1, backgroundColor: '#F1F3F6' },
-  summaryLabel: { fontFamily: 'WorkSans', fontSize: 12.5, color: '#94A3B8' },
-  summaryValue: { fontFamily: 'WorkSansSemiBold', fontSize: 14, color: '#1A202C' },
-  summaryValueGreen: { fontFamily: 'SoraBold', fontSize: 14.5, color: '#0B6E4F' },
-  reasonHint: { fontFamily: 'WorkSans', fontSize: 10.5, color: '#94A3B8', marginTop: 8, marginBottom: 20 },
-  sectionLabel: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 11.5,
-    color: '#94A3B8',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 10,
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 16, paddingVertical: 14 },
+  rowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
+  rowLabel: { ...typography.callout, color: colors.muted },
+  rowValue: { flexShrink: 1, ...typography.callout, fontWeight: '500', color: colors.ink, textAlign: 'right' },
+  rowValueStrong: { fontWeight: '700', color: colors.primary.dark },
+  hint: { ...typography.footnote, color: colors.muted, marginTop: 8 },
+
+  sectionTitle: { ...typography.bodyStrong, color: colors.ink, marginTop: 28, marginBottom: 12 },
+
+  footer: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.line,
+    backgroundColor: colors.bg,
   },
-  operatorsRow: { flexDirection: 'row', gap: 10, marginBottom: 18 },
-  operatorCard: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 6,
-    alignItems: 'center',
-    gap: 8,
-    borderWidth: 1.5,
-    borderColor: '#E7EAEE',
-  },
-  operatorCardSelected: {
-    borderColor: '#074B36',
-    backgroundColor: 'rgba(7, 75, 54, 0.04)',
-    shadowColor: '#074B36',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  operatorCheck: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 17,
-    height: 17,
-    borderRadius: 8.5,
-    borderWidth: 1.5,
-    borderColor: '#E7EAEE',
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  operatorCheckSelected: { backgroundColor: '#074B36', borderColor: '#074B36' },
-  operatorLogo: { width: 34, height: 34, borderRadius: 9, marginTop: 4 },
-  opNameText: { fontFamily: 'WorkSansMedium', fontSize: 11, color: '#64748B', textAlign: 'center' },
-  opNameTextSelected: { fontFamily: 'WorkSansBold', color: '#074B36' },
-  footer: { padding: 20, borderTopWidth: 1, borderTopColor: '#F1F3F6' },
-  confirmBtn: { height: 52, borderRadius: 26, backgroundColor: '#074B36', justifyContent: 'center', alignItems: 'center' },
-  confirmBtnDisabled: { backgroundColor: '#CBD5E1' },
-  confirmBtnText: { fontFamily: 'SoraBold', fontSize: 14.5, color: '#FFFFFF' },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.55)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  modalCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    padding: 22,
-    width: '100%',
-    gap: 14,
-  },
-  modalTitle: { fontFamily: 'SoraBold', fontSize: 16, color: '#1A202C' },
-  modalText: { fontFamily: 'WorkSans', fontSize: 13.5, lineHeight: 19, color: '#334155' },
-  modalTextBold: { fontFamily: 'WorkSansBold' },
-  modalPayVia: {
+
+  sheetText: { ...typography.body, color: colors.inkSoft },
+  sheetStrong: { fontWeight: '600', color: colors.ink },
+  payVia: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    backgroundColor: '#F8FAFB',
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
+    gap: 12,
+    marginTop: 16,
+    padding: 12,
+    borderRadius: radius.md,
+    backgroundColor: colors.fill,
   },
-  modalPayViaLabel: { fontFamily: 'WorkSansSemiBold', fontSize: 12.5, color: '#64748B' },
-  modalPayViaLogo: { width: 30, height: 30, borderRadius: 8 },
-  modalActions: { flexDirection: 'row', gap: 10, marginTop: 4 },
-  modalCancelBtn: {
-    flex: 1,
-    height: 46,
-    borderRadius: 23,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalCancelBtnText: { fontFamily: 'WorkSansSemiBold', fontSize: 13.5, color: '#64748B' },
-  modalConfirmBtn: {
-    flex: 1,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: '#074B36',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalConfirmBtnText: { fontFamily: 'WorkSansSemiBold', fontSize: 13.5, color: '#FFFFFF' },
+  payViaLogo: { width: 32, height: 32, borderRadius: 8 },
+  payViaText: { flex: 1, ...typography.callout, fontWeight: '600', color: colors.ink },
+  sheetActions: { flexDirection: 'row', gap: 10, marginTop: 20 },
 });

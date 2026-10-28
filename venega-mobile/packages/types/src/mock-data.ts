@@ -192,9 +192,9 @@ export const mockCircles: Circle[] = [
   {
     id: 'c1',
     name: 'Tontine Famille Ouédraogo',
-    type: CircleType.HYBRID,
+    type: CircleType.TONTINE_ONLY,
     tontineAmount: 10000,
-    solidarityAmount: 2000,
+    solidarityAmount: 0,
     frequency: Frequency.MONTHLY,
     contributionMode: ContributionMode.CASH,
     beneficiariesPerTurn: 1,

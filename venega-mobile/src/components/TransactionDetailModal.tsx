@@ -1,6 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
-import { ArrowUp, ArrowDown } from 'lucide-react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import { ArrowUpRight, ArrowDownLeft } from 'lucide-react-native';
+import { colors, radius, typography } from '@venega/design-tokens';
+import { Button, Sheet } from './ui';
 
 export interface TransactionDetailField {
   label: string;
@@ -16,6 +18,7 @@ interface TransactionDetailModalProps {
   fields: TransactionDetailField[];
 }
 
+/** Feuille du bas présentant le détail d'une opération. */
 export default function TransactionDetailModal({
   visible,
   onClose,
@@ -24,103 +27,69 @@ export default function TransactionDetailModal({
   amount,
   fields,
 }: TransactionDetailModalProps) {
+  const Icon = isCredit ? ArrowUpRight : ArrowDownLeft;
   return (
-    <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onClose} />
-        <View style={styles.sheet}>
-          <View style={styles.handleBar} />
-          <Text style={styles.title}>Détails de la transaction</Text>
-
-          <View style={[styles.summaryCard, isCredit ? styles.summaryCardCredit : styles.summaryCardDebit]}>
-            <View style={[styles.summaryIcon, isCredit ? styles.summaryIconCredit : styles.summaryIconDebit]}>
-              {isCredit ? <ArrowUp size={18} color="#0B6E4F" /> : <ArrowDown size={18} color="#E53E3E" />}
-            </View>
-            <Text style={styles.summaryName}>{name}</Text>
-            <Text style={[styles.summaryAmount, isCredit ? styles.summaryAmountCredit : styles.summaryAmountDebit]}>
-              {isCredit ? '+' : '−'}{amount}
-            </Text>
-          </View>
-
-          <View style={styles.fieldsList}>
-            {fields.map((f) => (
-              <View key={f.label} style={styles.fieldRow}>
-                <View style={styles.bulletDot} />
-                <Text style={styles.fieldLabel}>{f.label}</Text>
-                <Text style={styles.fieldValue} numberOfLines={3}>{f.value}</Text>
-              </View>
-            ))}
-          </View>
-
-          <TouchableOpacity style={styles.okBtn} activeOpacity={0.88} onPress={onClose}>
-            <Text style={styles.okBtnText}>OK</Text>
-          </TouchableOpacity>
+    <Sheet visible={visible} onClose={onClose} title="Détails de l’opération">
+      <View style={styles.summary}>
+        <View style={[styles.summaryIcon, { backgroundColor: isCredit ? colors.primary.tint : colors.fill }]}>
+          <Icon size={20} color={isCredit ? colors.primary.DEFAULT : colors.inkSoft} strokeWidth={2} />
         </View>
+        <Text style={[styles.summaryAmount, { color: isCredit ? colors.primary.DEFAULT : colors.ink }]}>
+          {isCredit ? '+' : '−'}
+          {amount}
+        </Text>
+        <Text style={styles.summaryName}>{name}</Text>
       </View>
-    </Modal>
+
+      <View style={styles.fields}>
+        {fields.map((f, i) => (
+          <View key={f.label} style={[styles.fieldRow, i < fields.length - 1 && styles.fieldBorder]}>
+            <Text style={styles.fieldLabel}>{f.label}</Text>
+            <Text style={styles.fieldValue}>{f.value}</Text>
+          </View>
+        ))}
+      </View>
+
+      <Button title="Fermer" variant="secondary" onPress={onClose} style={styles.closeBtn} />
+    </Sheet>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.55)',
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-    paddingHorizontal: 22,
-    paddingTop: 12,
-    paddingBottom: 28,
-    gap: 18,
-  },
-  handleBar: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#E2E8F0',
-    alignSelf: 'center',
-  },
-  title: {
-    fontFamily: 'SoraBold',
-    fontSize: 18,
-    color: '#1A202C',
-    textAlign: 'center',
-  },
-  summaryCard: {
+  summary: {
     alignItems: 'center',
-    borderRadius: 18,
-    paddingVertical: 20,
-    gap: 8,
+    paddingVertical: 8,
   },
-  summaryCardCredit: { backgroundColor: '#E4F0EB' },
-  summaryCardDebit: { backgroundColor: '#FFECEC' },
   summaryIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 10,
   },
-  summaryIconCredit: { backgroundColor: 'rgba(11, 110, 79, 0.15)' },
-  summaryIconDebit: { backgroundColor: 'rgba(229, 62, 62, 0.15)' },
-  summaryName: { fontFamily: 'WorkSansSemiBold', fontSize: 14, color: '#1A202C' },
-  summaryAmount: { fontFamily: 'SoraBold', fontSize: 24 },
-  summaryAmountCredit: { color: '#0B6E4F' },
-  summaryAmountDebit: { color: '#E53E3E' },
-  fieldsList: { gap: 12 },
-  fieldRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  bulletDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: '#1A202C', marginTop: 7 },
-  fieldLabel: { fontFamily: 'WorkSansSemiBold', fontSize: 13.5, color: '#1A202C', width: 90 },
-  fieldValue: { flex: 1, fontFamily: 'WorkSans', fontSize: 13.5, color: '#334155', textAlign: 'right' },
-  okBtn: {
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#074B36',
-    justifyContent: 'center',
-    alignItems: 'center',
+  summaryAmount: { ...typography.title },
+  summaryName: { ...typography.callout, color: colors.muted, marginTop: 2, textAlign: 'center' },
+
+  fields: {
+    marginTop: 16,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.line,
+    paddingHorizontal: 16,
   },
-  okBtnText: { fontFamily: 'SoraBold', fontSize: 15, color: '#FFFFFF' },
+  fieldRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 16,
+    paddingVertical: 12,
+  },
+  fieldBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.line,
+  },
+  fieldLabel: { ...typography.callout, color: colors.muted },
+  fieldValue: { ...typography.callout, fontWeight: '500', color: colors.ink, flex: 1, textAlign: 'right' },
+
+  closeBtn: { marginTop: 20 },
 });

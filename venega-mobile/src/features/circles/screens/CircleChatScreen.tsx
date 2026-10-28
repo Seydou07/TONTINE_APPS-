@@ -13,15 +13,10 @@ import {
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import {
-  ArrowLeft,
-  Send,
-  Users,
-  Smile,
-  Paperclip,
-} from 'lucide-react-native';
-import Animated, { FadeInUp, FadeInDown } from 'react-native-reanimated';
+import { ArrowLeft, Send, Smile, Paperclip } from 'lucide-react-native';
+import { colors, radius, typography } from '@venega/design-tokens';
 import { mockCircles, mockChatMessages, mockUsers, mockCurrentUser } from '@venega/types';
+import { IconButton } from '../../../components/ui';
 
 type ChatMsg = {
   id: string;
@@ -101,13 +96,13 @@ export default function CircleChatScreen() {
     groupedData.push(msg);
   });
 
+  const canSend = !!inputText.trim();
+
   const renderItem = ({ item, index }: { item: any; index: number }) => {
     if (item.type === 'date') {
       return (
         <View style={styles.dateSeparator}>
-          <View style={styles.datePill}>
-            <Text style={styles.dateText}>{formatDateHeader(item.date)}</Text>
-          </View>
+          <Text style={styles.dateText}>{formatDateHeader(item.date)}</Text>
         </View>
       );
     }
@@ -122,61 +117,43 @@ export default function CircleChatScreen() {
     const isGrouped = prevMsg?.userId === msg.userId;
 
     return (
-      <Animated.View
-        entering={FadeInUp.delay(50).duration(300)}
+      <View
         style={[
           styles.msgRow,
           isMe ? styles.msgRowMe : styles.msgRowOther,
-          isGrouped && { marginTop: 2 },
+          isGrouped && styles.msgRowGrouped,
         ]}
       >
         {showAvatar && !isGrouped ? (
-          <Image
-            source={{ uri: msg.senderAvatar }}
-            style={styles.msgAvatar}
-            contentFit="cover"
-          />
+          <Image source={{ uri: msg.senderAvatar }} style={styles.msgAvatar} contentFit="cover" />
         ) : showAvatar ? (
           <View style={styles.msgAvatarPlaceholder} />
         ) : null}
 
-        <View
-          style={[
-            styles.bubble,
-            isMe ? styles.bubbleMe : styles.bubbleOther,
-          ]}
-        >
-          {!isMe && !isGrouped && (
-            <Text style={styles.senderName}>{msg.senderName}</Text>
-          )}
-          <Text style={[styles.msgText, isMe && styles.msgTextMe]}>
-            {msg.content}
-          </Text>
-          <Text style={[styles.msgTime, isMe && styles.msgTimeMe]}>
-            {formatTime(msg.createdAt)}
-          </Text>
+        <View style={styles.bubbleCol}>
+          {!isMe && !isGrouped && <Text style={styles.senderName}>{msg.senderName}</Text>}
+          <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleOther]}>
+            <Text style={[styles.msgText, isMe && styles.msgTextMe]}>{msg.content}</Text>
+            <Text style={[styles.msgTime, isMe && styles.msgTimeMe]}>{formatTime(msg.createdAt)}</Text>
+          </View>
         </View>
-      </Animated.View>
+      </View>
     );
   };
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#074B36" />
-      <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-        {/* Header */}
-        <View style={styles.topBar}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-            <ArrowLeft size={20} color="#FFFFFF" />
-          </TouchableOpacity>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.bg} />
+      <SafeAreaView style={styles.flex} edges={['top', 'bottom']}>
+        {/* En-tête */}
+        <View style={styles.header}>
+          <IconButton icon={ArrowLeft} variant="plain" accessibilityLabel="Retour" onPress={() => router.back()} />
 
           <View style={styles.headerInfo}>
             <Text style={styles.headerTitle} numberOfLines={1}>
               {circle?.name ?? 'Discussion'}
             </Text>
-            <Text style={styles.headerSub}>
-              {circle?.memberCount ?? 0} membres
-            </Text>
+            <Text style={styles.headerSub}>{circle?.memberCount ?? 0} membres</Text>
           </View>
 
           <View style={styles.headerAvatarGroup}>
@@ -184,20 +161,15 @@ export default function CircleChatScreen() {
               <Image
                 key={u.id}
                 source={{ uri: u.avatarUrl }}
-                style={[
-                  styles.headerMiniAvatar,
-                  { marginLeft: i === 0 ? 0 : -8 },
-                  { zIndex: 3 - i },
-                ]}
+                style={[styles.headerMiniAvatar, { marginLeft: i === 0 ? 0 : -8, zIndex: 3 - i }]}
                 contentFit="cover"
               />
             ))}
           </View>
         </View>
 
-        {/* Chat body */}
         <KeyboardAvoidingView
-          style={styles.chatBody}
+          style={styles.flex}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={0}
         >
@@ -205,9 +177,8 @@ export default function CircleChatScreen() {
             ref={flatListRef}
             data={groupedData}
             renderItem={renderItem}
-            keyExtractor={(item, idx) =>
-              'type' in item ? `date-${idx}` : (item as ChatMsg).id
-            }
+            keyExtractor={(item, idx) => ('type' in item ? `date-${idx}` : (item as ChatMsg).id)}
+            style={styles.list}
             contentContainerStyle={styles.messagesContainer}
             showsVerticalScrollIndicator={false}
             onContentSizeChange={() => {
@@ -215,38 +186,42 @@ export default function CircleChatScreen() {
             }}
           />
 
-          {/* Input bar */}
+          {/* Barre de saisie */}
           <View style={styles.inputBar}>
             <View style={styles.inputRow}>
-              <TouchableOpacity style={styles.inputIconBtn}>
-                <Smile size={22} color="#94A3B8" />
+              <TouchableOpacity style={styles.inputIconBtn} accessibilityRole="button" accessibilityLabel="Émojis">
+                <Smile size={20} color={colors.subtle} />
               </TouchableOpacity>
 
               <TextInput
                 style={styles.textInput}
                 value={inputText}
                 onChangeText={setInputText}
-                placeholder="Écrire un message..."
-                placeholderTextColor="#94A3B8"
+                placeholder="Écrire un message"
+                placeholderTextColor={colors.subtle}
                 multiline
                 maxLength={1000}
               />
 
-              <TouchableOpacity style={styles.inputIconBtn}>
-                <Paperclip size={20} color="#94A3B8" />
+              <TouchableOpacity
+                style={styles.inputIconBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Joindre un fichier"
+              >
+                <Paperclip size={20} color={colors.subtle} />
               </TouchableOpacity>
             </View>
 
             <TouchableOpacity
-              style={[
-                styles.sendBtn,
-                inputText.trim() ? styles.sendBtnActive : styles.sendBtnInactive,
-              ]}
+              style={[styles.sendBtn, canSend ? styles.sendBtnActive : styles.sendBtnInactive]}
               onPress={handleSend}
-              disabled={!inputText.trim()}
+              disabled={!canSend}
               activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Envoyer"
+              accessibilityState={{ disabled: !canSend }}
             >
-              <Send size={18} color={inputText.trim() ? '#FFFFFF' : '#94A3B8'} />
+              <Send size={18} color={canSend ? '#FFFFFF' : colors.subtle} />
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -256,205 +231,87 @@ export default function CircleChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#074B36',
-  },
-  topBar: {
+  container: { flex: 1, backgroundColor: colors.bg },
+  flex: { flex: 1 },
+
+  header: {
+    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#074B36',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
+    paddingLeft: 8,
+    paddingRight: 16,
+    gap: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.line,
+    backgroundColor: colors.bg,
   },
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerInfo: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontFamily: 'SoraBold',
-    fontSize: 17,
-    color: '#FFFFFF',
-  },
-  headerSub: {
-    fontFamily: 'WorkSans',
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.7)',
-    marginTop: 1,
-  },
-  headerAvatarGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
+  headerInfo: { flex: 1 },
+  headerTitle: { ...typography.headline, color: colors.ink },
+  headerSub: { ...typography.caption, fontWeight: '400', color: colors.muted },
+  headerAvatarGroup: { flexDirection: 'row', alignItems: 'center' },
   headerMiniAvatar: {
     width: 28,
     height: 28,
     borderRadius: 14,
     borderWidth: 2,
-    borderColor: '#074B36',
+    borderColor: colors.bg,
+    backgroundColor: colors.fill,
   },
-  chatBody: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    overflow: 'hidden',
-  },
-  messagesContainer: {
-    paddingHorizontal: 14,
-    paddingTop: 20,
-    paddingBottom: 12,
-  },
-  dateSeparator: {
-    alignItems: 'center',
-    marginVertical: 14,
-  },
-  datePill: {
-    backgroundColor: 'rgba(7, 75, 54, 0.08)',
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-    borderRadius: 12,
-  },
-  dateText: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 11.5,
-    color: '#64748B',
-  },
-  msgRow: {
-    flexDirection: 'row',
-    marginBottom: 6,
-    maxWidth: '85%',
-  },
-  msgRowMe: {
-    alignSelf: 'flex-end',
-    flexDirection: 'row-reverse',
-  },
-  msgRowOther: {
-    alignSelf: 'flex-start',
-  },
-  msgAvatar: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    marginRight: 8,
-    marginTop: 4,
-  },
-  msgAvatarPlaceholder: {
-    width: 30,
-    marginRight: 8,
-  },
-  bubble: {
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 18,
-    maxWidth: '100%',
-  },
-  bubbleMe: {
-    backgroundColor: '#074B36',
-    borderBottomRightRadius: 6,
-    shadowColor: '#074B36',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  bubbleOther: {
-    backgroundColor: '#FFFFFF',
-    borderBottomLeftRadius: 6,
-    borderWidth: 1,
-    borderColor: '#E8E4DC',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  senderName: {
-    fontFamily: 'WorkSansSemiBold',
-    fontSize: 12,
-    color: '#0B6E4F',
-    marginBottom: 3,
-  },
-  msgText: {
-    fontFamily: 'WorkSans',
-    fontSize: 14.5,
-    color: '#1E293B',
-    lineHeight: 20,
-  },
-  msgTextMe: {
-    color: '#FFFFFF',
-  },
-  msgTime: {
-    fontFamily: 'WorkSans',
-    fontSize: 10.5,
-    color: '#94A3B8',
-    alignSelf: 'flex-end',
-    marginTop: 4,
-  },
-  msgTimeMe: {
-    color: 'rgba(255, 255, 255, 0.6)',
-  },
+
+  list: { flex: 1, backgroundColor: colors.bg },
+  messagesContainer: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 12 },
+
+  dateSeparator: { alignItems: 'center', marginVertical: 16 },
+  dateText: { ...typography.caption, color: colors.muted },
+
+  msgRow: { flexDirection: 'row', alignItems: 'flex-end', marginTop: 10, maxWidth: '82%' },
+  msgRowGrouped: { marginTop: 2 },
+  msgRowMe: { alignSelf: 'flex-end', flexDirection: 'row-reverse' },
+  msgRowOther: { alignSelf: 'flex-start' },
+  msgAvatar: { width: 28, height: 28, borderRadius: 14, marginRight: 8, backgroundColor: colors.fill },
+  msgAvatarPlaceholder: { width: 28, marginRight: 8 },
+
+  bubbleCol: { flexShrink: 1 },
+  senderName: { ...typography.caption, color: colors.muted, marginBottom: 3, marginLeft: 12 },
+  bubble: { paddingHorizontal: 14, paddingTop: 8, paddingBottom: 6, borderRadius: 18 },
+  bubbleMe: { backgroundColor: colors.primary.DEFAULT },
+  bubbleOther: { backgroundColor: colors.fill },
+  msgText: { ...typography.body, color: colors.ink },
+  msgTextMe: { color: '#FFFFFF' },
+  msgTime: { fontSize: 11, lineHeight: 14, color: colors.subtle, alignSelf: 'flex-end', marginTop: 2 },
+  msgTimeMe: { color: 'rgba(255, 255, 255, 0.7)' },
+
   inputBar: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E8E4DC',
+    paddingVertical: 8,
     gap: 8,
+    backgroundColor: colors.bg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.line,
   },
   inputRow: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'flex-end',
-    backgroundColor: '#F8F6F2',
-    borderRadius: 22,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
     minHeight: 44,
-    borderWidth: 1,
-    borderColor: '#E2E0DA',
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: radius.lg,
+    backgroundColor: colors.fill,
   },
-  inputIconBtn: {
-    width: 34,
-    height: 34,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  inputIconBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
   textInput: {
     flex: 1,
-    fontFamily: 'WorkSans',
-    fontSize: 15,
-    color: '#0F172A',
-    maxHeight: 100,
-    paddingVertical: 4,
-    paddingHorizontal: 4,
+    ...typography.body,
+    color: colors.ink,
+    maxHeight: 110,
+    paddingTop: 10,
+    paddingBottom: 10,
+    paddingHorizontal: 2,
   },
-  sendBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sendBtnActive: {
-    backgroundColor: '#074B36',
-    shadowColor: '#074B36',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  sendBtnInactive: {
-    backgroundColor: '#E8E4DC',
-  },
+  sendBtn: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
+  sendBtnActive: { backgroundColor: colors.primary.DEFAULT },
+  sendBtnInactive: { backgroundColor: colors.fill },
 });
