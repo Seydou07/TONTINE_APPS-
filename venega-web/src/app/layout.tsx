@@ -1,64 +1,49 @@
-import type { Metadata } from 'next';
-import { Sora, Work_Sans } from 'next/font/google';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 /**
- * Polices Venega — chargées via next/font pour des performances optimales
- * (pas de CDN externe, polices servies en local après le build).
+ * Police système (system-ui / -apple-system / Segoe UI / Roboto), comme l'app
+ * mobile : aucune police à télécharger, pages plus légères sur réseau lent.
  */
-const sora = Sora({
-  subsets: ['latin'],
-  weight: ['400', '600', '700', '800'],
-  variable: '--font-heading',
-  display: 'swap',
-});
-
-const workSans = Work_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-body',
-  display: 'swap',
-});
 
 export const metadata: Metadata = {
   title: {
-    default: 'Venega — Tontine Digitale & Caisse de Solidarité',
+    default: 'Venega — Tontine et caisse de solidarité',
     template: '%s | Venega',
   },
   description:
-    'Venega digitalise la tontine rotative et la caisse de solidarité au Burkina Faso. Cotisez, épargnez et entraidez-vous en toute transparence via Orange Money et Moov Money.',
+    'Venega gère la tontine et la caisse de solidarité au Burkina Faso. Cotisez par Orange Money, Moov Money ou Wave et suivez chaque tour en toute transparence.',
   keywords: [
     'tontine',
-    'tontine digitale',
     'Burkina Faso',
     'caisse de solidarité',
     'épargne communautaire',
     'mobile money',
     'Orange Money',
     'Moov Money',
-    'ROSCA',
+    'Wave',
     'Venega',
   ],
   authors: [{ name: 'Aniss Informatique' }],
+  icons: { icon: '/venega-icon.png' },
   openGraph: {
-    title: 'Venega — Tontine Digitale & Caisse de Solidarité',
-    description:
-      'La plateforme de gestion financière communautaire pour le Burkina Faso.',
+    title: 'Venega — Tontine et caisse de solidarité',
+    description: 'La tontine et la caisse de solidarité sur votre téléphone, au Burkina Faso.',
     type: 'website',
     locale: 'fr_BF',
   },
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export const viewport: Viewport = {
+  themeColor: '#074B36',
+  width: 'device-width',
+  initialScale: 1,
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr" className={`${sora.variable} ${workSans.variable}`}>
-      <body className="min-h-screen bg-bg text-text-main font-body antialiased">
-        {children}
-      </body>
+    <html lang="fr">
+      <body className="min-h-screen bg-bg text-ink antialiased">{children}</body>
     </html>
   );
 }
