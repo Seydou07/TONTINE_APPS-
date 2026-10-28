@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Check, CheckCircle2, History, Bell } from 'lucide-react-native';
 import { colors, radius, typography } from '@venega/design-tokens';
 import { getCircle, getCircles, getActiveCycle, getCycles, getCurrentUser } from '../circleStore';
-import { mockMemberships, mockPayoutRecords } from '@venega/types';
+import { CircleType, ContributionMode, mockMemberships, mockPayoutRecords } from '@venega/types';
 import type { PayoutRecord } from '@venega/types';
 import { Avatar, Button, Sheet } from '../../../components/ui';
 import OperatorPicker from '../components/OperatorPicker';
@@ -36,6 +36,7 @@ export default function PayoutInitScreen() {
   const me = getCurrentUser();
 
   const circle = getCircle(circleId) ?? getCircles()[0]!;
+  const isNature = circle.contributionMode === ContributionMode.NATURE || circle.type === CircleType.NATURE;
   const cycle = getActiveCycle(circle) ?? getCycles(circle.id)[0];
   const memberships = mockMemberships.filter((m) => m.circleId === circle.id);
   const orderedMembers = [...memberships].sort((a, b) => (a.turnOrder ?? 0) - (b.turnOrder ?? 0));
@@ -116,7 +117,7 @@ export default function PayoutInitScreen() {
     <View style={paymentStyles.container}>
       <StatusBar barStyle="dark-content" />
       <SafeAreaView style={paymentStyles.flex} edges={['top', 'bottom']}>
-        <PaymentHeader title="Verser la cagnotte" onBack={() => router.back()} />
+        <PaymentHeader title={isNature ? 'Remettre le bien' : 'Verser la cagnotte'} onBack={() => router.back()} />
 
         <ScrollView ref={scrollRef} contentContainerStyle={paymentStyles.scroll} showsVerticalScrollIndicator={false}>
           <PaymentAmountCard amount={beneficiaryPotAmount} sub={`Cagnotte du tour ${turn} · ${circle.name}`} />

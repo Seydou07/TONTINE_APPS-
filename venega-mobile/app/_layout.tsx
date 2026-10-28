@@ -1,17 +1,27 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { colors } from '@venega/design-tokens';
+import { loadLocalData, saveOnBackground } from '../src/lib/persistence';
 import '../global.css';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
-  // Police système : rien à charger, on libère l'écran de démarrage natif tout de suite.
+  const [ready, setReady] = useState(false);
+
+  // Police système : rien à charger. On relit seulement les données sauvegardées, puis on libère
+  // l'écran de démarrage natif.
   useEffect(() => {
-    SplashScreen.hideAsync().catch(() => {});
+    loadLocalData().finally(() => {
+      setReady(true);
+      SplashScreen.hideAsync().catch(() => {});
+    });
+    return saveOnBackground();
   }, []);
+
+  if (!ready) return null;
 
   return (
     <>

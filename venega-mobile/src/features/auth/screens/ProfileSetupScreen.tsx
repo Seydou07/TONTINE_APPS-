@@ -15,10 +15,14 @@ import { useRouter } from 'expo-router';
 import { ArrowLeft, Camera, Check } from 'lucide-react-native';
 import { colors, typography } from '@venega/design-tokens';
 import { Button, IconButton, Sheet, TextField } from '../../../components/ui';
+import { ApiError } from '../../../lib/api';
+import { getProfile } from '../../profile/profileStore';
+import { saveDisplayName } from '../api';
 
 export default function ProfileSetupScreen() {
   const router = useRouter();
-  const [fullName, setFullName] = useState('Aminata Ouédraogo');
+  const [fullName, setFullName] = useState(getProfile().name);
+  const [saving, setSaving] = useState(false);
   const phone = '70 12 34 56';
   const [email, setEmail] = useState('');
   const [mobileMoneyNumber, setMobileMoneyNumber] = useState('70 12 34 56');
@@ -27,12 +31,20 @@ export default function ProfileSetupScreen() {
   const nameParts = fullName.trim().split(/\s+/);
   const initials = ((nameParts[0]?.[0] ?? '') + (nameParts[1]?.[0] ?? '')).toUpperCase() || 'A';
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!fullName.trim()) {
       Alert.alert('Erreur', 'Veuillez indiquer votre nom complet.');
       return;
     }
-    setShowSuccess(true);
+    setSaving(true);
+    try {
+      await saveDisplayName(fullName);
+      setShowSuccess(true);
+    } catch (e) {
+      Alert.alert('Erreur', e instanceof ApiError ? e.message : 'Le profil n’a pas pu être enregistré.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -112,20 +124,20 @@ export default function ProfileSetupScreen() {
           </ScrollView>
 
           <View style={styles.footer}>
-            <Button title="Terminer" onPress={handleSave} />
+            <Button title="Terminer" onPress={handleSave} loading={saving} />
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
 
-      <Sheet visible={showSuccess} onClose={() => router.replace('/login')}>
+      <Sheet visible={showSuccess} onClose={() => router.replace('/(tabs)')}>
         <View style={styles.sheetBody}>
           <View style={styles.successIcon}>
             <Check size={24} color={colors.primary.DEFAULT} strokeWidth={2.5} />
           </View>
           <Text style={styles.sheetTitle}>Compte créé</Text>
-          <Text style={styles.sheetText}>Bienvenue dans Venega. Vous pouvez maintenant vous connecter.</Text>
+          <Text style={styles.sheetText}>Bienvenue dans Venega. Vous pouvez créer ou rejoindre un cercle.</Text>
         </View>
-        <Button title="Se connecter" onPress={() => router.replace('/login')} />
+        <Button title="Commencer" onPress={() => router.replace('/(tabs)')} />
       </Sheet>
     </View>
   );

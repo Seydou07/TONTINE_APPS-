@@ -23,3 +23,16 @@ export function getProfile(): UserProfile {
 export function setAvatarUrl(url: string): void {
   profile = { ...profile, avatarUrl: url };
 }
+
+export function setProfileName(name: string): void {
+  profile = { ...profile, name: name.trim() || profile.name };
+}
+
+/** Sauvegarde locale (voir `src/lib/persistence.ts`). */
+export function snapshotProfile(): UserProfile {
+  return profile;
+}
+
+export function restoreProfile(saved: UserProfile): void {
+  profile = { ...profile, ...saved };
+}

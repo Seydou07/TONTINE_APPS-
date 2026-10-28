@@ -175,7 +175,7 @@ export default function ManageScreen() {
             <ListRow
               icon={Wallet}
               tone="primary"
-              title="Verser la cagnotte"
+              title={isNature ? 'Remettre le bien' : 'Verser la cagnotte'}
               subtitle={`Bénéficiaire : ${beneficiary?.user?.firstName ?? '—'} ${beneficiary?.user?.lastName ?? ''} (tour ${cycle?.currentTurn ?? 1})`}
               onPress={openPayout}
             />

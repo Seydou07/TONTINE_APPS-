@@ -11,7 +11,7 @@ import {
   ScrollView,
 } from 'react-native';
 import type { TextInputInstance } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft } from 'lucide-react-native';
 import Animated, {
@@ -23,16 +23,22 @@ import Animated, {
 } from 'react-native-reanimated';
 import { colors, radius, typography } from '@venega/design-tokens';
 import { Button, IconButton } from '../../../components/ui';
+import { ApiError, DEMO_OTP_CODE, isDemoMode } from '../../../lib/api';
+import { resendOtp, verifyOtp } from '../api';
 
 const CODE_LENGTH = 6;
 const RESEND_DURATION = 45;
 
+/** « 70123456 » → « 70 12 34 56 » */
+const formatPhone = (digits: string) => digits.replace(/([0-9]{2})(?=[0-9])/g, '$1 ');
+
 export default function OtpScreen() {
   const router = useRouter();
+  const { phone = '' } = useLocalSearchParams<{ phone?: string }>();
   const [code, setCode] = useState(Array(CODE_LENGTH).fill(''));
   const [isLoading, setIsLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(RESEND_DURATION);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState('');
   const [focusedIndex, setFocusedIndex] = useState<number | null>(0);
   const inputsRef = useRef<(TextInputInstance | null)[]>([]);
   const shake = useSharedValue(0);
@@ -51,8 +57,8 @@ export default function OtpScreen() {
     transform: [{ translateX: shake.value }],
   }));
 
-  const triggerShake = () => {
-    setError(true);
+  const triggerShake = (message: string) => {
+    setError(message);
     shake.value = withSequence(
       withTiming(-10, { duration: 60, easing: Easing.out(Easing.cubic) }),
       withTiming(10, { duration: 60 }),
@@ -68,7 +74,7 @@ export default function OtpScreen() {
     const newCode = [...code];
     newCode[index] = value;
     setCode(newCode);
-    if (error) setError(false);
+    if (error) setError('');
     if (value && index < CODE_LENGTH - 1) {
       inputsRef.current[index + 1]?.focus();
     }
@@ -81,20 +87,26 @@ export default function OtpScreen() {
   };
 
   const handleVerify = async () => {
-    if (!code.every(Boolean)) { triggerShake(); return; }
-    if (code.join('') !== '123456') { triggerShake(); return; }
+    if (!code.every(Boolean)) { triggerShake('Saisissez les 6 chiffres du code.'); return; }
     setIsLoading(true);
     try {
-      await new Promise<void>((resolve) => setTimeout(() => resolve(), 1200));
+      await verifyOtp(phone, code.join(''));
       router.replace('/profile-setup');
-    } catch {
-      triggerShake();
+    } catch (e) {
+      const message = e instanceof ApiError ? e.message : 'Code incorrect.';
+      triggerShake(isDemoMode ? `${message} En démo, utilisez ${DEMO_OTP_CODE}.` : message);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleResend = () => {
+  const handleResend = async () => {
+    try {
+      await resendOtp(phone);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Le code n’a pas pu être renvoyé.');
+      return;
+    }
     setResendCooldown(RESEND_DURATION);
     setCode(Array(CODE_LENGTH).fill(''));
     inputsRef.current[0]?.focus();
@@ -128,7 +140,7 @@ export default function OtpScreen() {
             <Text style={styles.title}>Vérification</Text>
             <Text style={styles.subtitle}>
               Saisissez le code à 6 chiffres envoyé par SMS au{' '}
-              <Text style={styles.phone}>+226 70 12 34 56</Text>.
+              <Text style={styles.phone}>+226 {formatPhone(phone)}</Text>.
             </Text>
 
             <Animated.View style={[styles.codeRow, shakeStyle]}>
@@ -163,7 +175,7 @@ export default function OtpScreen() {
             </Animated.View>
 
             {error ? (
-              <Text style={styles.errorText}>Code incorrect. Réessayez avec 123456.</Text>
+              <Text style={styles.errorText}>{error}</Text>
             ) : null}
 
             <View style={styles.resendRow}>

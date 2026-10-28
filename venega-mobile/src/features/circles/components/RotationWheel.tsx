@@ -20,7 +20,16 @@ import { Avatar } from '../../../components/ui';
 const WHEEL_SIZE = 240;
 const CENTER_SIZE = 116;
 const AVATAR_SIZE = 42;
+const MIN_AVATAR_SIZE = 26;
 const AVATAR_RADIUS = 98;
+const AVATAR_GAP = 4;
+const CIRCUMFERENCE = 2 * Math.PI * AVATAR_RADIUS;
+/** Places disponibles sur la roue à la taille minimale ; au-delà, « +N » pour le reste. */
+const MAX_SLOTS = Math.floor(CIRCUMFERENCE / (MIN_AVATAR_SIZE + AVATAR_GAP));
+
+/** Les photos rétrécissent avec le nombre de membres pour ne jamais se chevaucher. */
+const avatarSizeFor = (slots: number) =>
+  Math.max(MIN_AVATAR_SIZE, Math.min(AVATAR_SIZE, Math.floor(CIRCUMFERENCE / Math.max(slots, 1)) - AVATAR_GAP));
 
 export type WheelMember = {
   userId: string;
@@ -50,7 +59,19 @@ export default function RotationWheel({
   /** Contenu affiché sous la légende, dans la même carte (ex. boutons d'action). */
   children?: React.ReactNode;
 }) {
-  const stepAngle = 360 / Math.max(members.length, 1);
+  // Grand cercle : on montre les prochains passages à partir du bénéficiaire, puis « +N ».
+  const overflow = members.length > MAX_SLOTS ? members.length - (MAX_SLOTS - 1) : 0;
+  const start = Math.max(members.findIndex((m) => m.userId === beneficiaryUserId), 0);
+  const visible: WheelMember[] = overflow
+    ? Array.from({ length: MAX_SLOTS - 1 }, (_, i) => members[(start + i) % members.length]!)
+    : members;
+  const slots = visible.length + (overflow ? 1 : 0);
+  const stepAngle = 360 / Math.max(slots, 1);
+  const size = avatarSizeFor(slots);
+  const position = (index: number) => {
+    const angle = (index * stepAngle - 90) * (Math.PI / 180);
+    return { cx: WHEEL_SIZE / 2 + AVATAR_RADIUS * Math.cos(angle), cy: WHEEL_SIZE / 2 + AVATAR_RADIUS * Math.sin(angle) };
+  };
 
   return (
     <View style={styles.card}>
@@ -64,21 +85,23 @@ export default function RotationWheel({
           {!!centerCaption && <Text style={styles.centerCycle}>{centerCaption}</Text>}
         </View>
 
-        {members.map((member, index) => {
-          const angle = (index * stepAngle - 90) * (Math.PI / 180);
+        {visible.map((member, index) => {
+          const { cx, cy } = position(index);
           return (
             <WheelAvatar
               key={member.userId}
               name={member.name}
               avatarUrl={member.avatarUrl}
-              cx={WHEEL_SIZE / 2 + AVATAR_RADIUS * Math.cos(angle)}
-              cy={WHEEL_SIZE / 2 + AVATAR_RADIUS * Math.sin(angle)}
+              size={size}
+              cx={cx}
+              cy={cy}
               isBeneficiary={member.userId === beneficiaryUserId}
               hasReceived={member.hasReceived}
               onPress={onPressMember ? () => onPressMember(member.userId) : undefined}
             />
           );
         })}
+        {overflow > 0 && <OverflowBubble count={overflow} size={size} {...position(visible.length)} />}
       </View>
 
       {/* Légende */}
@@ -102,9 +125,25 @@ function LegendItem({ color, label }: { color: string; label: string }) {
   );
 }
 
+function OverflowBubble({ count, size, cx, cy }: { count: number; size: number; cx: number; cy: number }) {
+  return (
+    <View
+      accessibilityLabel={`Et ${count} autres membres`}
+      style={[
+        styles.avatarWrap,
+        styles.overflow,
+        { width: size, height: size, borderRadius: size / 2, transform: [{ translateX: cx - size / 2 }, { translateY: cy - size / 2 }] },
+      ]}
+    >
+      <Text style={styles.overflowText}>+{count}</Text>
+    </View>
+  );
+}
+
 function WheelAvatar({
   name,
   avatarUrl,
+  size,
   cx,
   cy,
   isBeneficiary,
@@ -113,6 +152,7 @@ function WheelAvatar({
 }: {
   name: string;
   avatarUrl?: string;
+  size: number;
   cx: number;
   cy: number;
   isBeneficiary: boolean;
@@ -137,25 +177,26 @@ function WheelAvatar({
 
   const avatarStyle = useAnimatedStyle(() => ({
     opacity: progress.value,
-    transform: [{ translateX: cx - AVATAR_SIZE / 2 }, { translateY: cy - AVATAR_SIZE / 2 }],
+    transform: [{ translateX: cx - size / 2 }, { translateY: cy - size / 2 }],
   }));
 
   const haloStyle = useAnimatedStyle(() => ({
     opacity: (1 - halo.value) * 0.5,
     transform: [
-      { translateX: cx - AVATAR_SIZE / 2 },
-      { translateY: cy - AVATAR_SIZE / 2 },
+      { translateX: cx - size / 2 },
+      { translateY: cy - size / 2 },
       { scale: 1 + halo.value * 0.35 },
     ],
   }));
 
   const borderColor = isBeneficiary ? colors.primary.DEFAULT : hasReceived ? colors.accent.DEFAULT : colors.lineStrong;
-  const avatar = <Avatar name={name} uri={avatarUrl} size={AVATAR_SIZE - 6} />;
+  const dims = { width: size, height: size, borderRadius: size / 2 };
+  const avatar = <Avatar name={name} uri={avatarUrl} size={size - 6} />;
 
   return (
     <>
-      {isBeneficiary && <Animated.View pointerEvents="none" style={[styles.haloRing, haloStyle]} />}
-      <Animated.View style={[styles.avatarWrap, { borderColor }, avatarStyle]}>
+      {isBeneficiary && <Animated.View pointerEvents="none" style={[styles.haloRing, dims, haloStyle]} />}
+      <Animated.View style={[styles.avatarWrap, dims, { borderColor }, avatarStyle]}>
         {onPress ? (
           <TouchableOpacity
             activeOpacity={0.8}
@@ -227,6 +268,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     overflow: 'hidden',
   },
+  overflow: { borderColor: colors.lineStrong, backgroundColor: colors.fill },
+  overflowText: { ...typography.caption, fontWeight: '700', color: colors.inkSoft },
   avatarTouch: { width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' },
   haloRing: {
     position: 'absolute',

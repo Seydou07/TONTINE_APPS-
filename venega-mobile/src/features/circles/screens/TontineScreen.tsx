@@ -437,7 +437,7 @@ export default function TontineScreen() {
                 <Button title={payButtonTitle(circle.tontineAmount)} onPress={handlePayNow} />
                 {isFounder && (
                   <Button
-                    title="Verser la cagnotte"
+                    title={isNature ? 'Remettre le bien' : 'Verser la cagnotte'}
                     variant="secondary"
                     onPress={() => router.push(`/circle/${circle.id}/payout` as any)}
                   />

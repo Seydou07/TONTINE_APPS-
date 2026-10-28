@@ -45,8 +45,7 @@ export default function DashboardScreen() {
   const openCircle = (c: Circle) => {
     if (c.type === CircleType.AID_APPEAL) router.push(`/aid/${c.id}` as any);
     else if (c.type === CircleType.SOLIDARITY_ONLY) router.push(`/circle/${c.id}/solidarity` as any);
-    else if (c.type === CircleType.TONTINE_ONLY || c.type === CircleType.NATURE) router.push(`/circle/${c.id}/tontine` as any);
-    else router.push(`/circle/${c.id}` as any);
+    else router.push(`/circle/${c.id}/tontine` as any);
   };
 
   return (

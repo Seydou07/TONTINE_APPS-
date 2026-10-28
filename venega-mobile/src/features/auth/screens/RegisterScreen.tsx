@@ -14,13 +14,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft } from 'lucide-react-native';
 import { colors, typography } from '@venega/design-tokens';
 import { Button, IconButton, TextField } from '../../../components/ui';
+import { ApiError } from '../../../lib/api';
+import { register } from '../api';
 
 const MIN_PASSWORD = 8;
 
-type Errors = { phone?: string; password?: string; confirm?: string; form?: string };
+type Errors = { firstName?: string; lastName?: string; phone?: string; password?: string; confirm?: string; form?: string };
 
 export default function RegisterScreen() {
   const router = useRouter();
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -29,6 +33,8 @@ export default function RegisterScreen() {
 
   const handleRegister = async () => {
     const next: Errors = {};
+    if (firstName.trim().length < 2) next.firstName = 'Indiquez votre prénom.';
+    if (lastName.trim().length < 2) next.lastName = 'Indiquez votre nom.';
     if (phone.replace(/\D/g, '').length !== 8) next.phone = 'Entrez un numéro à 8 chiffres.';
     if (password.length < MIN_PASSWORD) next.password = `Au moins ${MIN_PASSWORD} caractères.`;
     if (password !== confirmPassword) next.confirm = 'Les mots de passe ne correspondent pas.';
@@ -37,10 +43,10 @@ export default function RegisterScreen() {
 
     setIsLoading(true);
     try {
-      await new Promise<void>((resolve) => setTimeout(() => resolve(), 1200));
-      router.push('/otp');
+      await register({ phone, password, firstName, lastName });
+      router.push({ pathname: '/otp', params: { phone: phone.replace(/\D/g, '') } });
     } catch (e) {
-      setErrors({ form: 'Une erreur est survenue. Réessayez.' });
+      setErrors({ form: e instanceof ApiError ? e.message : 'Une erreur est survenue. Réessayez.' });
     } finally {
       setIsLoading(false);
     }
@@ -69,6 +75,30 @@ export default function RegisterScreen() {
             <Text style={styles.subtitle}>Un code de vérification sera envoyé par SMS à ce numéro.</Text>
 
             <View style={styles.form}>
+              <View style={styles.nameRow}>
+                <TextField
+                  label="Prénom"
+                  placeholder="Aminata"
+                  autoComplete="given-name"
+                  textContentType="givenName"
+                  autoCapitalize="words"
+                  value={firstName}
+                  onChangeText={setFirstName}
+                  error={errors.firstName}
+                  containerStyle={styles.nameField}
+                />
+                <TextField
+                  label="Nom"
+                  placeholder="Ouédraogo"
+                  autoComplete="family-name"
+                  textContentType="familyName"
+                  autoCapitalize="words"
+                  value={lastName}
+                  onChangeText={setLastName}
+                  error={errors.lastName}
+                  containerStyle={styles.nameField}
+                />
+              </View>
               <TextField
                 label="Numéro de téléphone"
                 prefix="+226"
@@ -153,6 +183,13 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: 20,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  nameField: {
+    flex: 1,
   },
   formError: {
     ...typography.footnote,

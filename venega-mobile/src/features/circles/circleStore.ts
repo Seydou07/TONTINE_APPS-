@@ -50,6 +50,7 @@ import type {
   EventType,
   AidAppeal,
 } from '@venega/types';
+import { isDemoMode } from '../../lib/api/config';
 
 /** Phase de vie d'un cercle : constitution (nouveau) ou rotation démarrée (en cours) */
 export type CirclePhase = 'CONSTITUTION' | 'ACTIVE';
@@ -96,6 +97,8 @@ export function setCurrentUserKycStatus(status: KycStatus): void {
  */
 export function submitKycVerification(): void {
   currentUser = { ...currentUser, kycStatus: KycStatus.PENDING };
+  // Avec une vraie API, seul un agent du back-office valide le dossier (statut relu via GET /users/me).
+  if (!isDemoMode) return;
   setTimeout(() => {
     if (currentUser.kycStatus === KycStatus.PENDING) {
       currentUser = { ...currentUser, kycStatus: KycStatus.VERIFIED };
@@ -806,4 +809,54 @@ export function formatDueIn(daysLeft: number): string {
   if (daysLeft <= 0) return 'aujourd’hui';
   if (daysLeft === 1) return 'demain';
   return `dans ${daysLeft} jours`;
+}
+
+// ── Sauvegarde locale (voir src/lib/persistence.ts) ──
+
+/** État complet du store, sérialisable en JSON (les dates sont déjà des chaînes ISO). */
+export type StoreSnapshot = {
+  currentUser: User;
+  circles: Circle[];
+  memberships: typeof mockMemberships;
+  membershipRequests: MembershipRequest[];
+  departureRequests: DepartureRequest[];
+  ledgerEntries: LedgerEntry[];
+  solidarityRequests: SolidarityRequest[];
+  bureauDecisions: Record<string, Record<string, boolean>>;
+  founderCircleIds: string[];
+  solidarityValidators: Record<string, string[]>;
+  aidAppeals: AidAppeal[];
+};
+
+export function snapshotStore(): StoreSnapshot {
+  return {
+    currentUser,
+    circles,
+    memberships: [...mockMemberships],
+    membershipRequests,
+    departureRequests,
+    ledgerEntries,
+    solidarityRequests,
+    bureauDecisions,
+    founderCircleIds,
+    solidarityValidators,
+    aidAppeals,
+  };
+}
+
+export function restoreStore(s: StoreSnapshot): void {
+  currentUser = s.currentUser;
+  circles = s.circles;
+  // Les membres vivent dans le tableau mock partagé : on le remplace en place.
+  mockMemberships.splice(0, mockMemberships.length, ...s.memberships);
+  membershipRequests = s.membershipRequests;
+  departureRequests = s.departureRequests;
+  ledgerEntries = s.ledgerEntries;
+  solidarityRequests = s.solidarityRequests;
+  bureauDecisions = s.bureauDecisions;
+  founderCircleIds = s.founderCircleIds;
+  solidarityValidators = s.solidarityValidators;
+  aidAppeals = s.aidAppeals;
+  // Vérification d'identité interrompue par la fermeture de l'app : on relance la simulation.
+  if (currentUser.kycStatus === KycStatus.PENDING) submitKycVerification();
 }

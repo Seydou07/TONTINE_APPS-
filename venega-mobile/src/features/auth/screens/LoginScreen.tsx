@@ -13,6 +13,8 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, typography } from '@venega/design-tokens';
 import { Button, TextField } from '../../../components/ui';
+import { ApiError } from '../../../lib/api';
+import { login } from '../api';
 import SocialButtons from '../components/SocialButtons';
 
 export default function LoginScreen() {
@@ -27,13 +29,17 @@ export default function LoginScreen() {
       setError('Renseignez votre numéro et votre mot de passe.');
       return;
     }
+    if (phone.replace(/\D/g, '').length !== 8) {
+      setError('Entrez un numéro à 8 chiffres.');
+      return;
+    }
     setError('');
     setIsLoading(true);
     try {
-      await new Promise<void>((resolve) => setTimeout(() => resolve(), 1200));
+      await login(phone, password);
       router.replace('/(tabs)');
     } catch (e) {
-      setError('Une erreur est survenue. Réessayez.');
+      setError(e instanceof ApiError ? e.message : 'Une erreur est survenue. Réessayez.');
     } finally {
       setIsLoading(false);
     }

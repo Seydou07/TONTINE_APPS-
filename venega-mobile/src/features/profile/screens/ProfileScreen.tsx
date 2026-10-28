@@ -22,6 +22,7 @@ import {
 import { colors, radius, typography } from '@venega/design-tokens';
 import { KycStatus } from '@venega/types';
 import { getProfile } from '../profileStore';
+import { logout as endSession } from '../../auth/api';
 import { getCircles, getCurrentUser } from '../../circles/circleStore';
 import { Button, HeroHeader, HeroStatusBar, ListGroup, ListRow, Sheet, TextField, heroColors } from '../../../components/ui';
 
@@ -96,8 +97,9 @@ export default function ProfileScreen() {
     setPhoneSheet(false);
   };
 
-  const logout = () => {
+  const logout = async () => {
     setLogoutSheet(false);
+    await endSession();
     router.replace('/login');
   };
 
