@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="856" height="540" viewBox="0 0 856 540" font-family="Arial, Helvetica, sans-serif">
+  <rect width="856" height="540" rx="28" fill="#F4F7F5" stroke="#BFD9CD" stroke-width="4"/>
+  <text x="40" y="60" font-size="20" font-weight="700" fill="#074B36">VERSO — SPÉCIMEN</text>
+  <g font-size="18" fill="#5B6B65">
+    <text x="40" y="120">Adresse</text><rect x="40" y="130" width="460" height="22" rx="4" fill="#DDE3E0"/>
+    <text x="40" y="190">Profession</text><rect x="40" y="200" width="320" height="22" rx="4" fill="#DDE3E0"/>
+    <text x="40" y="260">Délivrée le</text><rect x="40" y="270" width="200" height="22" rx="4" fill="#DDE3E0"/>
+    <text x="300" y="260">Expire le</text><rect x="300" y="270" width="200" height="22" rx="4" fill="#DDE3E0"/>
+  </g>
+  <rect x="600" y="100" width="200" height="200" rx="10" fill="#DDE3E0"/>
+  <text x="700" y="208" text-anchor="middle" font-size="16" fill="#5B6B65">Empreinte</text>
+  <rect x="40" y="350" width="776" height="120" rx="8" fill="#E7F1EC"/>
+  <text x="60" y="400" font-size="22" font-family="Courier New, monospace" fill="#384A43">IDBFA&lt;&lt;SPECIMEN&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;</text>
+  <text x="60" y="440" font-size="22" font-family="Courier New, monospace" fill="#384A43">0000000&lt;0BFA&lt;&lt;DOCUMENT&lt;FICTIF&lt;&lt;&lt;&lt;&lt;&lt;</text>
+  <text x="428" y="520" text-anchor="middle" font-size="40" font-weight="700" fill="#A86200" fill-opacity="0.35" letter-spacing="10">SPÉCIMEN</text>
+</svg>

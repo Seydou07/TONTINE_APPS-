@@ -2,160 +2,105 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Lock, Eye, EyeOff, LogIn, Shield } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import VenegaLogo from '../../../../packages/assets/logo/VenegaLogo';
+import { Eye, EyeOff, HardDrive } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
+import { BrandLogo } from '@/components/layout/BrandLogo';
+import { isDemoLoginEnabled, signIn } from '../api';
 
-const loginSchema = z.object({
-  email: z.string().email('Email invalide'),
-  password: z.string().min(6, 'Mot de passe trop court'),
+const schema = z.object({
+  email: z.string().trim().email('Adresse e-mail invalide'),
+  password: z.string().min(8, '8 caractères minimum'),
 });
+type Values = z.infer<typeof schema>;
 
-type LoginFormValues = z.infer<typeof loginSchema>;
+const inputCls =
+  'h-11 w-full rounded-md border bg-white px-3 text-base text-ink placeholder:text-ink-muted focus:outline-none focus:ring-2';
 
-export default function LoginForm() {
+export function LoginForm() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const demo = isDemoLoginEnabled();
 
   const {
     register,
     handleSubmit,
-    formState: { errors },
-  } = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
-  });
+    formState: { errors, isSubmitting },
+  } = useForm<Values>({ resolver: zodResolver(schema) });
 
-  const [loginError, setLoginError] = useState('');
-
-  const onSubmit = async (data: LoginFormValues) => {
-    setIsLoading(true);
-    setLoginError('');
+  const onSubmit = async (v: Values) => {
+    setError(null);
     try {
-      // Simuler une connexion — en prod, c'est un appel API
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-      // Vérification simple pour le mock
-      if (data.email !== 'admin@venega.com' || data.password !== 'admin123') {
-        setLoginError('Email ou mot de passe incorrect');
-        setIsLoading(false);
-        return;
-      }
-      // Stocker le token
-      const mockToken = 'venega_admin_' + Date.now().toString(36);
-      localStorage.setItem('venega_admin_token', mockToken);
-      localStorage.setItem('venega_admin_user', JSON.stringify({
-        email: data.email,
-        name: 'Admin Venega',
-        role: 'SUPER_ADMIN',
-      }));
-      router.push('/');
-    } catch (error) {
-      setLoginError('Erreur de connexion. Veuillez réessayer.');
-    } finally {
-      setIsLoading(false);
+      await signIn(v.email, v.password);
+      router.replace('/');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Connexion impossible.');
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-900 via-emerald-800 to-emerald-900 p-4">
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 space-y-8">
-          {/* Logo et titre */}
-          <div className="text-center space-y-4">
-            <div className="flex justify-center">
-              <VenegaLogo size={80} showWordmark={false} />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Backoffice Venega</h1>
-              <p className="text-gray-600 mt-2">Connectez-vous à votre compte administrateur</p>
-            </div>
-          </div>
-
-          {/* Formulaire */}
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {/* Email */}
-            <div>
-              <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
-                Email
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Shield size={20} className="text-gray-400" />
-                </div>
-                <input
-                  id="email"
-                  type="email"
-                  placeholder="admin@venega.com"
-                  className="w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-xl bg-gray-50 text-gray-900 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:bg-white transition-all"
-                  {...register('email')}
-                />
-              </div>
-              {errors.email && <p className="mt-2 text-sm text-red-500">{errors.email.message}</p>}
-            </div>
-
-            {/* Mot de passe */}
-            <div>
-              <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
-                Mot de passe
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Lock size={20} className="text-gray-400" />
-                </div>
-                <input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="••••••••"
-                  className="w-full pl-12 pr-12 py-4 border-2 border-gray-200 rounded-xl bg-gray-50 text-gray-900 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:bg-white transition-all"
-                  {...register('password')}
-                />
-                <button
-                  type="button"
-                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
-              </div>
-              {errors.password && <p className="mt-2 text-sm text-red-500">{errors.password.message}</p>}
-            </div>
-
-            {/* Error */}
-            {loginError && (
-              <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl">
-                <p className="text-[13px] text-red-600">{loginError}</p>
-              </div>
-            )}
-
-            {/* Bouton de connexion */}
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-4 px-6 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-xl"
-            >
-              {isLoading ? (
-                <span className="flex items-center gap-2">
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Connexion en cours...
-                </span>
-              ) : (
-                <span className="flex items-center gap-2">
-                  <LogIn size={20} />
-                  Se connecter
-                </span>
-              )}
-            </button>
-          </form>
-
-          {/* Footer */}
-          <div className="text-center pt-4 border-t border-gray-100">
-            <p className="text-sm text-gray-500">
-              Problèmes de connexion ? Contactez le support
-            </p>
-          </div>
+    <div className="flex min-h-screen items-center justify-center bg-brand-dark p-4">
+      <div className="w-full max-w-sm rounded-lg border border-line bg-white p-6 sm:p-8">
+        <div className="mb-6 flex flex-col items-center text-center">
+          <BrandLogo size={88} />
+          <h1 className="mt-3 text-xl font-semibold text-ink">Administration Venega</h1>
+          <p className="mt-1 text-sm text-ink-muted">Accès réservé à l’équipe Venega</p>
         </div>
+
+        {demo && (
+          <p className="mb-4 flex gap-2 rounded-md border border-accent-line bg-accent-tint px-3 py-2 text-sm text-accent-ink">
+            <HardDrive size={16} className="mt-0.5 shrink-0" />
+            Mode démo : l’authentification admin de l’API n’est pas encore branchée. Toute adresse valide ouvre une session locale.
+          </p>
+        )}
+
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+          <div>
+            <label htmlFor="email" className="mb-1 block text-sm font-medium text-ink">
+              Adresse e-mail
+            </label>
+            <input
+              id="email"
+              type="email"
+              autoComplete="username"
+              className={`${inputCls} ${errors.email ? 'border-danger focus:ring-danger/15' : 'border-line focus:border-brand focus:ring-brand/15'}`}
+              {...register('email')}
+            />
+            {errors.email && <p className="mt-1 text-sm text-danger">{errors.email.message}</p>}
+          </div>
+          <div>
+            <label htmlFor="password" className="mb-1 block text-sm font-medium text-ink">
+              Mot de passe
+            </label>
+            <div className="relative">
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                className={`${inputCls} pr-10 ${errors.password ? 'border-danger focus:ring-danger/15' : 'border-line focus:border-brand focus:ring-brand/15'}`}
+                {...register('password')}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((s) => !s)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-ink-muted hover:text-ink"
+                aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+            {errors.password && <p className="mt-1 text-sm text-danger">{errors.password.message}</p>}
+          </div>
+
+          {error && <p className="rounded-md border border-danger-line bg-danger-tint px-3 py-2 text-sm text-danger">{error}</p>}
+
+          <Button type="submit" loading={isSubmitting} className="h-11 w-full">
+            Se connecter
+          </Button>
+        </form>
       </div>
     </div>
   );

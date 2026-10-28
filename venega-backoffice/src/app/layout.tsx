@@ -1,40 +1,26 @@
-import type { Metadata } from 'next';
-import { Sora, Work_Sans } from 'next/font/google';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
-
-const sora = Sora({
-  subsets: ['latin'],
-  weight: ['400', '600', '700', '800'],
-  variable: '--font-heading',
-  display: 'swap',
-});
-
-const workSans = Work_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-body',
-  display: 'swap',
-});
 
 export const metadata: Metadata = {
   title: {
-    default: 'Venega Admin - Gestion de la plateforme',
-    template: '%s | Venega Admin',
+    default: 'Venega Admin',
+    template: '%s · Venega Admin',
   },
-  description:
-    'Interface d\'administration Venega pour gérer les utilisateurs, les cercles, et les transactions.',
+  description: 'Administration Venega : validation KYC, modération des cagnottes, suivi de la fraude.',
+  icons: { icon: '/venega-logo.png' },
+  robots: { index: false, follow: false },
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  themeColor: '#074B36',
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr" className={`${sora.variable} ${workSans.variable}`}>
-      <body className="min-h-screen bg-bg text-text-main font-body antialiased">
-        {children}
-      </body>
+    <html lang="fr">
+      <body>{children}</body>
     </html>
   );
 }

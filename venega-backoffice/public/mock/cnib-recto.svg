@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="856" height="540" viewBox="0 0 856 540" font-family="Arial, Helvetica, sans-serif">
+  <rect width="856" height="540" rx="28" fill="#F4F7F5" stroke="#BFD9CD" stroke-width="4"/>
+  <rect x="0" y="0" width="856" height="92" rx="28" fill="#E7F1EC"/>
+  <rect x="0" y="64" width="856" height="28" fill="#E7F1EC"/>
+  <text x="40" y="44" font-size="22" font-weight="700" fill="#074B36">BURKINA FASO — SPÉCIMEN</text>
+  <text x="40" y="74" font-size="18" fill="#384A43">Carte nationale d'identité burkinabè (document fictif)</text>
+  <rect x="40" y="124" width="220" height="280" rx="12" fill="#DDE3E0"/>
+  <circle cx="150" cy="222" r="58" fill="#B9C6C0"/>
+  <rect x="72" y="296" width="156" height="90" rx="45" fill="#B9C6C0"/>
+  <g font-size="18" fill="#5B6B65">
+    <text x="300" y="150">Nom</text><rect x="300" y="160" width="360" height="22" rx="4" fill="#DDE3E0"/>
+    <text x="300" y="218">Prénoms</text><rect x="300" y="228" width="420" height="22" rx="4" fill="#DDE3E0"/>
+    <text x="300" y="286">Né(e) le</text><rect x="300" y="296" width="200" height="22" rx="4" fill="#DDE3E0"/>
+    <text x="540" y="286">Sexe</text><rect x="540" y="296" width="60" height="22" rx="4" fill="#DDE3E0"/>
+    <text x="300" y="354">N° de la carte</text><rect x="300" y="364" width="260" height="22" rx="4" fill="#DDE3E0"/>
+  </g>
+  <text x="428" y="490" text-anchor="middle" font-size="64" font-weight="700" fill="#A86200" fill-opacity="0.35" letter-spacing="12">SPÉCIMEN</text>
+</svg>
