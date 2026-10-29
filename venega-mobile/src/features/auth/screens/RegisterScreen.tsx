@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -9,44 +9,102 @@ import {
   StatusBar,
   ScrollView,
 } from 'react-native';
+import type { TextInputInstance } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft } from 'lucide-react-native';
 import { colors, typography } from '@venega/design-tokens';
-import { Button, IconButton, TextField } from '../../../components/ui';
+import { Button, FormAlert, IconButton, TextField } from '../../../components/ui';
 import { ApiError } from '../../../lib/api';
 import { register } from '../api';
+import {
+  MIN_PASSWORD,
+  formatPhone,
+  phoneDigits,
+  validateConfirm,
+  validateName,
+  validateNewPassword,
+  validatePhone,
+} from '../validation';
 
-const MIN_PASSWORD = 8;
+type Field = 'firstName' | 'lastName' | 'phone' | 'password' | 'confirm';
+type Values = Record<Field, string>;
+type Errors = Partial<Record<Field, string>>;
 
-type Errors = { firstName?: string; lastName?: string; phone?: string; password?: string; confirm?: string; form?: string };
+const FIELDS: Field[] = ['firstName', 'lastName', 'phone', 'password', 'confirm'];
+
+function validate(field: Field, v: Values): string | undefined {
+  switch (field) {
+    case 'firstName':
+      return validateName(v.firstName, 'prénom');
+    case 'lastName':
+      return validateName(v.lastName, 'nom');
+    case 'phone':
+      return validatePhone(v.phone);
+    case 'password':
+      return validateNewPassword(v.password);
+    case 'confirm':
+      return validateConfirm(v.password, v.confirm);
+  }
+}
 
 export default function RegisterScreen() {
   const router = useRouter();
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const refs = {
+    firstName: useRef<TextInputInstance>(null),
+    lastName: useRef<TextInputInstance>(null),
+    phone: useRef<TextInputInstance>(null),
+    password: useRef<TextInputInstance>(null),
+    confirm: useRef<TextInputInstance>(null),
+  };
+  const [values, setValues] = useState<Values>({ firstName: '', lastName: '', phone: '', password: '', confirm: '' });
   const [errors, setErrors] = useState<Errors>({});
+  const [formError, setFormError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Une erreur affichée disparaît dès que la saisie redevient valide.
+  const change = (field: Field) => (raw: string) => {
+    const next = { ...values, [field]: field === 'phone' ? formatPhone(raw) : raw };
+    setValues(next);
+    setFormError('');
+    setErrors((e) => {
+      const updated = { ...e };
+      if (e[field]) updated[field] = validate(field, next);
+      // Changer le mot de passe peut corriger (ou casser) la confirmation déjà saisie.
+      if (field === 'password' && e.confirm) updated.confirm = validate('confirm', next);
+      return updated;
+    });
+  };
+
+  // On ne signale une erreur en quittant un champ que s'il a été rempli.
+  const blur = (field: Field) => () => {
+    if (values[field]) setErrors((e) => ({ ...e, [field]: validate(field, values) }));
+  };
 
   const handleRegister = async () => {
     const next: Errors = {};
-    if (firstName.trim().length < 2) next.firstName = 'Indiquez votre prénom.';
-    if (lastName.trim().length < 2) next.lastName = 'Indiquez votre nom.';
-    if (phone.replace(/\D/g, '').length !== 8) next.phone = 'Entrez un numéro à 8 chiffres.';
-    if (password.length < MIN_PASSWORD) next.password = `Au moins ${MIN_PASSWORD} caractères.`;
-    if (password !== confirmPassword) next.confirm = 'Les mots de passe ne correspondent pas.';
+    for (const f of FIELDS) next[f] = validate(f, values);
     setErrors(next);
-    if (Object.keys(next).length) return;
+    const firstInvalid = FIELDS.find((f) => next[f]);
+    if (firstInvalid) return refs[firstInvalid].current?.focus();
 
+    setFormError('');
     setIsLoading(true);
     try {
-      await register({ phone, password, firstName, lastName });
-      router.push({ pathname: '/otp', params: { phone: phone.replace(/\D/g, '') } });
+      await register({
+        phone: values.phone,
+        password: values.password,
+        firstName: values.firstName,
+        lastName: values.lastName,
+      });
+      router.push({ pathname: '/otp', params: { phone: phoneDigits(values.phone) } });
     } catch (e) {
-      setErrors({ form: e instanceof ApiError ? e.message : 'Une erreur est survenue. Réessayez.' });
+      if (e instanceof ApiError && e.status === 409) {
+        setErrors((prev) => ({ ...prev, phone: e.message }));
+        refs.phone.current?.focus();
+      } else {
+        setFormError(e instanceof ApiError ? e.message : 'Une erreur est survenue. Réessayez.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -82,9 +140,13 @@ export default function RegisterScreen() {
                   autoComplete="given-name"
                   textContentType="givenName"
                   autoCapitalize="words"
-                  value={firstName}
-                  onChangeText={setFirstName}
+                  returnKeyType="next"
+                  value={values.firstName}
+                  onChangeText={change('firstName')}
+                  onBlur={blur('firstName')}
+                  onSubmitEditing={() => refs.lastName.current?.focus()}
                   error={errors.firstName}
+                  ref={refs.firstName}
                   containerStyle={styles.nameField}
                 />
                 <TextField
@@ -93,9 +155,13 @@ export default function RegisterScreen() {
                   autoComplete="family-name"
                   textContentType="familyName"
                   autoCapitalize="words"
-                  value={lastName}
-                  onChangeText={setLastName}
+                  returnKeyType="next"
+                  value={values.lastName}
+                  onChangeText={change('lastName')}
+                  onBlur={blur('lastName')}
+                  onSubmitEditing={() => refs.phone.current?.focus()}
                   error={errors.lastName}
+                  ref={refs.lastName}
                   containerStyle={styles.nameField}
                 />
               </View>
@@ -107,9 +173,13 @@ export default function RegisterScreen() {
                 autoComplete="tel"
                 textContentType="telephoneNumber"
                 maxLength={11}
-                value={phone}
-                onChangeText={setPhone}
+                returnKeyType="next"
+                value={values.phone}
+                onChangeText={change('phone')}
+                onBlur={blur('phone')}
+                onSubmitEditing={() => refs.password.current?.focus()}
                 error={errors.phone}
+                ref={refs.phone}
               />
               <TextField
                 label="Mot de passe"
@@ -117,10 +187,14 @@ export default function RegisterScreen() {
                 password
                 autoComplete="new-password"
                 textContentType="newPassword"
-                value={password}
-                onChangeText={setPassword}
+                returnKeyType="next"
+                value={values.password}
+                onChangeText={change('password')}
+                onBlur={blur('password')}
+                onSubmitEditing={() => refs.confirm.current?.focus()}
                 hint={`${MIN_PASSWORD} caractères minimum`}
                 error={errors.password}
+                ref={refs.password}
               />
               <TextField
                 label="Confirmer le mot de passe"
@@ -128,12 +202,16 @@ export default function RegisterScreen() {
                 password
                 autoComplete="new-password"
                 textContentType="newPassword"
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
+                returnKeyType="go"
+                value={values.confirm}
+                onChangeText={change('confirm')}
+                onBlur={blur('confirm')}
+                onSubmitEditing={handleRegister}
                 error={errors.confirm}
+                ref={refs.confirm}
               />
 
-              {errors.form ? <Text style={styles.formError}>{errors.form}</Text> : null}
+              <FormAlert message={formError} />
 
               <Button title="Continuer" onPress={handleRegister} loading={isLoading} style={styles.cta} />
             </View>
@@ -190,10 +268,6 @@ const styles = StyleSheet.create({
   },
   nameField: {
     flex: 1,
-  },
-  formError: {
-    ...typography.footnote,
-    color: colors.danger.DEFAULT,
   },
   cta: {
     marginTop: 4,

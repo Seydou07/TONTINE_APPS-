@@ -28,6 +28,9 @@ export function toE164(localPhone: string): string {
   return `+226${localPhone.replace(/\D/g, '')}`;
 }
 
+export const INVALID_CREDENTIALS = 'Numéro ou mot de passe incorrect.';
+export const PHONE_TAKEN = 'Ce numéro a déjà un compte Venega. Connectez-vous.';
+
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 async function loadProfile(): Promise<void> {
@@ -56,6 +59,9 @@ export async function register(params: {
       firstName: params.firstName.trim(),
       lastName: params.lastName.trim(),
     },
+  }).catch((e: unknown) => {
+    if (e instanceof ApiError && e.status === 409) throw new ApiError(PHONE_TAKEN, 409);
+    throw e;
   });
   await setTokens(tokens);
 }
@@ -69,6 +75,12 @@ export async function login(phone: string, password: string): Promise<void> {
     method: 'POST',
     auth: false,
     body: { phoneNumber: toE164(phone), password },
+  }).catch((e: unknown) => {
+    // Même message que le numéro soit inconnu ou le mot de passe faux : on ne révèle pas quels numéros ont un compte.
+    if (e instanceof ApiError && (e.status === 400 || e.status === 401 || e.status === 404)) {
+      throw new ApiError(INVALID_CREDENTIALS, e.status);
+    }
+    throw e;
   });
   await setTokens(tokens);
   await loadProfile();

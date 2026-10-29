@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -9,37 +9,55 @@ import {
   StatusBar,
   ScrollView,
 } from 'react-native';
+import type { TextInputInstance } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, typography } from '@venega/design-tokens';
-import { Button, TextField } from '../../../components/ui';
+import { Button, FormAlert, TextField } from '../../../components/ui';
 import { ApiError } from '../../../lib/api';
 import { login } from '../api';
+import { formatPhone, validateLoginPassword, validatePhone } from '../validation';
 import SocialButtons from '../components/SocialButtons';
+
+type Errors = { phone?: string; password?: string };
 
 export default function LoginScreen() {
   const router = useRouter();
+  const phoneRef = useRef<TextInputInstance>(null);
+  const passwordRef = useRef<TextInputInstance>(null);
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState<Errors>({});
+  const [formError, setFormError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  // Une erreur affichée disparaît dès que la saisie redevient valide.
+  const onPhoneChange = (value: string) => {
+    const formatted = formatPhone(value);
+    setPhone(formatted);
+    setFormError('');
+    if (errors.phone) setErrors((e) => ({ ...e, phone: validatePhone(formatted) }));
+  };
+
+  const onPasswordChange = (value: string) => {
+    setPassword(value);
+    setFormError('');
+    if (errors.password) setErrors((e) => ({ ...e, password: validateLoginPassword(value) }));
+  };
+
   const handleLogin = async () => {
-    if (!phone || !password) {
-      setError('Renseignez votre numéro et votre mot de passe.');
-      return;
-    }
-    if (phone.replace(/\D/g, '').length !== 8) {
-      setError('Entrez un numéro à 8 chiffres.');
-      return;
-    }
-    setError('');
+    const next: Errors = { phone: validatePhone(phone), password: validateLoginPassword(password) };
+    setErrors(next);
+    if (next.phone) return phoneRef.current?.focus();
+    if (next.password) return passwordRef.current?.focus();
+
+    setFormError('');
     setIsLoading(true);
     try {
       await login(phone, password);
       router.replace('/(tabs)');
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Une erreur est survenue. Réessayez.');
+      setFormError(e instanceof ApiError ? e.message : 'Une erreur est survenue. Réessayez.');
     } finally {
       setIsLoading(false);
     }
@@ -66,8 +84,13 @@ export default function LoginScreen() {
                 autoComplete="tel"
                 textContentType="telephoneNumber"
                 maxLength={11}
+                returnKeyType="next"
                 value={phone}
-                onChangeText={setPhone}
+                onChangeText={onPhoneChange}
+                onBlur={() => phone && setErrors((e) => ({ ...e, phone: validatePhone(phone) }))}
+                onSubmitEditing={() => passwordRef.current?.focus()}
+                error={errors.phone}
+                ref={phoneRef}
               />
 
               <View>
@@ -77,14 +100,19 @@ export default function LoginScreen() {
                   password
                   autoComplete="password"
                   textContentType="password"
+                  returnKeyType="go"
                   value={password}
-                  onChangeText={setPassword}
-                  error={error || undefined}
+                  onChangeText={onPasswordChange}
+                  onSubmitEditing={handleLogin}
+                  error={errors.password}
+                  ref={passwordRef}
                 />
                 <TouchableOpacity style={styles.forgot} hitSlop={8} activeOpacity={0.6}>
                   <Text style={styles.forgotText}>Mot de passe oublié ?</Text>
                 </TouchableOpacity>
               </View>
+
+              <FormAlert message={formError} />
 
               <Button title="Se connecter" onPress={handleLogin} loading={isLoading} />
             </View>

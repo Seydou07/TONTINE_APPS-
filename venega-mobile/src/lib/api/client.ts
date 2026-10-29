@@ -16,6 +16,7 @@ export class ApiError extends Error {
 
 const NETWORK_MESSAGE = 'Connexion impossible. Vérifiez votre réseau et réessayez.';
 const SERVER_MESSAGE = 'Le service est momentanément indisponible. Réessayez dans un instant.';
+const TOO_MANY_MESSAGE = 'Trop de tentatives. Patientez quelques minutes avant de réessayer.';
 
 type Options = {
   method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
@@ -48,6 +49,7 @@ async function send(path: string, { method = 'GET', body, auth = true }: Options
 /** Message d'erreur NestJS (`message` peut être une chaîne ou une liste de validations). */
 async function errorFrom(res: Response): Promise<ApiError> {
   if (res.status >= 500) return new ApiError(SERVER_MESSAGE, res.status);
+  if (res.status === 429) return new ApiError(TOO_MANY_MESSAGE, res.status);
   try {
     const data = await res.json();
     const msg = Array.isArray(data?.message) ? data.message[0] : data?.message;
