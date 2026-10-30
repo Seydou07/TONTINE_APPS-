@@ -30,7 +30,7 @@ import { FundraiserStatusBadge } from './FundraiserStatusBadge';
 
 export function FundraisersView() {
   const searchParams = useSearchParams();
-  const list = useListState<FundraiserFilter>('ALL', undefined, searchParams.get('q') ?? '');
+  const list = useListState<FundraiserFilter>((searchParams.get('status') as FundraiserFilter) ?? 'ALL', undefined, searchParams.get('q') ?? '');
   const [selected, setSelected] = useState<Fundraiser | null>(null);
 
   const counts = useQuery({ queryKey: ['fundraisers', 'counts'], queryFn: getFundraiserCounts });
@@ -114,6 +114,7 @@ export function FundraisersView() {
                       </Td>
                       <Td>
                         <FundraiserStatusBadge status={f.status} />
+                        {f.withdrawalsFrozen && <span className="mt-0.5 block whitespace-nowrap text-xs font-medium text-danger">Retraits gelés</span>}
                       </Td>
                       <Td className="whitespace-nowrap text-sm text-ink-soft">{formatDate(f.createdAt)}</Td>
                     </Tr>

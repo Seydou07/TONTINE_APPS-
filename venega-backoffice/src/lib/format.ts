@@ -63,3 +63,19 @@ export function initials(name: string): string {
     .map((p) => p[0]!.toUpperCase())
     .join('');
 }
+
+/** Durée écoulée lisible : « 3 h », « 2 j 4 h », « 9 j ». */
+export function formatAge(iso: string, now: Date = new Date()): string {
+  const min = Math.max(0, Math.round((now.getTime() - new Date(iso).getTime()) / 60000));
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `${h} h`;
+  const d = Math.floor(h / 24);
+  const rest = h % 24;
+  return d < 3 && rest ? `${d} j ${rest} h` : `${d} j`;
+}
+
+/** Nombre de jours (entiers) écoulés depuis une date. */
+export function daysSince(iso: string, now: Date = new Date()): number {
+  return Math.floor((now.getTime() - new Date(iso).getTime()) / 86_400_000);
+}

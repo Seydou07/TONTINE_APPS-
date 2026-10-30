@@ -31,8 +31,8 @@ module.exports = {
         canvas: '#F3F5F4',
         line: '#DDE3E0',
         danger: {
-          DEFAULT: '#B42318',
-          hover: '#962015',
+          DEFAULT: '#C1443A',
+          hover: '#A5382F',
           tint: '#FDEDEB',
           line: '#F3C3BD',
         },

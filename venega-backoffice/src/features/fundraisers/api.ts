@@ -4,9 +4,9 @@
  */
 import { db, clone, latency } from '@/mocks/db';
 import { matchesQuery, paginate, type ListParams, type Paginated } from '@/lib/list';
-import { currentActorName } from '@/features/auth/api';
+import { assertCan, currentActorName } from '@/features/auth/api';
 import { recordLocalAction } from '@/features/audit/api';
-import type { Fundraiser, FundraiserAction, FundraiserStatus } from './types';
+import { FUNDRAISER_STATUS_LABEL, type Fundraiser, type FundraiserAction, type FundraiserStatus } from './types';
 
 export type FundraiserFilter = FundraiserStatus | 'REPORTED';
 
@@ -77,6 +77,7 @@ export function actionNeedsReason(action: FundraiserAction): boolean {
 // TODO API: POST /api/v1/admin/fundraisers/:id/close       { reason }
 export async function moderateFundraiser(id: string, action: FundraiserAction, reason?: string): Promise<Fundraiser> {
   await latency();
+  assertCan('fundraiser.moderate');
   const f = db.fundraisers.find((x) => x.id === id);
   if (!f) throw new Error('Cagnotte introuvable.');
   if (!ALLOWED_ACTIONS[f.status].includes(action)) throw new Error('Action impossible pour ce statut.');
@@ -84,10 +85,38 @@ export async function moderateFundraiser(id: string, action: FundraiserAction, r
   if (actionNeedsReason(action) && (!clean || clean.length < 5)) {
     throw new Error('Le motif est obligatoire (5 caractères minimum).');
   }
+  const before = f.status;
   f.status = NEXT_STATUS[action];
   f.moderatedAt = new Date().toISOString();
   f.moderatedBy = currentActorName();
   if (clean) f.moderationNote = clean;
-  recordLocalAction({ action: ACTION_LOG[action], targetType: 'fundraiser', targetLabel: f.title, detail: clean });
+  // Suspendre une cagnotte bloque aussi les retraits.
+  if (action === 'SUSPEND') f.withdrawalsFrozen = true;
+  recordLocalAction({
+    action: ACTION_LOG[action], targetType: 'fundraiser', targetId: f.id, targetLabel: f.title, reason: clean,
+    before: FUNDRAISER_STATUS_LABEL[before], after: FUNDRAISER_STATUS_LABEL[f.status], relatedIds: [f.organizerId],
+  });
+  return clone(f);
+}
+
+/**
+ * Geler / dégeler les retraits de l'organisateur sans retirer la cagnotte (enquête sur un signalement).
+ */
+// TODO API: POST /api/v1/admin/fundraisers/:id/freeze-withdrawals    { reason }
+// TODO API: POST /api/v1/admin/fundraisers/:id/unfreeze-withdrawals  { reason }
+export async function setWithdrawalsFrozen(id: string, frozen: boolean, reason: string): Promise<Fundraiser> {
+  await latency();
+  assertCan('fundraiser.freezeWithdrawals');
+  const f = db.fundraisers.find((x) => x.id === id);
+  if (!f) throw new Error('Cagnotte introuvable.');
+  const clean = reason.trim();
+  if (clean.length < 5) throw new Error('Le motif est obligatoire (5 caractères minimum).');
+  if (f.withdrawalsFrozen === frozen) throw new Error(frozen ? 'Les retraits sont déjà gelés.' : 'Les retraits ne sont pas gelés.');
+  f.withdrawalsFrozen = frozen;
+  recordLocalAction({
+    action: frozen ? 'Retraits de la cagnotte gelés' : 'Retraits de la cagnotte dégelés', targetType: 'fundraiser', targetId: f.id,
+    targetLabel: f.title, reason: clean, before: frozen ? 'Retraits autorisés' : 'Retraits gelés', after: frozen ? 'Retraits gelés' : 'Retraits autorisés',
+    relatedIds: [f.organizerId],
+  });
   return clone(f);
 }

@@ -1,11 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Ban, Check, Copy, ExternalLink, Flag, Lock, RotateCcw } from 'lucide-react';
-import { Badge, Button, Dialog, Field, ProgressBar, ReasonDialog } from '@/components/ui';
+import Link from 'next/link';
+import { Ban, Check, Copy, ExternalLink, Flag, Headphones, Lock, RotateCcw, Snowflake, Sun } from 'lucide-react';
+import { Badge, Button, Dialog, Field, Notice, ProgressBar, ReasonDialog } from '@/components/ui';
+import { useCan } from '@/features/auth/SessionContext';
+import { CreateTicketDialog } from '@/features/tickets/components/CreateTicketDialog';
 import { formatDate, formatDateTime, formatPhone, formatRelative, formatXOF, percent } from '@/lib/format';
 import { useAdminMutation } from '@/lib/useAdminMutation';
-import { ALLOWED_ACTIONS, actionNeedsReason, moderateFundraiser } from '../api';
+import { ALLOWED_ACTIONS, actionNeedsReason, moderateFundraiser, setWithdrawalsFrozen } from '../api';
 import {
   FUNDRAISER_CATEGORY_LABEL,
   PUBLIC_FUNDRAISER_BASE_URL,
@@ -63,8 +66,20 @@ const REASON_PRESETS: Record<'SUSPEND' | 'CLOSE', string[]> = {
 };
 
 export function FundraiserDetailDialog({ fundraiser, onClose }: { fundraiser: Fundraiser | null; onClose: () => void }) {
+  const can = useCan();
   const [pending, setPending] = useState<FundraiserAction | null>(null);
+  const [freezing, setFreezing] = useState(false);
+  const [ticket, setTicket] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  const freeze = useAdminMutation({
+    mutationFn: (reason: string) => setWithdrawalsFrozen(fundraiser!.id, !fundraiser!.withdrawalsFrozen, reason),
+    successTitle: (f) => (f.withdrawalsFrozen ? 'Retraits gelés' : 'Retraits de nouveau autorisés'),
+    onSuccess: () => {
+      setFreezing(false);
+      onClose();
+    },
+  });
 
   const mutation = useAdminMutation({
     mutationFn: (v: { action: FundraiserAction; reason?: string }) => moderateFundraiser(fundraiser!.id, v.action, v.reason),
@@ -80,7 +95,7 @@ export function FundraiserDetailDialog({ fundraiser, onClose }: { fundraiser: Fu
   const f = fundraiser;
   const url = `${PUBLIC_FUNDRAISER_BASE_URL}${f.code}`;
   const pct = percent(f.collected, f.goal);
-  const actions = ALLOWED_ACTIONS[f.status];
+  const actions = can('fundraiser.moderate') ? ALLOWED_ACTIONS[f.status] : [];
 
   const copy = async () => {
     try {
@@ -97,7 +112,7 @@ export function FundraiserDetailDialog({ fundraiser, onClose }: { fundraiser: Fu
   return (
     <>
       <Dialog
-        open={!pending}
+        open={!pending && !freezing && !ticket}
         onClose={onClose}
         size="lg"
         title={f.title}
@@ -109,15 +124,21 @@ export function FundraiserDetailDialog({ fundraiser, onClose }: { fundraiser: Fu
           </span>
         }
         footer={
-          actions.length > 0 ? (
-            actions.map((a) => (
+          <>
+            <Button variant="ghost" icon={<Headphones size={16} />} onClick={() => setTicket(true)} className="mr-auto">
+              Ticket
+            </Button>
+            {can('fundraiser.freezeWithdrawals') && f.status !== 'CLOSED' && (
+              <Button variant={f.withdrawalsFrozen ? 'secondary' : 'dangerOutline'} icon={f.withdrawalsFrozen ? <Sun size={16} /> : <Snowflake size={16} />} onClick={() => setFreezing(true)}>
+                {f.withdrawalsFrozen ? 'Dégeler les retraits' : 'Geler les retraits'}
+              </Button>
+            )}
+            {actions.map((a) => (
               <Button key={a} variant={ACTION_UI[a].variant} icon={ACTION_UI[a].icon} onClick={() => setPending(a)}>
                 {ACTION_UI[a].label}
               </Button>
-            ))
-          ) : (
-            <p className="mr-auto text-sm text-ink-muted">Cagnotte clôturée : aucune action possible.</p>
-          )
+            ))}
+          </>
         }
       >
         <div className="space-y-5">
@@ -144,13 +165,24 @@ export function FundraiserDetailDialog({ fundraiser, onClose }: { fundraiser: Fu
               </p>
             </div>
             <ProgressBar value={pct} className="mt-2" />
-            <p className="mt-1 text-sm text-ink-muted">{f.contributorsCount} contributeurs</p>
+            <p className="mt-1 text-sm text-ink-muted">
+              {f.contributorsCount} contributeurs · déjà retiré par l’organisateur : {formatXOF(f.withdrawn)}
+            </p>
           </div>
+          {f.withdrawalsFrozen ? (
+            <Notice tone="red">Retraits gelés : l’organisateur ne peut plus retirer les fonds ({formatXOF(f.collected - f.withdrawn)} bloqués).</Notice>
+          ) : f.reports.length > 0 && f.status !== 'CLOSED' ? (
+            <Notice tone="amber">Cagnotte signalée mais retraits encore possibles : {formatXOF(f.collected - f.withdrawn)} peuvent être retirés.</Notice>
+          ) : null}
 
           <p className="text-base text-ink-soft">{f.description}</p>
 
           <dl className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-md border border-line p-3 md:grid-cols-3">
-            <Field label="Organisateur">{f.organizerName}</Field>
+            <Field label="Organisateur">
+              <Link href={`/users/${f.organizerId}`} className="font-medium text-brand hover:underline" onClick={onClose}>
+                {f.organizerName}
+              </Link>
+            </Field>
             <Field label="Téléphone">{formatPhone(f.organizerPhone)}</Field>
             <Field label="KYC organisateur">
               {f.organizerKycVerified ? <Badge tone="green">Vérifié</Badge> : <Badge tone="amber">Non vérifié</Badge>}
@@ -208,6 +240,26 @@ export function FundraiserDetailDialog({ fundraiser, onClose }: { fundraiser: Fu
           loading={mutation.isPending}
         />
       )}
+      <ReasonDialog
+        open={freezing}
+        onClose={() => setFreezing(false)}
+        onConfirm={(reason) => freeze.mutate(reason)}
+        title={f.withdrawalsFrozen ? 'Dégeler les retraits' : 'Geler les retraits'}
+        description={
+          f.withdrawalsFrozen
+            ? 'L’organisateur pourra de nouveau retirer les fonds collectés.'
+            : 'La cagnotte reste visible et peut recevoir des dons, mais l’organisateur ne peut plus retirer l’argent pendant l’enquête.'
+        }
+        confirmLabel={f.withdrawalsFrozen ? 'Dégeler' : 'Geler les retraits'}
+        tone={f.withdrawalsFrozen ? 'primary' : 'danger'}
+        presets={f.withdrawalsFrozen ? ['Justificatifs reçus et vérifiés'] : ['Signalements en cours d’examen', 'Organisateur injoignable', 'Justificatifs demandés']}
+        loading={freeze.isPending}
+      />
+      <CreateTicketDialog
+        open={ticket}
+        onClose={() => setTicket(false)}
+        subject={{ fundraiserId: f.id, fundraiserTitle: f.title, userId: f.organizerId, userName: f.organizerName, category: 'FUNDRAISER_FRAUD' }}
+      />
     </>
   );
 }

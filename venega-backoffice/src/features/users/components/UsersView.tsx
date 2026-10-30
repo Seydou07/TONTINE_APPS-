@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import React from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { formatDate, formatPhone, formatRelative } from '@/lib/format';
 import { useListState } from '@/lib/useListState';
@@ -24,12 +24,11 @@ import {
 } from '@/components/ui';
 import { KycStatusBadge } from '@/features/kyc/components/KycStatusBadge';
 import { listUsers, type UserFilter } from '../api';
-import { UserDetailDialog } from './UserDetailDialog';
 
 export function UsersView() {
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const list = useListState<UserFilter>('ALL', undefined, searchParams.get('q') ?? '');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const list = useListState<UserFilter>((searchParams.get('status') as UserFilter) ?? 'ALL', 15, searchParams.get('q') ?? '');
 
   const query = useQuery({
     queryKey: ['users', 'list', list.params],
@@ -39,7 +38,7 @@ export function UsersView() {
 
   return (
     <>
-      <PageHeader title="Utilisateurs" description="Comptes inscrits, statut KYC et état du compte." />
+      <PageHeader title="Utilisateurs" description="Comptes inscrits, statut KYC et état du compte. Cliquez sur une ligne pour ouvrir la fiche complète." />
       <Card>
         <ListToolbar>
           <FilterTabs
@@ -52,9 +51,11 @@ export function UsersView() {
               { value: 'REJECTED', label: 'Refusés' },
               { value: 'NOT_SUBMITTED', label: 'Sans KYC' },
               { value: 'SUSPENDED', label: 'Suspendus' },
+              { value: 'LOCKED', label: 'Verrouillés' },
+              { value: 'UNVERIFIED_PHONE', label: 'Téléphone non vérifié' },
             ]}
           />
-          <SearchInput value={list.search} onChange={list.setSearch} placeholder="Nom, téléphone, ville…" />
+          <SearchInput value={list.search} onChange={list.setSearch} placeholder="Nom, téléphone (avec ou sans +226)…" className="sm:w-80" />
         </ListToolbar>
 
         {query.isError ? (
@@ -80,7 +81,7 @@ export function UsersView() {
               </thead>
               <tbody>
                 {query.data.items.map((u) => (
-                  <Tr key={u.id} onClick={() => setSelectedId(u.id)}>
+                  <Tr key={u.id} onClick={() => router.push(`/users/${u.id}`)}>
                     <Td>
                       <span className="flex items-center gap-2.5">
                         <Avatar name={u.displayName} size={32} />
@@ -107,7 +108,6 @@ export function UsersView() {
           </>
         )}
       </Card>
-      <UserDetailDialog userId={selectedId} onClose={() => setSelectedId(null)} />
     </>
   );
 }

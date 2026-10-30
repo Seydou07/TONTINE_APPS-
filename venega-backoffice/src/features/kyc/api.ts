@@ -4,7 +4,7 @@
  */
 import { db, clone, latency, newId } from '@/mocks/db';
 import { matchesQuery, paginate, type ListParams, type Paginated } from '@/lib/list';
-import { currentActorName } from '@/features/auth/api';
+import { assertCan, currentActorName } from '@/features/auth/api';
 import { recordLocalAction } from '@/features/audit/api';
 import type { KycDecision, KycReviewStatus, KycStats, KycSubmission } from './types';
 
@@ -53,6 +53,7 @@ export async function listKycDecisions(params: ListParams<'VERIFIED' | 'REJECTED
 }
 
 function decide(id: string, decision: 'VERIFIED' | 'REJECTED', reason?: string): KycSubmission {
+  assertCan('kyc.decide');
   const s = db.kycSubmissions.find((x) => x.id === id);
   if (!s) throw new Error('Dossier KYC introuvable.');
   if (s.status !== 'PENDING') throw new Error('Ce dossier a déjà été traité.');
@@ -79,8 +80,15 @@ function decide(id: string, decision: 'VERIFIED' | 'REJECTED', reason?: string):
   recordLocalAction({
     action: decision === 'VERIFIED' ? 'KYC validé' : 'KYC refusé',
     targetType: 'kyc',
+    targetId: s.userId,
     targetLabel: s.userName,
-    detail: reason,
+    reason,
+    before: 'En attente',
+    after: decision === 'VERIFIED' ? 'Vérifié' : 'Refusé',
+  });
+  db.notifications.unshift({
+    id: newId('nt'), userId: s.userId, type: 'KYC_DECISION', channel: 'PUSH', status: 'SENT', sentAt: now, byAdmin: actor,
+    title: decision === 'VERIFIED' ? 'Identité vérifiée' : 'Vérification d’identité refusée',
   });
   return clone(s);
 }

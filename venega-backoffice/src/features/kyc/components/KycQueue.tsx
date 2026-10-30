@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/cn';
-import { formatPhone, formatRelative } from '@/lib/format';
+import { formatAge, formatPhone, formatRelative } from '@/lib/format';
 import { useListState } from '@/lib/useListState';
 import {
   Avatar,
@@ -21,8 +21,8 @@ import type { KycReviewStatus, KycSubmission } from '../types';
 import { KycReviewPanel } from './KycReviewPanel';
 import { KycStatusBadge } from './KycStatusBadge';
 
-export function KycQueue({ pendingCount }: { pendingCount?: number }) {
-  const list = useListState<KycReviewStatus>('PENDING', 8);
+export function KycQueue({ pendingCount, initialQ = '' }: { pendingCount?: number; initialQ?: string }) {
+  const list = useListState<KycReviewStatus>(initialQ ? 'ALL' : 'PENDING', 8, initialQ);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const query = useQuery({
@@ -63,6 +63,7 @@ export function KycQueue({ pendingCount }: { pendingCount?: number }) {
               { value: 'PENDING', label: 'À vérifier', count: pendingCount },
               { value: 'VERIFIED', label: 'Validés' },
               { value: 'REJECTED', label: 'Refusés' },
+              { value: 'ALL', label: 'Tous' },
             ]}
           />
         </div>
@@ -95,7 +96,14 @@ export function KycQueue({ pendingCount }: { pendingCount?: number }) {
                       {s.flags.length > 0 && <AlertTriangle size={14} className="shrink-0 text-accent-ink" aria-label="Points d’attention" />}
                     </span>
                     <span className="block truncate text-sm text-ink-muted">
-                      {formatPhone(s.phoneNumber)} · {formatRelative(s.reviewedAt ?? s.submittedAt)}
+                      {formatPhone(s.phoneNumber)} ·{' '}
+                      {s.status === 'PENDING' ? (
+                        <span className={Date.now() - new Date(s.submittedAt).getTime() > 2 * 86_400_000 ? 'font-medium text-danger' : ''}>
+                          attend depuis {formatAge(s.submittedAt)}
+                        </span>
+                      ) : (
+                        formatRelative(s.reviewedAt ?? s.submittedAt)
+                      )}
                     </span>
                   </span>
                   <KycStatusBadge status={s.status} />

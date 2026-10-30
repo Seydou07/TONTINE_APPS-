@@ -9,6 +9,7 @@ import { Eye, EyeOff, HardDrive } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { BrandLogo } from '@/components/layout/BrandLogo';
 import { isDemoLoginEnabled, signIn } from '../api';
+import { ADMIN_ROLE_HELP, ADMIN_ROLE_LABEL, type AdminRole } from '../permissions';
 
 const schema = z.object({
   email: z.string().trim().email('Adresse e-mail invalide'),
@@ -23,6 +24,7 @@ export function LoginForm() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [role, setRole] = useState<AdminRole>('SUPER_ADMIN');
   const demo = isDemoLoginEnabled();
 
   const {
@@ -34,7 +36,7 @@ export function LoginForm() {
   const onSubmit = async (v: Values) => {
     setError(null);
     try {
-      await signIn(v.email, v.password);
+      await signIn(v.email, v.password, role);
       router.replace('/');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Connexion impossible.');
@@ -94,6 +96,27 @@ export function LoginForm() {
             </div>
             {errors.password && <p className="mt-1 text-sm text-danger">{errors.password.message}</p>}
           </div>
+
+          {demo && (
+            <div>
+              <label htmlFor="role" className="mb-1 block text-sm font-medium text-ink">
+                Rôle (démo)
+              </label>
+              <select
+                id="role"
+                value={role}
+                onChange={(e) => setRole(e.target.value as AdminRole)}
+                className={`${inputCls} border-line focus:border-brand focus:ring-brand/15`}
+              >
+                {(Object.keys(ADMIN_ROLE_LABEL) as AdminRole[]).map((r) => (
+                  <option key={r} value={r}>
+                    {ADMIN_ROLE_LABEL[r]}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-sm text-ink-muted">{ADMIN_ROLE_HELP[role]} Avec l’API, le rôle viendra du compte administrateur.</p>
+            </div>
+          )}
 
           {error && <p className="rounded-md border border-danger-line bg-danger-tint px-3 py-2 text-sm text-danger">{error}</p>}
 

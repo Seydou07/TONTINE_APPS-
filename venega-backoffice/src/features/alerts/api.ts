@@ -5,7 +5,7 @@
  */
 import { db, clone, latency } from '@/mocks/db';
 import { matchesQuery, paginate, type ListParams, type Paginated } from '@/lib/list';
-import { currentActorName } from '@/features/auth/api';
+import { assertCan, currentActorName } from '@/features/auth/api';
 import { recordLocalAction } from '@/features/audit/api';
 import { SEVERITY_ORDER, type AlertSeverity, type AlertStatus, type FraudAlert } from './types';
 
@@ -36,6 +36,7 @@ export async function getOpenAlertCounts(): Promise<Record<AlertSeverity, number
 // TODO API: POST /api/v1/admin/alerts/:id/resolve  { note }
 export async function resolveAlert(id: string, note: string): Promise<FraudAlert> {
   await latency();
+  assertCan('alert.resolve');
   const a = db.alerts.find((x) => x.id === id);
   if (!a) throw new Error('Alerte introuvable.');
   if (a.status === 'RESOLVED') throw new Error('Cette alerte est déjà traitée.');
@@ -45,6 +46,9 @@ export async function resolveAlert(id: string, note: string): Promise<FraudAlert
   a.resolvedAt = new Date().toISOString();
   a.resolvedBy = currentActorName();
   a.resolutionNote = clean;
-  recordLocalAction({ action: 'Alerte traitée', targetType: 'alert', targetLabel: a.title, detail: clean });
+  recordLocalAction({
+    action: 'Alerte traitée', targetType: 'alert', targetId: a.id, targetLabel: a.title, reason: clean,
+    before: 'Ouverte', after: 'Traitée', relatedIds: a.subjects.map((s) => s.id),
+  });
   return clone(a);
 }

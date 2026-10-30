@@ -3,7 +3,9 @@
 import React, { useState } from 'react';
 import { AlertTriangle, ArrowLeft, Check, X } from 'lucide-react';
 import { Badge, Button, Dialog, Field, ImageThumb, ImageViewer, ReasonDialog, type ViewerImage } from '@/components/ui';
-import { formatDate, formatDateTime, formatPhone, formatRelative } from '@/lib/format';
+import Link from 'next/link';
+import { formatAge, formatDate, formatDateTime, formatPhone, formatRelative } from '@/lib/format';
+import { useCan } from '@/features/auth/SessionContext';
 import { useAdminMutation } from '@/lib/useAdminMutation';
 import { approveKyc, rejectKyc } from '../api';
 import { KYC_REJECTION_REASONS, type KycSubmission } from '../types';
@@ -25,6 +27,7 @@ export function KycReviewPanel({
   onBack: () => void;
   onDecided: (s: KycSubmission) => void;
 }) {
+  const can = useCan();
   const [viewer, setViewer] = useState<number | null>(null);
   const [confirmApprove, setConfirmApprove] = useState(false);
   const [rejecting, setRejecting] = useState(false);
@@ -77,9 +80,14 @@ export function KycReviewPanel({
           </div>
           <p className="mt-0.5 text-sm text-ink-muted">
             {formatPhone(submission.phoneNumber)} · {submission.city} · soumis {formatRelative(submission.submittedAt)}
+            {submission.status === 'PENDING' && <> · en attente depuis <strong className={Date.now() - new Date(submission.submittedAt).getTime() > 2 * 86_400_000 ? 'text-danger' : 'text-ink'}>{formatAge(submission.submittedAt)}</strong></>}
+            {' · '}
+            <Link href={`/users/${submission.userId}`} className="font-medium text-brand hover:underline">
+              Fiche utilisateur
+            </Link>
           </p>
         </div>
-        {pending && (
+        {pending && can('kyc.decide') && (
           <div className="flex w-full gap-2 sm:w-auto">
             <Button variant="dangerOutline" icon={<X size={16} />} onClick={() => setRejecting(true)} className="flex-1 sm:flex-none">
               Refuser

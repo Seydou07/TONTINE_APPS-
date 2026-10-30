@@ -25,6 +25,10 @@ export interface Fundraiser {
   collected: number;
   goal: number;
   contributorsCount: number;
+  /** Montant déjà retiré par l'organisateur */
+  withdrawn: number;
+  /** Retraits bloqués par Venega (enquête en cours) */
+  withdrawalsFrozen: boolean;
   createdAt: string;
   endsAt?: string;
   reports: FundraiserReport[];

@@ -23,6 +23,7 @@ import {
   SearchInput,
   StatCard,
 } from '@/components/ui';
+import { useCan } from '@/features/auth/SessionContext';
 import { getOpenAlertCounts, listAlerts, resolveAlert } from '../api';
 import { ALERT_TYPE_LABEL, type AlertSeverity, type AlertStatus, type AlertSubject, type FraudAlert } from '../types';
 import { SeverityBadge } from './SeverityBadge';
@@ -30,7 +31,7 @@ import { SeverityBadge } from './SeverityBadge';
 const SUBJECT_ICON = { user: User, fundraiser: HandHeart, circle: CircleDot } as const;
 
 function subjectHref(s: AlertSubject): string {
-  if (s.kind === 'user') return `/users?q=${encodeURIComponent(s.label)}`;
+  if (s.kind === 'user') return `/users/${s.id}`;
   if (s.kind === 'fundraiser') return `/cagnottes?q=${encodeURIComponent(s.label)}`;
   return `/circles/${s.id}`;
 }
@@ -45,6 +46,7 @@ const SEVERITY_BAR: Record<AlertSeverity, string> = {
 export function AlertsView() {
   const list = useListState<AlertStatus>('OPEN');
   const [severity, setSeverity] = useState<AlertSeverity | 'ALL'>('ALL');
+  const can = useCan();
   const [resolving, setResolving] = useState<FraudAlert | null>(null);
 
   const counts = useQuery({ queryKey: ['alerts', 'counts'], queryFn: getOpenAlertCounts });
@@ -157,7 +159,7 @@ export function AlertsView() {
                       </p>
                     )}
                   </div>
-                  {a.status === 'OPEN' && (
+                  {a.status === 'OPEN' && can('alert.resolve') && (
                     <Button variant="secondary" size="sm" icon={<CheckCircle2 size={15} />} onClick={() => setResolving(a)}>
                       Marquer comme traité
                     </Button>
