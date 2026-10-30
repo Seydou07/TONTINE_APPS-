@@ -8,6 +8,7 @@
 import { KycStatus } from '@venega/types';
 import { ApiError, DEMO_OTP_CODE, apiRequest, clearTokens, getTokens, isDemoMode, setTokens } from '../../lib/api';
 import type { Tokens } from '../../lib/api';
+import { setLockEnabled } from '../../lib/appLock';
 import { setCurrentUserKycStatus } from '../circles/circleStore';
 import { setProfileName } from '../profile/profileStore';
 
@@ -30,6 +31,9 @@ export function toE164(localPhone: string): string {
 
 export const INVALID_CREDENTIALS = 'Numéro ou mot de passe incorrect.';
 export const PHONE_TAKEN = 'Ce numéro a déjà un compte Venega. Connectez-vous.';
+
+/** En démo, une session factice est enregistrée pour que l'utilisateur reste connecté entre deux ouvertures. */
+const DEMO_TOKENS: Tokens = { accessToken: 'demo', refreshToken: 'demo' };
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -69,6 +73,7 @@ export async function register(params: {
 export async function login(phone: string, password: string): Promise<void> {
   if (isDemoMode) {
     await wait(800);
+    await setTokens(DEMO_TOKENS);
     return;
   }
   const tokens = await apiRequest<Tokens>('/auth/login', {
@@ -90,6 +95,7 @@ export async function verifyOtp(phone: string, code: string): Promise<void> {
   if (isDemoMode) {
     await wait(800);
     if (code !== DEMO_OTP_CODE) throw new ApiError('Code incorrect.', 401);
+    await setTokens(DEMO_TOKENS);
     return;
   }
   await apiRequest('/auth/verify-otp', {
@@ -117,6 +123,7 @@ export async function resendOtp(_phone: string): Promise<void> {
 }
 
 export async function logout(): Promise<void> {
+  await setLockEnabled(false);
   if (!isDemoMode) {
     const tokens = await getTokens();
     if (tokens) {
@@ -126,8 +133,10 @@ export async function logout(): Promise<void> {
   await clearTokens();
 }
 
-/** Vrai si une session est enregistrée sur le téléphone (toujours faux en mode démo). */
+/**
+ * Vrai si une session est enregistrée sur le téléphone. Avec la vraie API, un jeton expiré est
+ * rafraîchi au premier appel ; si le rafraîchissement échoue, la session est effacée.
+ */
 export async function hasSession(): Promise<boolean> {
-  if (isDemoMode) return false;
   return (await getTokens()) !== null;
 }

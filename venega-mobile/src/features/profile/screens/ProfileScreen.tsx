@@ -7,6 +7,7 @@ import {
   BadgeCheck,
   Camera,
   ChevronDown,
+  Fingerprint,
   FileText,
   Gauge,
   HelpCircle,
@@ -23,8 +24,9 @@ import { colors, radius, typography } from '@venega/design-tokens';
 import { KycStatus } from '@venega/types';
 import { getProfile } from '../profileStore';
 import { logout as endSession } from '../../auth/api';
+import { authenticate, canUseDeviceLock, isLockEnabled, setLockEnabled } from '../../../lib/appLock';
 import { getCircles, getCurrentUser } from '../../circles/circleStore';
-import { Button, HeroHeader, HeroStatusBar, ListGroup, ListRow, Sheet, TextField, heroColors } from '../../../components/ui';
+import { Button, HeroHeader, HeroStatusBar, ListGroup, ListRow, Sheet, TextField, Toggle, heroColors } from '../../../components/ui';
 
 /** Hauteur dont la carte des chiffres clés chevauche le bandeau vert. */
 const STATS_OVERLAP = 36;
@@ -83,10 +85,13 @@ export default function ProfileScreen() {
   const [phoneSheet, setPhoneSheet] = useState(false);
   const [helpSheet, setHelpSheet] = useState(false);
   const [logoutSheet, setLogoutSheet] = useState(false);
+  const [noLockSheet, setNoLockSheet] = useState(false);
+  const [lockOn, setLockOn] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   useFocusEffect(
     useCallback(() => {
+      isLockEnabled().then(setLockOn);
       setAvatarUrl(getProfile().avatarUrl);
     }, []),
   );
@@ -95,6 +100,23 @@ export default function ProfileScreen() {
     if (draftPhone.replace(/\D/g, '').length !== 8) return;
     setMomoPhone(draftPhone.trim());
     setPhoneSheet(false);
+  };
+
+  // Activer le verrou exige de réussir une première fois : on évite qu'il bloque l'accès à l'app.
+  const toggleLock = async (value: boolean) => {
+    if (!value) {
+      if (!(await authenticate('Confirmez pour retirer le verrou'))) return;
+      await setLockEnabled(false);
+      setLockOn(false);
+      return;
+    }
+    if (!(await canUseDeviceLock())) {
+      setNoLockSheet(true);
+      return;
+    }
+    if (!(await authenticate('Confirmez pour activer le verrou'))) return;
+    await setLockEnabled(true);
+    setLockOn(true);
   };
 
   const logout = async () => {
@@ -175,7 +197,14 @@ export default function ProfileScreen() {
               valueTone={kyc.ok ? 'success' : 'muted'}
               onPress={() => router.push('/kyc-upload')}
             />
-            <ListRow icon={Lock} title="Mot de passe" onPress={() => {}} last />
+            <ListRow icon={Lock} title="Mot de passe" onPress={() => {}} />
+            <ListRow
+              icon={Fingerprint}
+              title="Verrouiller l’application"
+              subtitle="Empreinte, code ou schéma du téléphone"
+              accessory={<Toggle value={lockOn} onValueChange={toggleLock} />}
+              last
+            />
           </ListGroup>
 
           <ListGroup title="Paiements" style={styles.group}>
@@ -251,6 +280,15 @@ export default function ProfileScreen() {
           <Button title="Appeler" icon={PhoneCall} variant="secondary" size="sm" style={styles.flex} />
           <Button title="E-mail" icon={Mail} variant="secondary" size="sm" style={styles.flex} />
         </View>
+      </Sheet>
+
+      {/* ── Verrou impossible : aucun verrouillage sur le téléphone ── */}
+      <Sheet visible={noLockSheet} onClose={() => setNoLockSheet(false)} title="Aucun verrouillage sur ce téléphone">
+        <Text style={styles.sheetText}>
+          Configurez d’abord un code, un schéma ou une empreinte dans les réglages de votre téléphone (Sécurité ›
+          Verrouillage de l’écran), puis revenez activer le verrou.
+        </Text>
+        <Button title="J’ai compris" onPress={() => setNoLockSheet(false)} />
       </Sheet>
 
       {/* ── Déconnexion ── */}

@@ -14,6 +14,8 @@ type Props = {
   /** Texte affiché à droite (ex. « Vérifié »). */
   value?: string;
   valueTone?: 'muted' | 'success';
+  /** Élément à droite à la place de la valeur et du chevron (ex. interrupteur). */
+  accessory?: React.ReactNode;
   onPress?: () => void;
   chevron?: boolean;
   last?: boolean;
@@ -34,6 +36,7 @@ export function ListRow({
   tone = 'neutral',
   value,
   valueTone = 'muted',
+  accessory,
   onPress,
   chevron = !!onPress,
   last,
@@ -69,7 +72,8 @@ export function ListRow({
             {value}
           </Text>
         ) : null}
-        {chevron ? <ChevronRight size={18} color={colors.subtle} /> : null}
+        {accessory}
+        {chevron && !accessory ? <ChevronRight size={18} color={colors.subtle} /> : null}
       </View>
     </TouchableOpacity>
   );

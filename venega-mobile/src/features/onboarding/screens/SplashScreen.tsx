@@ -11,6 +11,9 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { colors, typography } from '@venega/design-tokens';
+import { isLockEnabled } from '../../../lib/appLock';
+import { hasSession } from '../../auth/api';
+import { hasSeenOnboarding } from '../onboardingSeen';
 
 // Logo d'origine (couleurs inchangées), posé sur une carte blanche pour rester lisible sur le fond vert.
 const symbolImg = require('../../../../assets/splash.png');
@@ -50,7 +53,13 @@ export default function SplashScreen() {
     // 3. Le slogan, sous la carte.
     taglineOpacity.value = withDelay(1500, withTiming(1, { duration: 450, easing: ease }));
 
-    const timer = setTimeout(() => router.replace('/onboarding'), 2700);
+    // Pendant l'animation, on regarde où aller : déjà connecté → accueil (ou verrou),
+    // onboarding déjà vu → connexion, premier lancement → onboarding.
+    const destination = (async () => {
+      if (await hasSession()) return (await isLockEnabled()) ? '/lock?next=tabs' : '/(tabs)';
+      return (await hasSeenOnboarding()) ? '/login' : '/onboarding';
+    })();
+    const timer = setTimeout(() => destination.then((href) => router.replace(href as any)), 2700);
     return () => clearTimeout(timer);
   }, []);
 

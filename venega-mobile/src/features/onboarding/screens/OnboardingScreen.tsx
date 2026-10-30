@@ -13,6 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import { colors, radius, sizes, typography } from '@venega/design-tokens';
+import { markOnboardingSeen } from '../onboardingSeen';
 
 const SLIDES = [
   {
@@ -50,7 +51,10 @@ export default function OnboardingScreen() {
     scrollX.value = event.contentOffset.x;
   });
 
-  const finish = () => router.replace('/login');
+  const finish = () => {
+    markOnboardingSeen();
+    router.replace('/login');
+  };
 
   const next = () => {
     if (isLast) {
