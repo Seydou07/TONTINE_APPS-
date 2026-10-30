@@ -7,6 +7,7 @@ import { colors } from '@venega/design-tokens';
 import { loadLocalData, saveOnBackground } from '../src/lib/persistence';
 import { LOCK_AFTER_MS, isLockEnabled, isLockShown } from '../src/lib/appLock';
 import { hasSession } from '../src/features/auth/api';
+import { PaymentResultHost } from '../src/features/circles/components/PaymentFlow';
 import '../global.css';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -57,6 +58,7 @@ export default function RootLayout() {
         <Stack.Screen name="login" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="lock" options={{ animation: 'fade', gestureEnabled: false }} />
       </Stack>
+      <PaymentResultHost />
     </>
   );
 }

@@ -75,6 +75,10 @@ Parcours dans l'app, identique pour tous les paiements : choix de l'opérateur �
 
 Le montant est toujours recalculé par le serveur ; ne jamais faire confiance au montant envoyé par l'app.
 
+**Montant inférieur au montant dû** (ex. 8 000 F reçus pour 10 500 F de cotisation + frais) : le paiement n'est **jamais** compté comme payé. `GET /payments/:paymentId` renvoie `PARTIAL` avec `received` et `missing` ; la somme reçue est conservée comme acompte sur cette cotisation, et l'app propose « Compléter <missing> ». La cotisation passe à payée seulement quand le cumul atteint le montant dû. Sans complément avant l'échéance, les règles de retard s'appliquent ; un remboursement se demande via le back-office. Rien reçu au bout de 3 min → `EXPIRED` (l'app affiche « Paiement non reçu », dont le cas « solde insuffisant »).
+
+Côté app, le code USSD est lancé directement (Android, autorisation `CALL_PHONE`) : l'utilisateur ne peut pas modifier le montant, il saisit seulement son code secret dans la fenêtre de l'opérateur. Seul un contrat de paiement marchand avec l'opérateur (montant imposé par Venega) empêcherait totalement l'envoi d'un montant inférieur composé hors de l'app.
+
 ---
 
 ## 5. Caisse de solidarité
