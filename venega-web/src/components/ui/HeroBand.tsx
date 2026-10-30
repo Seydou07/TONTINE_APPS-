@@ -50,23 +50,3 @@ export function HeroTitle({ title, subtitle, eyebrow, right }: HeroTitleProps) {
     </div>
   );
 }
-
-interface PageBodyProps {
-  children: ReactNode;
-  /** Remonte le contenu sur le bandeau (même valeur que HeroBand `overlap`). */
-  overlap?: number;
-  width?: 'narrow' | 'default' | 'wide';
-  className?: string;
-}
-
-/** Deuxième section : contenu clair sur fond gris clair. */
-export function PageBody({ children, overlap = 0, width = 'default', className = '' }: PageBodyProps) {
-  return (
-    <div
-      className={`relative mx-auto ${WIDTHS[width]} space-y-6 px-4 pb-8 pt-5 sm:px-6 ${className}`}
-      style={overlap ? { marginTop: -overlap, paddingTop: 0 } : undefined}
-    >
-      {children}
-    </div>
-  );
-}

@@ -26,7 +26,7 @@ export function OperatorLogo({ method, size = 32, decorative = false, className 
     return (
       <span
         aria-hidden
-        className={`inline-block shrink-0 border border-[#E5E7EB] bg-[#F4F5F7] ${className}`}
+        className={`inline-block shrink-0 border border-line bg-fill ${className}`}
         style={{ width: size, height: size, borderRadius: radius }}
       />
     );
@@ -42,7 +42,7 @@ export function OperatorLogo({ method, size = 32, decorative = false, className 
       height={size}
       loading="lazy"
       decoding="async"
-      className={`shrink-0 border border-[#E5E7EB] bg-white object-contain ${className}`}
+      className={`shrink-0 border border-line bg-white object-contain ${className}`}
       style={{ width: size, height: size, borderRadius: radius }}
     />
   );
@@ -52,7 +52,7 @@ export function OperatorLogo({ method, size = 32, decorative = false, className 
 export function AcceptedPayments({ className = '' }: { className?: string }) {
   return (
     <div className={`flex items-center justify-between gap-3 ${className}`}>
-      <p className="text-[14px] font-semibold text-[#384A43]">Paiement accepté</p>
+      <p className="text-[14px] font-semibold text-ink-soft">Paiement accepté</p>
       <ul className="flex items-center gap-2" aria-label="Opérateurs acceptés">
         {PAYABLE_OPERATORS.map((m) => (
           <li key={m}>

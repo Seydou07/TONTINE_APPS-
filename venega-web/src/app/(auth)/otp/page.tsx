@@ -1,5 +1,10 @@
-import OtpForm from '@/features/auth/components/OtpForm';
+import { Suspense } from 'react';
+import { OtpForm } from '@/features/auth/components/OtpForm';
 
 export default function OtpPage() {
-  return <OtpForm />;
+  return (
+    <Suspense fallback={null}>
+      <OtpForm />
+    </Suspense>
+  );
 }

@@ -1,55 +1,98 @@
 'use client';
 
-import { useSearchParams } from 'next/navigation';
-import { mockCircles, mockCurrentUser } from '@venega/types';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Info } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { Notice, ScreenBody } from '@/components/ui/blocks';
+import { useDemoStore } from '@/lib/demoStore';
 import { formatFcfa } from '@/lib/format';
+import { CIRCLE_CREATION_FEE, activateCircle, getCircle, getCircles, getCurrentUser } from '@/features/circles/store';
+import { circleHref } from '@/features/circles/components/CircleRedirect';
 import { MobileMoneyCheckout } from './MobileMoneyCheckout';
+import { PaymentAmountCard, PaymentHint, PaymentSummaryCard, PaymentSummaryRow } from './PaymentLayout';
 
-const TYPE_LABELS: Record<string, string> = {
-  TONTINE: 'Cotisation tontine',
-  SOLIDARITY: 'Cotisation solidarité',
-};
-
-/** Paiement d'une cotisation : /payment?circleId=c1&amount=10000&type=TONTINE */
+/*
+ * Paiement d'une cotisation ou des frais d'activation — copie de PaymentScreen.tsx mobile.
+ * /payment?circleId=c1&amount=10000&type=TONTINE|SOLIDARITY|ACTIVATION
+ * TODO API : `POST /payments` { purpose: CONTRIBUTION | CREATION_FEE, circleId, amount, provider,
+ * phoneNumber } puis `GET /payments/:paymentId` ; activation : `POST /circles/:id/activate`
+ * après paiement confirmé (docs/api-mobile.md, sections 3 et 4).
+ */
 export function PaymentView() {
+  useDemoStore();
+  const router = useRouter();
   const params = useSearchParams();
-  const circleId = params.get('circleId') ?? mockCircles[0]?.id ?? '';
-  const circle = mockCircles.find((c) => c.id === circleId) ?? mockCircles[0];
-  const amount = parseFloat(params.get('amount') || '0') || circle?.tontineAmount || 0;
-  const type = params.get('type') === 'SOLIDARITY' ? 'SOLIDARITY' : 'TONTINE';
-  const typeLabel = TYPE_LABELS[type]!;
+  const circle = getCircle(params.get('circleId') ?? '') ?? getCircles()[0];
+  const rawType = params.get('type');
+  const paymentType = rawType === 'SOLIDARITY' ? 'SOLIDARITY' : rawType === 'ACTIVATION' ? 'ACTIVATION' : 'TONTINE';
+  const amount =
+    paymentType === 'ACTIVATION'
+      ? CIRCLE_CREATION_FEE
+      : parseFloat(params.get('amount') || '0') || circle?.tontineAmount || 0;
+  const me = getCurrentUser();
+
+  if (!circle) {
+    return (
+      <>
+        <PageHeader title="Payer ma cotisation" backHref="/circles" />
+        <p className="mx-auto max-w-2xl px-4 py-8 text-[15px] text-muted">Ce cercle n’existe pas ou plus.</p>
+      </>
+    );
+  }
+
+  const typeLabel =
+    paymentType === 'SOLIDARITY'
+      ? 'Cotisation solidarité'
+      : paymentType === 'ACTIVATION'
+        ? "Frais d'activation"
+        : 'Cotisation tontine';
+  const backHref = circleHref(circle);
+
+  const onSuccess = () => {
+    if (paymentType === 'ACTIVATION') activateCircle(circle.id);
+  };
 
   return (
     <>
       <PageHeader
-        title="Payer ma cotisation"
-        subtitle={circle?.name}
-        backHref={circle ? `/circles/${circle.id}` : '/circles'}
+        title={paymentType === 'ACTIVATION' ? 'Activer le cercle' : 'Payer ma cotisation'}
+        subtitle={circle.name}
+        backHref={backHref}
       />
-      <div className="mx-auto max-w-2xl space-y-4 px-4 py-5 sm:px-6">
-        <div className="rounded-[20px] bg-primary-dark px-5 py-6 text-center text-white">
-          <p className="text-[14px] text-white/75">{typeLabel}</p>
-          <p className="mt-1 text-[30px] font-bold leading-tight">{formatFcfa(amount)}</p>
-          {circle && <p className="mt-1 text-[14px] text-amber">{circle.name}</p>}
-        </div>
+      <ScreenBody>
+        <PaymentAmountCard amount={amount} sub={`${typeLabel} · ${circle.name}`} />
+
+        {paymentType === 'ACTIVATION' && (
+          <Notice icon={Info} tone="warning">
+            Votre cercle est créé mais pas encore actif. Réglez les frais d&apos;activation pour le mettre en service.
+          </Notice>
+        )}
+
+        <PaymentSummaryCard>
+          <PaymentSummaryRow label="Cercle" value={circle.name} />
+          <PaymentSummaryRow
+            label={paymentType === 'ACTIVATION' ? 'Type de frais' : 'Type de cotisation'}
+            value={typeLabel}
+          />
+          <PaymentSummaryRow label="Numéro Mobile Money" value={me.phoneNumber} />
+          <PaymentSummaryRow label="Montant" value={formatFcfa(amount)} strong last />
+        </PaymentSummaryCard>
+        <PaymentHint>Le paiement est envoyé directement depuis votre numéro Mobile Money.</PaymentHint>
 
         <MobileMoneyCheckout
+          title="Choisissez l'opérateur"
           amount={amount}
-          phone={mockCurrentUser.phoneNumber}
-          details={[
-            { label: 'Cercle', value: circle?.name ?? '—' },
-            { label: 'Type', value: typeLabel },
-          ]}
-          successText={`${formatFcfa(amount)} ont bien été reçus pour votre ${typeLabel.toLowerCase()}.`}
-          done={{ href: '/activity', label: 'Voir mon historique' }}
+          phone={me.phoneNumber}
+          confirmDetail={`${typeLabel} · ${circle.name}`}
+          successText={
+            paymentType === 'ACTIVATION'
+              ? `${formatFcfa(amount)} ont bien été reçus. Votre cercle est maintenant actif.`
+              : `${formatFcfa(amount)} ont bien été reçus pour votre ${typeLabel.toLowerCase()}.`
+          }
+          onSuccess={onSuccess}
+          done={{ onClick: () => router.push(backHref), label: 'Retour au cercle' }}
         />
-
-        <p className="px-1 text-[13px] text-muted">
-          Le paiement part directement de votre numéro Mobile Money vers le compte de collecte du cercle. Il ne transite
-          jamais par le compte d&apos;un membre.
-        </p>
-      </div>
+      </ScreenBody>
     </>
   );
 }

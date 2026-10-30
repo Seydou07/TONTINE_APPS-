@@ -1,46 +1,102 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
+import { useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { linkText } from '@/components/ui/classes';
-import { PasswordField, SubmitButton, TextField } from './fields';
+import { Button } from '@/components/ui/Button';
+import { FormAlert } from '@/components/ui/FormAlert';
+import { PasswordField, TextField } from '@/components/ui/TextField';
+import { ApiError, register } from '../api';
+import {
+  MIN_PASSWORD,
+  formatPhone,
+  phoneDigits,
+  validateConfirm,
+  validateName,
+  validateNewPassword,
+  validatePhone,
+} from '../validation';
+import { AuthBack, AuthFooter, AuthTitle } from './AuthParts';
 
-const registerSchema = z
-  .object({
-    firstName: z.string().min(2, 'Prénom trop court'),
-    lastName: z.string().min(2, 'Nom trop court'),
-    phone: z.string().min(9, 'Numéro de téléphone invalide'),
-    password: z.string().min(6, 'Mot de passe trop court'),
-    confirmPassword: z.string().min(6, 'Confirmez votre mot de passe'),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: 'Les mots de passe ne correspondent pas',
-    path: ['confirmPassword'],
-  });
+type Field = 'firstName' | 'lastName' | 'phone' | 'password' | 'confirm';
+type Values = Record<Field, string>;
+type Errors = Partial<Record<Field, string>>;
 
-type RegisterFormValues = z.infer<typeof registerSchema>;
+const FIELDS: Field[] = ['firstName', 'lastName', 'phone', 'password', 'confirm'];
 
-export default function RegisterForm() {
+function validate(field: Field, v: Values): string | undefined {
+  switch (field) {
+    case 'firstName':
+      return validateName(v.firstName, 'prénom');
+    case 'lastName':
+      return validateName(v.lastName, 'nom');
+    case 'phone':
+      return validatePhone(v.phone);
+    case 'password':
+      return validateNewPassword(v.password);
+    case 'confirm':
+      return validateConfirm(v.password, v.confirm);
+  }
+}
+
+/** Inscription (prénom + nom) — mêmes règles que RegisterScreen mobile. */
+export function RegisterForm() {
   const router = useRouter();
+  const refs = {
+    firstName: useRef<HTMLInputElement>(null),
+    lastName: useRef<HTMLInputElement>(null),
+    phone: useRef<HTMLInputElement>(null),
+    password: useRef<HTMLInputElement>(null),
+    confirm: useRef<HTMLInputElement>(null),
+  };
+  const [values, setValues] = useState<Values>({ firstName: '', lastName: '', phone: '', password: '', confirm: '' });
+  const [errors, setErrors] = useState<Errors>({});
+  const [formError, setFormError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [terms, setTerms] = useState(false);
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<RegisterFormValues>({ resolver: zodResolver(registerSchema) });
+  // Une erreur affichée disparaît dès que la saisie redevient valide.
+  const change = (field: Field) => (raw: string) => {
+    const next = { ...values, [field]: field === 'phone' ? formatPhone(raw) : raw };
+    setValues(next);
+    setFormError('');
+    setErrors((e) => {
+      const updated = { ...e };
+      if (e[field]) updated[field] = validate(field, next);
+      // Changer le mot de passe peut corriger (ou casser) la confirmation déjà saisie.
+      if (field === 'password' && e.confirm) updated.confirm = validate('confirm', next);
+      return updated;
+    });
+  };
 
-  // Démo : inscription non branchée sur l'API. Ne jamais journaliser le mot de passe.
-  const onSubmit = async (_data: RegisterFormValues) => {
+  // On ne signale une erreur en quittant un champ que s'il a été rempli.
+  const blur = (field: Field) => () => {
+    if (values[field]) setErrors((e) => ({ ...e, [field]: validate(field, values) }));
+  };
+
+  const handleRegister = async (e: FormEvent) => {
+    e.preventDefault();
+    const next: Errors = {};
+    for (const f of FIELDS) next[f] = validate(f, values);
+    setErrors(next);
+    const firstInvalid = FIELDS.find((f) => next[f]);
+    if (firstInvalid) return refs[firstInvalid].current?.focus();
+
+    setFormError('');
     setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-      router.push('/otp');
+      await register({
+        phone: values.phone,
+        password: values.password,
+        firstName: values.firstName,
+        lastName: values.lastName,
+      });
+      router.push(`/otp?phone=${phoneDigits(values.phone)}`);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        setErrors((prev) => ({ ...prev, phone: err.message }));
+        refs.phone.current?.focus();
+      } else {
+        setFormError(err instanceof ApiError ? err.message : 'Une erreur est survenue. Réessayez.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -48,86 +104,79 @@ export default function RegisterForm() {
 
   return (
     <>
-      <h1 className="text-[22px] font-bold text-ink">Créer un compte</h1>
-      <p className="mt-1 text-[15px] text-muted">Quelques informations pour commencer.</p>
-
-      <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-5 space-y-4">
+      <AuthBack onClick={() => (window.history.length > 1 ? router.back() : router.replace('/login'))} />
+      <AuthTitle title="Créer un compte" subtitle="Un code de vérification sera envoyé par SMS à ce numéro." />
+      <form onSubmit={handleRegister} noValidate className="mt-5 space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <TextField
+            ref={refs.firstName}
             id="firstName"
             label="Prénom"
-            autoComplete="given-name"
             placeholder="Aminata"
-            error={errors.firstName?.message}
-            {...register('firstName')}
+            autoComplete="given-name"
+            autoCapitalize="words"
+            value={values.firstName}
+            onChange={(e) => change('firstName')(e.target.value)}
+            onBlur={blur('firstName')}
+            error={errors.firstName}
           />
           <TextField
+            ref={refs.lastName}
             id="lastName"
             label="Nom"
-            autoComplete="family-name"
             placeholder="Ouédraogo"
-            error={errors.lastName?.message}
-            {...register('lastName')}
+            autoComplete="family-name"
+            autoCapitalize="words"
+            value={values.lastName}
+            onChange={(e) => change('lastName')(e.target.value)}
+            onBlur={blur('lastName')}
+            error={errors.lastName}
           />
         </div>
         <TextField
+          ref={refs.phone}
           id="phone"
           label="Numéro de téléphone"
+          prefix="+226"
+          placeholder="70 12 34 56"
           type="tel"
           inputMode="tel"
-          autoComplete="tel"
-          placeholder="+226 70 12 34 56"
-          error={errors.phone?.message}
-          {...register('phone')}
+          autoComplete="tel-national"
+          maxLength={11}
+          value={values.phone}
+          onChange={(e) => change('phone')(e.target.value)}
+          onBlur={blur('phone')}
+          error={errors.phone}
         />
         <PasswordField
+          ref={refs.password}
           id="password"
           label="Mot de passe"
+          placeholder="Choisissez un mot de passe"
           autoComplete="new-password"
-          placeholder="6 caractères minimum"
-          error={errors.password?.message}
-          {...register('password')}
+          value={values.password}
+          onChange={(e) => change('password')(e.target.value)}
+          onBlur={blur('password')}
+          hint={`${MIN_PASSWORD} caractères minimum`}
+          error={errors.password}
         />
         <PasswordField
-          id="confirmPassword"
+          ref={refs.confirm}
+          id="confirm"
           label="Confirmer le mot de passe"
+          placeholder="Saisissez-le à nouveau"
           autoComplete="new-password"
-          placeholder="••••••••"
-          error={errors.confirmPassword?.message}
-          {...register('confirmPassword')}
+          value={values.confirm}
+          onChange={(e) => change('confirm')(e.target.value)}
+          onBlur={blur('confirm')}
+          error={errors.confirm}
         />
-
-        <label className="flex cursor-pointer items-start gap-3 text-[14px] text-ink-soft">
-          <input
-            type="checkbox"
-            checked={terms}
-            onChange={(e) => setTerms(e.target.checked)}
-            className="mt-0.5 h-5 w-5 shrink-0 accent-primary"
-          />
-          <span>
-            J&apos;accepte les{' '}
-            <a href="#" className={linkText}>
-              conditions d&apos;utilisation
-            </a>{' '}
-            et la{' '}
-            <a href="#" className={linkText}>
-              politique de confidentialité
-            </a>
-            .
-          </span>
-        </label>
-
-        <SubmitButton loading={isLoading} loadingLabel="Création du compte…" disabled={!terms}>
-          Créer mon compte
-        </SubmitButton>
+        <FormAlert message={formError} />
+        <Button type="submit" loading={isLoading}>
+          Continuer
+        </Button>
       </form>
-
-      <p className="mt-5 text-center text-[14px] text-muted">
-        Vous avez déjà un compte ?{' '}
-        <Link href="/login" className={linkText}>
-          Se connecter
-        </Link>
-      </p>
+      <AuthFooter text="Déjà un compte ?" href="/login" label="Se connecter" />
     </>
   );
 }

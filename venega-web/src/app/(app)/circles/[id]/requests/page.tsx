@@ -1,5 +1,10 @@
-import { MembershipRequestsView } from '@/features/circles/components/MembershipRequestsView';
+import { Suspense } from 'react';
+import { RequestsView } from '@/features/circles/components/RequestsView';
 
 export default function RequestsPage({ params }: { params: { id: string } }) {
-  return <MembershipRequestsView circleId={params.id} />;
+  return (
+    <Suspense fallback={null}>
+      <RequestsView circleId={params.id} />
+    </Suspense>
+  );
 }

@@ -1,112 +1,148 @@
+'use client';
+
 import Link from 'next/link';
-import { Bell, HandHeart, History, Plus, UserPlus, CalendarClock } from 'lucide-react';
-import { mockCircles, mockCurrentUser, mockMemberships, mockNotifications, PaymentStatus } from '@venega/types';
-import { BrandLogo } from '@/components/ui/BrandLogo';
-import { HeroBand, HeroTitle, PageBody } from '@/components/ui/HeroBand';
-import { btnPrimary, card } from '@/components/ui/classes';
-import { IconTile, SectionHeader } from '@/components/ui/misc';
-import { CircleCard } from '@/features/circles/components/CircleCard';
-import { frequencyLabel, isTontine, mainContribution } from '@/features/circles/labels';
-import { formatFcfa } from '@/lib/format';
-import NotificationsList from './NotificationsList';
+import { Bell, ChevronRight, Gift, HandHeart, HeartHandshake, Plus, UserPlus, Users, type LucideIcon } from 'lucide-react';
+import { CircleType, type Circle } from '@venega/types';
+import { Avatar } from '@/components/ui/Avatar';
+import { HeroBand } from '@/components/ui/HeroBand';
+import { useDemoStore } from '@/lib/demoStore';
+import { formatF } from '@/lib/format';
+import { getProfile } from '@/features/profile/store';
+import { getCircles, getNextContribution } from '@/features/circles/store';
+import { circleHref } from '@/features/circles/components/CircleRedirect';
+import { PromoCarousel } from './PromoCarousel';
 
-const QUICK_ACTIONS = [
-  { label: 'Créer', icon: Plus, href: '/circles/create' },
-  { label: 'Rejoindre', icon: UserPlus, href: '/circles/join' },
-  { label: 'Solidarité', icon: HandHeart, href: '/solidarity' },
-  { label: 'Historique', icon: History, href: '/activity' },
-];
+/** Hauteur dont le diaporama chevauche le bandeau vert. */
+const CARD_OVERLAP = 64;
 
-const OVERLAP = 56;
+function circleMeta(c: Circle): { icon: LucideIcon; subtitle: string } {
+  if (c.type === CircleType.AID_APPEAL) {
+    return { icon: HeartHandshake, subtitle: `Collecte · objectif ${formatF(c.rules.goalAmount ?? 0)}` };
+  }
+  if (c.type === CircleType.NATURE) {
+    return { icon: Gift, subtitle: `${c.memberCount} membres · ${c.rules.goalItem ?? 'En nature'}` };
+  }
+  if (c.type === CircleType.SOLIDARITY_ONLY) {
+    return { icon: HeartHandshake, subtitle: `${c.memberCount} membres · Solidarité` };
+  }
+  return { icon: Users, subtitle: `${c.memberCount} membres · ${formatF(c.tontineAmount)} par tour` };
+}
 
+/** Onglet Accueil (DashboardScreen mobile). */
 export function DashboardView() {
-  // Prochaine cotisation : premier cercle où la cotisation du tour est en attente (démo : u1).
-  const pending = mockMemberships.find((m) => m.userId === 'u1' && m.paymentStatus === PaymentStatus.PENDING);
-  const nextCircle = pending ? mockCircles.find((c) => c.id === pending.circleId) : undefined;
-  const nextAmount = nextCircle ? mainContribution(nextCircle) : 0;
-  const nextType = nextCircle && isTontine(nextCircle.type) ? 'TONTINE' : 'SOLIDARITY';
-  const unread = mockNotifications.some((n) => n.userId === 'u1' && !n.read);
+  useDemoStore();
+  const profile = getProfile();
+  const circles = getCircles();
 
   return (
-    <>
-      <HeroBand overlap={OVERLAP}>
-        <div className="mb-5 flex items-center justify-between md:hidden">
-          <BrandLogo onDark href="/dashboard" />
+    <div className="pb-8">
+      {/* ── Section verte : salutation ── */}
+      <HeroBand overlap={CARD_OVERLAP}>
+        <div className="flex items-center gap-3.5">
+          <Link href="/profile" aria-label="Mon profil" className="shrink-0 rounded-full ring-2 ring-amber">
+            <Avatar name={profile.name} uri={profile.avatarUrl} size={52} />
+          </Link>
+          <div className="min-w-0 flex-1">
+            <p className="text-[15px] font-semibold text-amber">Bonjour</p>
+            <p className="mt-0.5 truncate text-[18px] font-bold text-white">{profile.name}</p>
+          </div>
           <Link
-            href="#notifications"
+            href="/notifications"
             aria-label="Notifications"
-            className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white"
+            className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/10 text-amber hover:bg-white/15"
           >
-            <Bell size={20} aria-hidden />
-            {unread && <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-amber" />}
+            <Bell size={22} strokeWidth={1.9} aria-hidden />
+            <span aria-hidden className="absolute right-[11px] top-[10px] h-2 w-2 rounded-full border-[1.5px] border-primary-dark bg-danger" />
           </Link>
         </div>
-        <HeroTitle
-          eyebrow="Tableau de bord"
-          title={`Bonjour, ${mockCurrentUser.firstName}`}
-          subtitle="Voici où en sont vos cercles aujourd'hui."
-        />
       </HeroBand>
 
-      <PageBody overlap={OVERLAP}>
-        {/* Prochaine cotisation */}
-        {nextCircle ? (
-          <section className={`${card} p-5`} aria-labelledby="next-title">
-            <div className="flex items-start gap-3">
-              <IconTile icon={CalendarClock} tone="amber" size={44} />
-              <div className="min-w-0 flex-1">
-                <p id="next-title" className="text-[13px] font-medium text-amber-dark">
-                  Prochaine cotisation
-                </p>
-                <p className="truncate text-[15px] font-semibold text-ink">{nextCircle.name}</p>
-                <p className="text-[13px] text-muted">{frequencyLabel(nextCircle.frequency)}</p>
-              </div>
-              <p className="shrink-0 text-right text-[20px] font-bold text-ink">{formatFcfa(nextAmount)}</p>
-            </div>
-            <Link
-              href={`/payment?circleId=${nextCircle.id}&amount=${nextAmount}&type=${nextType}`}
-              className={`${btnPrimary} mt-4`}
-            >
-              Payer {formatFcfa(nextAmount)}
-            </Link>
-          </section>
-        ) : (
-          <section className={`${card} p-5`}>
-            <p className="text-[15px] font-semibold text-ink">Vous êtes à jour</p>
-            <p className="mt-1 text-[14px] text-muted">Aucune cotisation en attente pour le moment.</p>
-          </section>
-        )}
+      {/* ── Diaporama (chevauche le vert) ── */}
+      <div className="mx-auto max-w-5xl" style={{ marginTop: -CARD_OVERLAP }}>
+        <PromoCarousel />
+      </div>
 
-        {/* Raccourcis */}
-        <nav aria-label="Raccourcis" className="grid grid-cols-4 gap-2.5">
-          {QUICK_ACTIONS.map((a) => (
-            <Link
-              key={a.href}
-              href={a.href}
-              className={`${card} flex flex-col items-center justify-center gap-2 px-1 py-3.5 text-center transition-colors hover:border-line-strong`}
-            >
-              <IconTile icon={a.icon} tone="green" size={40} />
-              <span className="text-[13px] font-semibold text-ink">{a.label}</span>
-            </Link>
-          ))}
-        </nav>
-
-        <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
-          <section>
-            <SectionHeader title="Mes cercles" action={{ href: '/circles', label: 'Voir tout' }} />
-            <div className="grid gap-3 sm:grid-cols-2">
-              {mockCircles.slice(0, 4).map((circle) => (
-                <CircleCard key={circle.id} circle={circle} />
-              ))}
-            </div>
-          </section>
-
-          <section id="notifications" className="scroll-mt-4">
-            <SectionHeader title="Notifications" />
-            <NotificationsList />
-          </section>
+      <div className="mx-auto max-w-5xl px-4 sm:px-6">
+        {/* ── Actions ── */}
+        <div className="mt-5 grid grid-cols-3 gap-2.5">
+          <ActionTile icon={Plus} label="Créer un cercle" href="/circles/create" />
+          <ActionTile icon={UserPlus} label="Rejoindre un cercle" href="/circles/join" />
+          <ActionTile icon={HandHeart} label="Lancer une cagnotte" href="/aid/create" />
         </div>
-      </PageBody>
-    </>
+
+        {/* ── Mes cercles ── */}
+        <div className="mb-2.5 mt-7 flex items-center justify-between px-1">
+          <h2 className="text-[17px] font-bold text-ink">Mes cercles</h2>
+          <Link href="/circles" className="text-[13px] font-semibold text-primary hover:underline">
+            Voir tout
+          </Link>
+        </div>
+        <ul className="overflow-hidden rounded-[20px] border border-line bg-white">
+          {circles.slice(0, 5).map((c, i, list) => {
+            const { icon: Icon, subtitle } = circleMeta(c);
+            const active = !!c.activatedAt;
+            return (
+              <li key={c.id}>
+                <Link href={circleHref(c)} className="flex items-center gap-3 pl-3.5 hover:bg-fill">
+                  <span
+                    aria-hidden
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] ${
+                      active ? 'bg-primary-tint text-primary' : 'bg-fill text-subtle'
+                    }`}
+                  >
+                    <Icon size={20} strokeWidth={1.8} />
+                  </span>
+                  <span
+                    className={`flex min-w-0 flex-1 items-center gap-2.5 py-3.5 pr-3.5 ${
+                      i < list.length - 1 ? 'border-b border-line' : ''
+                    }`}
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[15px] font-semibold text-ink">{c.name}</span>
+                      <span className="mt-0.5 block truncate text-[13px] text-muted">
+                        {active ? subtitle : 'En attente d’activation'}
+                      </span>
+                    </span>
+                    {active && <DueTag circle={c} />}
+                    <ChevronRight size={18} className="shrink-0 text-subtle" aria-hidden />
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+/** Échéance courte à droite d'une ligne de cercle : « Aujourd’hui », « Demain », « Dans 3 j ». */
+function DueTag({ circle }: { circle: Circle }) {
+  const next = getNextContribution(circle);
+  if (!next) return null;
+  const label = next.daysLeft <= 0 ? 'Aujourd’hui' : next.daysLeft === 1 ? 'Demain' : `Dans ${next.daysLeft} j`;
+  const soon = next.daysLeft <= 1;
+  return (
+    <span
+      className={`shrink-0 rounded-[10px] px-2 py-[3px] text-[12px] font-semibold ${
+        soon ? 'bg-amber-tint text-amber-dark' : 'bg-primary-tint text-primary'
+      }`}
+    >
+      {label}
+    </span>
+  );
+}
+
+function ActionTile({ icon: Icon, label, href }: { icon: LucideIcon; label: string; href: string }) {
+  return (
+    <Link
+      href={href}
+      className="flex flex-col items-center gap-2 rounded-[20px] border border-line bg-white px-2 py-3.5 text-center hover:bg-fill"
+    >
+      <span aria-hidden className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-tint text-primary-dark">
+        <Icon size={20} strokeWidth={2} />
+      </span>
+      <span className="text-[13px] font-semibold leading-tight text-ink">{label}</span>
+    </Link>
   );
 }

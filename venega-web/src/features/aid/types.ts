@@ -32,10 +32,10 @@ export interface PublicContribution {
   /** null = contributeur anonyme */
   displayName: string | null;
   amount: number;
-  paymentMethod: PaymentMethod;
+  /** Absent pour une contribution qui vient d'être faite depuis cette page (démo). */
+  paymentMethod?: PaymentMethod;
   /** ISO 8601 */
   createdAt: string;
-  message?: string;
 }
 
 export interface PublicAppealData {

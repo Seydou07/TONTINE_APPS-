@@ -33,11 +33,15 @@ interface MobileMoneyCheckoutProps {
   done?: { href: string; label: string } | { onClick: () => void; label: string };
   /** Titre de la carte. */
   title?: string;
+  /** Ligne facultative sur l'étape de confirmation (ex. « Versement à Awa Zongo »). */
+  confirmDetail?: string;
+  /** Appelé une fois le paiement validé (mise à jour du store de démo). */
+  onSuccess?: () => void;
 }
 
 type Step = 'select' | 'confirm' | 'ussd' | 'checking' | 'done';
 
-/** Code USSD de démonstration — en production, il est fourni par l'API Venega (jamais calculé côté client). */
+/** Code USSD de démonstration (même règle que buildUssdCode du mobile) — en production, il est fourni par l'API Venega (jamais calculé côté client). */
 function demoUssdCode(operator: PayableOperator, amount: number): string {
   const prefix = operator === PaymentMethod.MOOV_MONEY ? '802' : operator === PaymentMethod.WAVE ? '888' : '800';
   return `*${prefix}*${Math.round(amount)}*${Math.floor(100 + Math.random() * 900)}#`;
@@ -66,6 +70,8 @@ export function MobileMoneyCheckout({
   successText,
   done,
   title = 'Paiement Mobile Money',
+  confirmDetail,
+  onSuccess,
 }: MobileMoneyCheckoutProps) {
   const [operator, setOperator] = useState<PayableOperator | null>(null);
   const [step, setStep] = useState<Step>('select');
@@ -101,7 +107,10 @@ export function MobileMoneyCheckout({
   function validated() {
     setStep('checking');
     // Démo : en production, on attend le statut de la transaction (webhook côté API).
-    timer.current = setTimeout(() => setStep('done'), 1800);
+    timer.current = setTimeout(() => {
+      setStep('done');
+      onSuccess?.();
+    }, 1800);
   }
 
   function copyCode() {
@@ -237,6 +246,7 @@ export function MobileMoneyCheckout({
           Vous êtes sur le point de payer <strong className="text-ink">{formatFcfa(amount)}</strong> depuis le numéro{' '}
           <strong className="text-ink">{displayPhone}</strong>.
         </p>
+        {confirmDetail && <p className="mt-1 text-[14px] text-muted">{confirmDetail}</p>}
 
         <dl className="mt-4 divide-y divide-[#EEF0F2] rounded-[14px] bg-fill px-4">
           <SummaryRow label="Montant">

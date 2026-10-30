@@ -2,13 +2,17 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Check, Share2 } from 'lucide-react';
-import { btnSecondary } from '../ui';
+import { btnSecondary } from '@/components/ui/classes';
 
 interface ShareButtonProps {
   url: string;
   title: string;
   text: string;
   className?: string;
+  /** Libellé du bouton (défaut « Partager la cagnotte »). */
+  label?: string;
+  /** Rendu compact (icône seule, pour un en-tête). */
+  iconOnly?: boolean;
 }
 
 /** Copie de secours pour les navigateurs sans Clipboard API (anciens Android). */
@@ -31,7 +35,7 @@ function legacyCopy(value: string): boolean {
 }
 
 /** Partage natif (Web Share API) avec repli sur la copie du lien. */
-export function ShareButton({ url, title, text, className }: ShareButtonProps) {
+export function ShareButton({ url, title, text, className, label = 'Partager la cagnotte', iconOnly = false }: ShareButtonProps) {
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -63,9 +67,23 @@ export function ShareButton({ url, title, text, className }: ShareButtonProps) {
       setCopied(true);
       clearTimeout(timer.current);
       timer.current = setTimeout(() => setCopied(false), 2500);
-    } else {
-      window.prompt('Copiez ce lien :', url);
     }
+  }
+
+  if (iconOnly) {
+    return (
+      <button
+        type="button"
+        onClick={handleShare}
+        aria-label={copied ? 'Lien copié' : 'Partager le lien'}
+        className={`flex h-10 w-10 items-center justify-center rounded-full text-ink hover:bg-fill ${className ?? ''}`}
+      >
+        {copied ? <Check size={20} className="text-primary" aria-hidden /> : <Share2 size={20} aria-hidden />}
+        <span className="sr-only" aria-live="polite">
+          {copied ? 'Le lien a été copié' : ''}
+        </span>
+      </button>
+    );
   }
 
   return (
@@ -78,7 +96,7 @@ export function ShareButton({ url, title, text, className }: ShareButtonProps) {
       ) : (
         <>
           <Share2 size={18} aria-hidden />
-          Partager la cagnotte
+          {label}
         </>
       )}
       <span className="sr-only" aria-live="polite">

@@ -11,20 +11,14 @@ export function formatFcfa(value: number): string {
   return `${formatNumber(value)} F CFA`;
 }
 
+/** 10000 -> "10 000 F" (forme courte des listes, comme le mobile) */
+export function formatF(value: number): string {
+  return `${formatNumber(value)} F`;
+}
+
 /** "2026-07-01T10:00:00Z" -> "1 juil. 2026" */
 export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
-}
-
-/** "2026-07-01T10:00:00Z" -> "1 juil. 2026, 10:00" */
-export function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString('fr-FR', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
 }
 
 /** "+22670123456" -> "+226 70 12 34 56" */

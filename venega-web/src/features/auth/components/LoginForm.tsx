@@ -1,37 +1,55 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
+import { useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { linkText } from '@/components/ui/classes';
-import { PasswordField, SubmitButton, TextField } from './fields';
+import { Button } from '@/components/ui/Button';
+import { FormAlert } from '@/components/ui/FormAlert';
+import { PasswordField, TextField } from '@/components/ui/TextField';
+import { ApiError, login } from '../api';
+import { formatPhone, validateLoginPassword, validatePhone } from '../validation';
+import { AuthFooter, AuthTitle } from './AuthParts';
 
-const loginSchema = z.object({
-  phone: z.string().min(9, 'Numéro de téléphone invalide'),
-  password: z.string().min(6, 'Mot de passe trop court'),
-});
+type Errors = { phone?: string; password?: string };
 
-type LoginFormValues = z.infer<typeof loginSchema>;
-
-export default function LoginForm() {
+/** Connexion — mêmes règles que LoginScreen mobile. */
+export function LoginForm() {
   const router = useRouter();
+  const phoneRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
+  const [errors, setErrors] = useState<Errors>({});
+  const [formError, setFormError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<LoginFormValues>({ resolver: zodResolver(loginSchema) });
+  // Une erreur affichée disparaît dès que la saisie redevient valide.
+  const onPhoneChange = (value: string) => {
+    const formatted = formatPhone(value);
+    setPhone(formatted);
+    setFormError('');
+    if (errors.phone) setErrors((e) => ({ ...e, phone: validatePhone(formatted) }));
+  };
 
-  // Démo : pas encore branché sur l'API. Ne jamais journaliser les identifiants.
-  const onSubmit = async (_data: LoginFormValues) => {
+  const onPasswordChange = (value: string) => {
+    setPassword(value);
+    setFormError('');
+    if (errors.password) setErrors((e) => ({ ...e, password: validateLoginPassword(value) }));
+  };
+
+  const handleLogin = async (e: FormEvent) => {
+    e.preventDefault();
+    const next: Errors = { phone: validatePhone(phone), password: validateLoginPassword(password) };
+    setErrors(next);
+    if (next.phone) return phoneRef.current?.focus();
+    if (next.password) return passwordRef.current?.focus();
+
+    setFormError('');
     setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-      router.push('/dashboard');
+      await login(phone, password);
+      router.replace('/dashboard');
+    } catch (err) {
+      setFormError(err instanceof ApiError ? err.message : 'Une erreur est survenue. Réessayez.');
     } finally {
       setIsLoading(false);
     }
@@ -39,44 +57,39 @@ export default function LoginForm() {
 
   return (
     <>
-      <h1 className="text-[22px] font-bold text-ink">Connexion</h1>
-      <p className="mt-1 text-[15px] text-muted">Content de vous revoir.</p>
-
-      <form onSubmit={handleSubmit(onSubmit)} noValidate className="mt-5 space-y-4">
+      <AuthTitle title="Se connecter" />
+      <form onSubmit={handleLogin} noValidate className="mt-5 space-y-4">
         <TextField
+          ref={phoneRef}
           id="phone"
           label="Numéro de téléphone"
+          prefix="+226"
+          placeholder="70 12 34 56"
           type="tel"
           inputMode="tel"
-          autoComplete="tel"
-          placeholder="+226 70 12 34 56"
-          error={errors.phone?.message}
-          {...register('phone')}
+          autoComplete="tel-national"
+          maxLength={11}
+          value={phone}
+          onChange={(e) => onPhoneChange(e.target.value)}
+          onBlur={() => phone && setErrors((e) => ({ ...e, phone: validatePhone(phone) }))}
+          error={errors.phone}
         />
         <PasswordField
+          ref={passwordRef}
           id="password"
           label="Mot de passe"
+          placeholder="Votre mot de passe"
           autoComplete="current-password"
-          placeholder="••••••••"
-          error={errors.password?.message}
-          {...register('password')}
+          value={password}
+          onChange={(e) => onPasswordChange(e.target.value)}
+          error={errors.password}
         />
-        <div className="flex justify-end">
-          <Link href="#" className={`text-[14px] ${linkText}`}>
-            Mot de passe oublié ?
-          </Link>
-        </div>
-        <SubmitButton loading={isLoading} loadingLabel="Connexion…">
+        <FormAlert message={formError} />
+        <Button type="submit" loading={isLoading}>
           Se connecter
-        </SubmitButton>
+        </Button>
       </form>
-
-      <p className="mt-5 text-center text-[14px] text-muted">
-        Pas encore de compte ?{' '}
-        <Link href="/register" className={linkText}>
-          Créer un compte
-        </Link>
-      </p>
+      <AuthFooter text="Pas encore de compte ?" href="/register" label="Créer un compte" />
     </>
   );
 }

@@ -10,19 +10,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@hookform/resolvers": "^3.9.0",
-    "@tanstack/react-query": "^5.60.0",
     "@venega/design-tokens": "file:./packages/design-tokens",
     "@venega/types": "file:../venega-mobile/packages/types",
-    "clsx": "^2.1.0",
-    "framer-motion": "^11.0.0",
     "lucide-react": "^0.460.0",
     "next": "^14.2.0",
     "react": "^18.3.0",
-    "react-dom": "^18.3.0",
-    "react-hook-form": "^7.54.0",
-    "tailwind-merge": "^2.6.0",
-    "zod": "^3.23.0"
+    "react-dom": "^18.3.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
