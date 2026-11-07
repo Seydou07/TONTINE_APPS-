@@ -36,7 +36,7 @@ export function DepartureView({ circleId }: { circleId: string }) {
     return (
       <>
         <PageHeader title="Quitter le cercle" onBack={back} />
-        <ScreenBody>
+        <ScreenBody form>
           <CenteredState icon={ShieldAlert} tone="neutral" title="Cercle introuvable" text="Vous n’êtes pas membre de ce cercle." />
         </ScreenBody>
       </>
@@ -52,7 +52,7 @@ export function DepartureView({ circleId }: { circleId: string }) {
     return (
       <>
         <PageHeader title="Quitter le cercle" subtitle={circle.name} onBack={back} />
-        <ScreenBody>
+        <ScreenBody form>
           <CenteredState
             icon={ShieldAlert}
             tone="danger"
@@ -74,7 +74,7 @@ export function DepartureView({ circleId }: { circleId: string }) {
     return (
       <>
         <PageHeader title="Demande envoyée" subtitle={circle.name} onBack={back} />
-        <ScreenBody>
+        <ScreenBody form>
           <CenteredState
             icon={Check}
             tone="primary"
@@ -112,7 +112,7 @@ export function DepartureView({ circleId }: { circleId: string }) {
   return (
     <>
       <PageHeader title="Quitter le cercle" subtitle={circle.name} onBack={back} />
-      <ScreenBody>
+      <ScreenBody form>
         <Card className="p-4">
           <div className="mb-1 flex items-center gap-2.5">
             <span aria-hidden className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-danger-tint text-danger">

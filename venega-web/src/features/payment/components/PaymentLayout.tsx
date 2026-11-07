@@ -51,3 +51,16 @@ export function PaymentSummaryRow({
 export function PaymentHint({ children }: { children: ReactNode }) {
   return <p className="px-1 text-[13px] text-muted">{children}</p>;
 }
+
+/**
+ * Écran de paiement sur ordinateur : récapitulatif à gauche, choix de l'opérateur à droite.
+ * Une seule colonne sur téléphone (ordre mobile : montant, récapitulatif, opérateur).
+ */
+export function PaymentColumns({ summary, children }: { summary: ReactNode; children: ReactNode }) {
+  return (
+    <div className="space-y-5 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6 lg:space-y-0">
+      <div className="space-y-4 lg:sticky lg:top-6">{summary}</div>
+      <div className="min-w-0 space-y-5">{children}</div>
+    </div>
+  );
+}

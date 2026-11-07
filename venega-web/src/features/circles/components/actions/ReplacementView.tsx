@@ -27,7 +27,7 @@ export function ReplacementView({ circleId }: { circleId: string }) {
     return (
       <>
         <PageHeader title="Remplacer un membre" onBack={back} />
-        <ScreenBody>
+        <ScreenBody form>
           <CenteredState icon={Info} tone="neutral" title="Cercle introuvable" />
         </ScreenBody>
       </>
@@ -52,7 +52,7 @@ export function ReplacementView({ circleId }: { circleId: string }) {
         subtitle={circle.name}
         onBack={() => (step === 'form' ? setStep('select') : back())}
       />
-      <ScreenBody>
+      <ScreenBody form>
         {step === 'select' && (
           <>
             <Notice icon={Info} tone="info" title="Règle de remplacement">

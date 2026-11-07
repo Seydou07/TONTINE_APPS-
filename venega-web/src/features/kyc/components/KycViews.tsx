@@ -56,7 +56,7 @@ export function KycIntroView() {
   return (
     <>
       <PageHeader title="Vérification d'identité" onBack={() => router.back()} />
-      <ScreenBody>
+      <ScreenBody form>
         <div className="pt-2">
           <span className="flex h-14 w-14 items-center justify-center rounded-full bg-primary-tint text-primary">
             <ShieldCheck size={28} strokeWidth={1.8} aria-hidden />
@@ -168,7 +168,7 @@ export function KycUploadView() {
         onBack={() => router.back()}
         right={<span className="text-[14px] font-semibold text-muted">{doneCount}/3</span>}
       />
-      <ScreenBody>
+      <ScreenBody form>
         <div>
           <h1 className="text-[22px] font-bold text-ink">Vos documents</h1>
           <p className="mt-1.5 text-[15px] text-muted">

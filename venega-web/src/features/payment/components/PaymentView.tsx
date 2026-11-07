@@ -6,10 +6,25 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Notice, ScreenBody } from '@/components/ui/blocks';
 import { useDemoStore } from '@/lib/demoStore';
 import { formatFcfa } from '@/lib/format';
-import { CIRCLE_CREATION_FEE, activateCircle, getCircle, getCircles, getCurrentUser } from '@/features/circles/store';
+import {
+  CIRCLE_CREATION_FEE,
+  activateCircle,
+  getCircle,
+  getCircles,
+  getCurrentUser,
+  recordContribution,
+  recordSolidarityContribution,
+} from '@/features/circles/store';
 import { circleHref } from '@/features/circles/components/CircleRedirect';
+import type { PayableOperator } from '@/features/aid/schema';
 import { MobileMoneyCheckout } from './MobileMoneyCheckout';
-import { PaymentAmountCard, PaymentHint, PaymentSummaryCard, PaymentSummaryRow } from './PaymentLayout';
+import {
+  PaymentAmountCard,
+  PaymentColumns,
+  PaymentHint,
+  PaymentSummaryCard,
+  PaymentSummaryRow,
+} from './PaymentLayout';
 
 /*
  * Paiement d'une cotisation ou des frais d'activation — copie de PaymentScreen.tsx mobile.
@@ -48,8 +63,17 @@ export function PaymentView() {
         : 'Cotisation tontine';
   const backHref = circleHref(circle);
 
-  const onSuccess = () => {
+  const onSuccess = (operator: PayableOperator) => {
     if (paymentType === 'ACTIVATION') activateCircle(circle.id);
+    // Montant complet confirmé : la cotisation du tour est enregistrée (statut « payé », caisse créditée).
+    else if (paymentType === 'SOLIDARITY')
+      recordSolidarityContribution(circle.id, me.id, `${me.firstName} ${me.lastName}`, amount);
+    else
+      recordContribution(circle.id, me.id, {
+        amount,
+        memberName: `${me.firstName} ${me.lastName}`,
+        method: operator,
+      });
   };
 
   return (
@@ -58,8 +82,12 @@ export function PaymentView() {
         title={paymentType === 'ACTIVATION' ? 'Activer le cercle' : 'Payer ma cotisation'}
         subtitle={circle.name}
         backHref={backHref}
+        width="page"
       />
-      <ScreenBody>
+      <ScreenBody width="wide">
+        <PaymentColumns
+          summary={
+            <>
         <PaymentAmountCard amount={amount} sub={`${typeLabel} · ${circle.name}`} />
 
         {paymentType === 'ACTIVATION' && (
@@ -78,9 +106,13 @@ export function PaymentView() {
           <PaymentSummaryRow label="Montant" value={formatFcfa(amount)} strong last />
         </PaymentSummaryCard>
         <PaymentHint>Le paiement est envoyé directement depuis votre numéro Mobile Money.</PaymentHint>
+            </>
+          }
+        >
 
         <MobileMoneyCheckout
           title="Choisissez l'opérateur"
+          summary={false}
           amount={amount}
           phone={me.phoneNumber}
           confirmDetail={`${typeLabel} · ${circle.name}`}
@@ -92,6 +124,7 @@ export function PaymentView() {
           onSuccess={onSuccess}
           done={{ onClick: () => router.push(backHref), label: 'Retour au cercle' }}
         />
+        </PaymentColumns>
       </ScreenBody>
     </>
   );

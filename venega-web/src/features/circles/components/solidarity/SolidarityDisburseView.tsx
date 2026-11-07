@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDemoStore } from '@/lib/demoStore';
 import { formatFcfa } from '@/lib/format';
@@ -7,7 +8,9 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { ScreenBody } from '@/components/ui/blocks';
 import { Avatar } from '@/components/ui/Avatar';
 import { MobileMoneyCheckout } from '@/features/payment/components/MobileMoneyCheckout';
+import { PaymentColumns } from '@/features/payment/components/PaymentLayout';
 import {
+  canDisburse,
   disburseSolidarityRequest,
   getCircle,
   getCircleMembers,
@@ -26,6 +29,8 @@ import { NotFoundScreen } from './NotFound';
 export function SolidarityDisburseView({ circleId, requestId }: { circleId: string; requestId: string }) {
   useDemoStore();
   const router = useRouter();
+  // Une fois payé, la demande passe « décaissée » : on garde l'écran de confirmation affiché.
+  const [paid, setPaid] = useState(false);
   const circle = getCircle(circleId);
   if (!circle) return <NotFoundScreen header="Verser le secours" />;
 
@@ -45,11 +50,16 @@ export function SolidarityDisburseView({ circleId, requestId }: { circleId: stri
   const me = getCurrentUser();
   const amount = request.amountRequested;
   const beneficiaryPhone = beneficiary?.user.phoneNumber;
+  // Mêmes conditions que le mobile : Trésorier, tous les validateurs d'accord, solde suffisant.
+  const check = canDisburse(request.id, me.id);
 
   return (
     <>
-      <PageHeader title="Verser le secours" onBack={() => router.back()} />
-      <ScreenBody>
+      <PageHeader title="Verser le secours" onBack={() => router.back()} width="page" />
+      <ScreenBody width="wide">
+        <PaymentColumns
+          summary={
+            <>
         <div className="rounded-[20px] bg-primary-dark px-5 py-6 text-center text-white">
           <p className="text-[14px] text-white/75">Montant à payer</p>
           <p className="mt-1 text-[30px] font-bold leading-tight">{formatFcfa(amount)}</p>
@@ -84,16 +94,28 @@ export function SolidarityDisburseView({ circleId, requestId }: { circleId: stri
           </div>
         </div>
         <p className="px-1 text-[13px] text-muted">Ce motif sera visible par tous les membres, avec le montant.</p>
+            </>
+          }
+        >
 
+        {check.ok || paid ? (
         <MobileMoneyCheckout
           title="Choisissez l'opérateur"
+          summary={false}
           amount={amount}
           phone={me.phoneNumber}
           confirmDetail={`Versement à ${request.requesterName}${beneficiaryPhone ? ` (${beneficiaryPhone})` : ''} · Caisse de solidarité`}
           successText={`${formatFcfa(amount)} ont été versés à ${request.requesterName}.`}
-          onSuccess={() => disburseSolidarityRequest(request.id)}
+          onSuccess={() => {
+            setPaid(true);
+            disburseSolidarityRequest(request.id);
+          }}
           done={{ href: `/circles/${circle.id}/solidarity`, label: 'Retour à la caisse' }}
         />
+        ) : (
+          <p className="rounded-[14px] bg-amber-tint p-3.5 text-[14px] text-ink-soft">{check.reason}</p>
+        )}
+        </PaymentColumns>
       </ScreenBody>
     </>
   );

@@ -29,6 +29,9 @@ import {
   mockSolidarityRequests,
   mockReliabilityEvents,
   mockAidAppeal,
+  mockTransactions,
+  TransactionStatus,
+  TransactionType,
   CircleType,
   ContributionMode,
   Frequency,
@@ -42,6 +45,8 @@ import {
   ReliabilityEventType,
   Role,
   MembershipRequestStatus,
+  PaymentStatus,
+  AdhesionPaymentStatus,
 } from '@venega/types';
 import type {
   Circle,
@@ -55,6 +60,9 @@ import type {
   SolidarityRequest,
   EventType,
   AidAppeal,
+  Membership,
+  PaymentMethod,
+  Transaction,
 } from '@venega/types';
 import { isDemoMode } from '@/lib/demo';
 import { emitChange } from '@/lib/demoStore';
@@ -250,9 +258,198 @@ export function addCircle(circle: Circle): void {
   emitChange();
 }
 
+/**
+ * Le fondateur est le premier membre du cercle qu'il crée (Président, premier dans l'ordre de passage
+ * pour une tontine). Sans cela, le cercle n'avait aucun membre et ne pouvait ni cotiser ni verser.
+ */
+export function addFounderMembership(circle: Circle): void {
+  if (mockMemberships.some((m) => m.circleId === circle.id && m.userId === currentUser.id)) return;
+  mockMemberships.push({
+    userId: currentUser.id,
+    circleId: circle.id,
+    role: Role.PRESIDENT,
+    turnOrder: isRotative(circle) ? 1 : undefined,
+    paymentStatus: PaymentStatus.PENDING,
+    joinedAt: new Date().toISOString(),
+    user: { ...currentUser },
+    reliabilityScore: 100,
+    hasReceivedPayout: false,
+    hasDeposit: false,
+  });
+  emitChange();
+}
+
 export function updateCircle(id: string, patch: Partial<Circle>): void {
   circles = circles.map((c) => (c.id === id ? { ...c, ...patch } : c));
   emitChange();
+}
+
+// ── Tour en cours, cotisations et versement de la cagnotte (tontines) ──
+// Copie des fonctions du même nom de circleStore.ts mobile.
+
+/** État du tour en cours d'une tontine, calculé à partir des membres. */
+export type TurnState = {
+  /** Numéro du tour en cours (jamais 0). */
+  turn: number;
+  /** Membres triés dans l'ordre de passage. */
+  members: Membership[];
+  /** Bénéficiaire du tour : premier membre, dans l'ordre de passage, qui n'a pas encore reçu la cagnotte. */
+  beneficiary?: Membership;
+  paidCount: number;
+  /** Membres qui n'ont pas encore payé la cotisation du tour (en attente ou en retard). */
+  unpaid: Membership[];
+  allPaid: boolean;
+  /** Tous les membres ont reçu leur cagnotte : la rotation est terminée. */
+  finished: boolean;
+};
+
+/**
+ * Calcule le tour en cours. Le bénéficiaire et le numéro du tour sont déduits des cagnottes déjà
+ * versées (et non du compteur du cycle), pour que toutes les fiches affichent la même personne.
+ */
+export function computeTurnState(memberList: Membership[], cycle?: Cycle): TurnState {
+  const members = [...memberList].sort((a, b) => (a.turnOrder ?? Infinity) - (b.turnOrder ?? Infinity));
+  const beneficiary = members.find((m) => !m.hasReceivedPayout);
+  const received = members.filter((m) => m.hasReceivedPayout).length;
+  const finished = members.length > 0 && !beneficiary;
+  const turn =
+    members.length === 0 ? Math.max(cycle?.currentTurn ?? 1, 1) : finished ? members.length : received + 1;
+  const unpaid = members.filter((m) => m.paymentStatus !== PaymentStatus.PAID);
+  return {
+    turn,
+    members,
+    beneficiary,
+    paidCount: members.length - unpaid.length,
+    unpaid,
+    allPaid: members.length > 0 && unpaid.length === 0,
+    finished,
+  };
+}
+
+export function getTurnState(circleId: string): TurnState {
+  const circle = getCircle(circleId);
+  return computeTurnState(getCircleMembers(circleId), circle ? getActiveCycle(circle) : undefined);
+}
+
+/**
+ * La cagnotte d'un tour ne peut être versée que si TOUS les membres ont payé la cotisation de ce tour,
+ * et une seule fois par tour.
+ */
+export function canPayout(state: TurnState): { ok: boolean; reason?: string } {
+  if (state.members.length === 0) return { ok: false, reason: 'Ce cercle n’a pas encore de membres.' };
+  if (state.finished) return { ok: false, reason: 'Tous les membres ont déjà reçu leur cagnotte.' };
+  if (!state.allPaid) {
+    const n = state.unpaid.length;
+    return {
+      ok: false,
+      reason: `${n} membre${n > 1 ? 's n’ont' : ' n’a'} pas encore payé la cotisation du tour ${state.turn}. La cagnotte ne peut être versée que lorsque toutes les cotisations sont reçues.`,
+    };
+  }
+  return { ok: true };
+}
+
+// ── Opérations (historique des cotisations et des cagnottes) ──
+// Le mobile ne garde que les opérations de démonstration ; ici, chaque paiement validé est
+// aussi ajouté à l'historique pour que le site reflète ce que l'utilisateur vient de faire.
+// TODO API : `GET /transactions/circle/:circleId` et `GET /transactions/me`.
+
+let transactions: Transaction[] = [...mockTransactions];
+
+export function getTransactions(circleId?: string): Transaction[] {
+  return circleId ? transactions.filter((t) => t.circleId === circleId) : transactions;
+}
+
+function addTransaction(tx: Omit<Transaction, 'id' | 'createdAt' | 'status'>): void {
+  transactions = [
+    { ...tx, id: `tx${Date.now()}`, status: TransactionStatus.COMPLETED, createdAt: new Date().toISOString() },
+    ...transactions,
+  ];
+}
+
+function setPaid(circleId: string, userId: string): void {
+  const idx = mockMemberships.findIndex((m) => m.circleId === circleId && m.userId === userId);
+  if (idx === -1) return;
+  mockMemberships[idx] = { ...mockMemberships[idx]!, paymentStatus: PaymentStatus.PAID };
+}
+
+/** Cotisation du tour payée (montant complet confirmé) par un membre. */
+export function recordContribution(
+  circleId: string,
+  userId: string,
+  payment?: { amount: number; memberName: string; method?: PaymentMethod; reference?: string },
+): void {
+  setPaid(circleId, userId);
+  if (payment) {
+    const circle = getCircle(circleId);
+    addTransaction({
+      userId,
+      circleId,
+      cycleId: (circle && getActiveCycle(circle)?.id) ?? '',
+      amount: payment.amount,
+      type: TransactionType.TONTINE_CONTRIBUTION,
+      memberName: payment.memberName,
+      paymentMethod: payment.method,
+      providerReference: payment.reference,
+    });
+  }
+  emitChange();
+}
+
+/** Cotisation à la caisse de solidarité : le membre est à jour et la caisse est créditée (grand livre). */
+export function recordSolidarityContribution(circleId: string, userId: string, memberName: string, amount: number): void {
+  if (!(amount > 0)) return;
+  setPaid(circleId, userId);
+  const { balance } = getSolidarityTotals(circleId);
+  addLedgerEntry({
+    id: `le${Date.now()}`,
+    circleId,
+    type: 'CREDIT',
+    amount,
+    balanceAfter: balance + amount,
+    description: `Cotisation — ${memberName}`,
+    userId,
+    memberName,
+    createdAt: new Date().toISOString(),
+  });
+}
+
+/**
+ * Enregistre le versement de la cagnotte du tour : le bénéficiaire est marqué servi, le tour suivant
+ * commence (cotisations remises « en attente »). Refusé si les conditions de `canPayout` ne sont pas
+ * remplies. Renvoie le bénéficiaire servi.
+ */
+export function recordPayout(circleId: string): Membership | undefined {
+  const state = getTurnState(circleId);
+  if (!canPayout(state).ok || !state.beneficiary) return undefined;
+  const served = state.beneficiary;
+  const nextTurnStarts = state.members.some((m) => m.userId !== served.userId && !m.hasReceivedPayout);
+  mockMemberships.forEach((m, idx) => {
+    if (m.circleId !== circleId) return;
+    mockMemberships[idx] = {
+      ...m,
+      hasReceivedPayout: m.userId === served.userId ? true : m.hasReceivedPayout,
+      paymentStatus: nextTurnStarts ? PaymentStatus.PENDING : m.paymentStatus,
+    };
+  });
+  const circle = getCircle(circleId);
+  const cycle = circle ? getActiveCycle(circle) : undefined;
+  if (cycle) {
+    const after = getTurnState(circleId);
+    const idx = mockCycles.findIndex((c) => c.id === cycle.id);
+    if (idx !== -1) mockCycles[idx] = { ...cycle, currentTurn: after.turn };
+  }
+  if (circle) {
+    addTransaction({
+      userId: served.userId,
+      circleId,
+      cycleId: cycle?.id ?? '',
+      amount: circle.tontineAmount * state.members.length,
+      type: TransactionType.PAYOUT,
+      memberName: `${served.user.firstName} ${served.user.lastName}`,
+    });
+  }
+  emitChange();
+  return { ...served, hasReceivedPayout: true };
 }
 
 // ── Gouvernance : bureau et validateurs de décaissement ──
@@ -378,8 +575,36 @@ export function updateMembershipRequest(
   id: string,
   patch: Partial<MembershipRequest>
 ): void {
+  const before = membershipRequests.find((r) => r.id === id);
   membershipRequests = membershipRequests.map((r) => (r.id === id ? { ...r, ...patch } : r));
+  // Demande acceptée : le candidat devient membre (sinon il n'apparaissait nulle part dans le cercle).
+  if (before && before.status !== MembershipRequestStatus.APPROVED && patch.status === MembershipRequestStatus.APPROVED) {
+    addMemberFromRequest({ ...before, ...patch });
+  }
   emitChange();
+}
+
+/** Ajoute le candidat accepté aux membres, en dernier dans l'ordre de passage d'une tontine. */
+function addMemberFromRequest(request: MembershipRequest): void {
+  const circle = getCircle(request.circleId);
+  if (!circle) return;
+  if (mockMemberships.some((m) => m.circleId === circle.id && m.userId === request.userId)) return;
+  const existing = mockMemberships.filter((m) => m.circleId === circle.id);
+  const lastTurn = existing.reduce((max, m) => Math.max(max, m.turnOrder ?? 0), 0);
+  if (!request.user) return;
+  mockMemberships.push({
+    userId: request.userId,
+    circleId: circle.id,
+    role: Role.MEMBER,
+    turnOrder: isRotative(circle) ? lastTurn + 1 : undefined,
+    paymentStatus: PaymentStatus.PENDING,
+    joinedAt: new Date().toISOString(),
+    user: request.user,
+    reliabilityScore: 100,
+    hasReceivedPayout: false,
+    hasDeposit: (request.depositAmount ?? 0) > 0 && request.paymentStatus === AdhesionPaymentStatus.PAID,
+  });
+  circles = circles.map((c) => (c.id === circle.id ? { ...c, memberCount: existing.length + 1 } : c));
 }
 
 export function updateDepartureRequest(
@@ -685,12 +910,32 @@ export function isBureauFullyApproved(circleId: string, requestId: string): bool
  * Le Trésorier exécute le décaissement une fois le bureau au complet — l'argent part directement
  * vers le numéro Mobile Money enregistré par le demandeur, jamais entre les mains du Trésorier.
  */
+/** Le versement d'un secours est-il possible pour cet utilisateur ? (copie de canDisburse mobile) */
+export function canDisburse(requestId: string, userId: string): { ok: boolean; reason?: string } {
+  const request = solidarityRequests.find((r) => r.id === requestId);
+  if (!request) return { ok: false, reason: 'Cette demande n’existe plus.' };
+  if (request.status === AidRequestStatus.DISBURSED) return { ok: false, reason: 'Ce secours a déjà été versé.' };
+  if (request.status !== AidRequestStatus.APPROVED) return { ok: false, reason: 'Cette demande n’est pas en attente de versement.' };
+  const isTreasurer = mockMemberships.some(
+    (m) => m.circleId === request.circleId && m.userId === userId && m.role === Role.TREASURER,
+  );
+  if (!isTreasurer) return { ok: false, reason: 'Seul le Trésorier du cercle peut verser le secours.' };
+  if (!isBureauFullyApproved(request.circleId, requestId)) {
+    return { ok: false, reason: 'Tous les validateurs doivent approuver la demande avant le versement.' };
+  }
+  if (getSolidarityTotals(request.circleId).balance < request.amountRequested) {
+    return { ok: false, reason: 'Le solde de la caisse est insuffisant pour ce versement.' };
+  }
+  return { ok: true };
+}
+
 export function disburseSolidarityRequest(requestId: string): void {
   const request = solidarityRequests.find((r) => r.id === requestId);
   if (!request || request.status !== AidRequestStatus.APPROVED) return;
   if (!isBureauFullyApproved(request.circleId, requestId)) return;
 
   const totals = getSolidarityTotals(request.circleId);
+  if (totals.balance < request.amountRequested) return;
   const balanceAfter = totals.balance - request.amountRequested;
 
   addLedgerEntry({
@@ -854,6 +1099,9 @@ export type StoreSnapshot = {
   founderCircleIds: string[];
   solidarityValidators: Record<string, string[]>;
   aidAppeals: AidAppeal[];
+  /** Absent des sauvegardes plus anciennes. */
+  cycles?: Cycle[];
+  transactions?: Transaction[];
 };
 
 export function snapshotStore(): StoreSnapshot {
@@ -869,6 +1117,8 @@ export function snapshotStore(): StoreSnapshot {
     founderCircleIds,
     solidarityValidators,
     aidAppeals,
+    cycles: [...mockCycles],
+    transactions,
   };
 }
 
@@ -885,6 +1135,8 @@ export function restoreStore(s: StoreSnapshot): void {
   founderCircleIds = s.founderCircleIds;
   solidarityValidators = s.solidarityValidators;
   aidAppeals = s.aidAppeals;
+  if (s.cycles) mockCycles.splice(0, mockCycles.length, ...s.cycles);
+  if (s.transactions) transactions = s.transactions;
   // Vérification d'identité interrompue par la fermeture de l'app : on relance la simulation.
   if (currentUser.kycStatus === KycStatus.PENDING) submitKycVerification();
   emitChange();

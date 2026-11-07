@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Bell, ChevronRight, Gift, HandHeart, HeartHandshake, Plus, UserPlus, Users, type LucideIcon } from 'lucide-react';
 import { CircleType, type Circle } from '@venega/types';
@@ -8,12 +9,12 @@ import { HeroBand } from '@/components/ui/HeroBand';
 import { useDemoStore } from '@/lib/demoStore';
 import { formatF } from '@/lib/format';
 import { getProfile } from '@/features/profile/store';
+import { hasUnreadNotifications } from '@/features/notifications/api';
 import { getCircles, getNextContribution } from '@/features/circles/store';
 import { circleHref } from '@/features/circles/components/CircleRedirect';
-import { PromoCarousel } from './PromoCarousel';
 
 /** Hauteur dont le diaporama chevauche le bandeau vert. */
-const CARD_OVERLAP = 64;
+const CARD_OVERLAP = 40;
 
 function circleMeta(c: Circle): { icon: LucideIcon; subtitle: string } {
   if (c.type === CircleType.AID_APPEAL) {
@@ -33,6 +34,9 @@ export function DashboardView() {
   useDemoStore();
   const profile = getProfile();
   const circles = getCircles();
+  // Lu après le montage : l'état « lu » est dans le navigateur.
+  const [unread, setUnread] = useState(false);
+  useEffect(() => setUnread(hasUnreadNotifications()), []);
 
   return (
     <div className="pb-8">
@@ -52,22 +56,23 @@ export function DashboardView() {
             className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/10 text-amber hover:bg-white/15"
           >
             <Bell size={22} strokeWidth={1.9} aria-hidden />
-            <span aria-hidden className="absolute right-[11px] top-[10px] h-2 w-2 rounded-full border-[1.5px] border-primary-dark bg-danger" />
+            {unread ? (
+              <span aria-hidden className="absolute right-[11px] top-[10px] h-2 w-2 rounded-full border-[1.5px] border-primary-dark bg-danger" />
+            ) : null}
           </Link>
         </div>
       </HeroBand>
 
-      {/* ── Diaporama (chevauche le vert) ── */}
-      <div className="mx-auto max-w-5xl" style={{ marginTop: -CARD_OVERLAP }}>
-        <PromoCarousel />
-      </div>
-
-      <div className="mx-auto max-w-5xl px-4 sm:px-6">
+      {/*
+        Le diaporama de bannières de l'app mobile n'est pas repris sur le web : ses messages
+        renvoient aux mêmes actions que les trois cartes ci-dessous, qui chevauchent le vert.
+      */}
+      <div className="mx-auto max-w-5xl px-4 sm:px-6" style={{ marginTop: -CARD_OVERLAP }}>
         {/* ── Actions ── */}
-        <div className="mt-5 grid grid-cols-3 gap-2.5">
-          <ActionTile icon={Plus} label="Créer un cercle" href="/circles/create" />
-          <ActionTile icon={UserPlus} label="Rejoindre un cercle" href="/circles/join" />
-          <ActionTile icon={HandHeart} label="Lancer une cagnotte" href="/aid/create" />
+        <div className="grid grid-cols-3 gap-2.5 md:gap-4">
+          <ActionTile icon={Plus} label="Créer un cercle" text="Tontine ou caisse de solidarité" href="/circles/create" />
+          <ActionTile icon={UserPlus} label="Rejoindre un cercle" text="Avec le code d’invitation" href="/circles/join" />
+          <ActionTile icon={HandHeart} label="Lancer une cagnotte" text="Un lien à partager pour collecter" href="/aid/create" />
         </div>
 
         {/* ── Mes cercles ── */}
@@ -133,16 +138,20 @@ function DueTag({ circle }: { circle: Circle }) {
   );
 }
 
-function ActionTile({ icon: Icon, label, href }: { icon: LucideIcon; label: string; href: string }) {
+/** Carte d'action : empilée sur téléphone (comme le mobile), en ligne avec une précision sur ordinateur. */
+function ActionTile({ icon: Icon, label, text, href }: { icon: LucideIcon; label: string; text: string; href: string }) {
   return (
     <Link
       href={href}
-      className="flex flex-col items-center gap-2 rounded-[20px] border border-line bg-white px-2 py-3.5 text-center hover:bg-fill"
+      className="flex flex-col items-center gap-2 rounded-[20px] border border-line bg-white px-2 py-3.5 text-center transition-colors hover:border-primary/40 hover:bg-[#F7FAF8] md:flex-row md:gap-3.5 md:px-4 md:py-4 md:text-left"
     >
-      <span aria-hidden className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-tint text-primary-dark">
+      <span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-tint text-primary-dark md:h-11 md:w-11">
         <Icon size={20} strokeWidth={2} />
       </span>
-      <span className="text-[13px] font-semibold leading-tight text-ink">{label}</span>
+      <span className="min-w-0">
+        <span className="block text-[13px] font-semibold leading-tight text-ink md:text-[15px]">{label}</span>
+        <span className="mt-0.5 hidden text-[13px] text-muted md:block">{text}</span>
+      </span>
     </Link>
   );
 }

@@ -35,8 +35,13 @@ interface MobileMoneyCheckoutProps {
   title?: string;
   /** Ligne facultative sur l'étape de confirmation (ex. « Versement à Awa Zongo »). */
   confirmDetail?: string;
-  /** Appelé une fois le paiement validé (mise à jour du store de démo). */
-  onSuccess?: () => void;
+  /** Appelé une fois le paiement validé (mise à jour du store de démo), avec l'opérateur choisi. */
+  onSuccess?: (operator: PayableOperator) => void;
+  /**
+   * Récapitulatif (numéro débité, montant) dans la carte. Désactivé dans l'espace connecté, où
+   * l'écran affiche déjà ce récapitulatif au-dessus (comme l'app mobile : titre, opérateurs, bouton).
+   */
+  summary?: boolean;
 }
 
 type Step = 'select' | 'confirm' | 'ussd' | 'checking' | 'done';
@@ -72,6 +77,7 @@ export function MobileMoneyCheckout({
   title = 'Paiement Mobile Money',
   confirmDetail,
   onSuccess,
+  summary = true,
 }: MobileMoneyCheckoutProps) {
   const [operator, setOperator] = useState<PayableOperator | null>(null);
   const [step, setStep] = useState<Step>('select');
@@ -107,9 +113,10 @@ export function MobileMoneyCheckout({
   function validated() {
     setStep('checking');
     // Démo : en production, on attend le statut de la transaction (webhook côté API).
+    const chosen = operator;
     timer.current = setTimeout(() => {
       setStep('done');
-      onSuccess?.();
+      if (chosen) onSuccess?.(chosen);
     }, 1800);
   }
 
@@ -186,10 +193,11 @@ export function MobileMoneyCheckout({
           <div className="mt-4 rounded-[14px] border border-line bg-fill p-4 text-center">
             <p className="text-[13px] text-muted">Code à composer</p>
             <p className="mt-1 font-mono text-[22px] font-bold tracking-wider text-ink">{ussd}</p>
-            <div className="mt-3 grid grid-cols-2 gap-2.5">
+            {/* « Composer » ouvre le clavier d'appel : utile sur téléphone seulement. */}
+            <div className="mt-3 grid grid-cols-2 gap-2.5 md:grid-cols-1">
               <a
                 href={`tel:${encodeURIComponent(ussd)}`}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-[12px] bg-white text-[14px] font-semibold text-primary-dark ring-1 ring-line hover:bg-primary-tint"
+                className="inline-flex h-11 md:hidden items-center justify-center gap-2 rounded-[12px] bg-white text-[14px] font-semibold text-primary-dark ring-1 ring-line hover:bg-primary-tint"
               >
                 <Phone size={16} aria-hidden />
                 Composer
@@ -248,18 +256,15 @@ export function MobileMoneyCheckout({
         </p>
         {confirmDetail && <p className="mt-1 text-[14px] text-muted">{confirmDetail}</p>}
 
-        <dl className="mt-4 divide-y divide-[#EEF0F2] rounded-[14px] bg-fill px-4">
-          <SummaryRow label="Montant">
-            <span className="text-[17px] font-bold">{formatFcfa(amount)}</span>
-          </SummaryRow>
-          <SummaryRow label="Opérateur">
-            <span className="inline-flex items-center gap-2">
-              <OperatorLogo method={operator} size={24} decorative />
-              {OPERATORS[operator].label}
-            </span>
-          </SummaryRow>
-          <SummaryRow label="Numéro">{displayPhone}</SummaryRow>
-        </dl>
+        <p className="mt-4 flex items-center gap-2.5 rounded-[14px] bg-fill px-4 py-3 text-[15px] font-semibold text-ink">
+          <OperatorLogo method={operator} size={28} decorative />
+          Paiement via {OPERATORS[operator].label}
+        </p>
+
+        <p className="mt-3 text-[13px] text-muted">
+          Votre opérateur va vous demander votre code secret. Saisissez-le uniquement dans sa fenêtre : Venega ne vous
+          le demandera jamais.
+        </p>
 
         <div className="mt-5 grid grid-cols-2 gap-2.5">
           <button type="button" onClick={() => setStep('select')} className={btnSecondary}>
@@ -278,20 +283,22 @@ export function MobileMoneyCheckout({
     <section className={`${card} p-5`}>
       {heading(title)}
 
-      <dl className="mt-3 divide-y divide-[#EEF0F2] rounded-[14px] bg-fill px-4">
-        {details.map((d) => (
-          <SummaryRow key={d.label} label={d.label}>
-            {d.value}
+      {summary && (
+        <dl className="mt-3 divide-y divide-[#EEF0F2] rounded-[14px] bg-fill px-4">
+          {details.map((d) => (
+            <SummaryRow key={d.label} label={d.label}>
+              {d.value}
+            </SummaryRow>
+          ))}
+          <SummaryRow label="Numéro débité">{displayPhone}</SummaryRow>
+          <SummaryRow label="Montant">
+            <span className="text-[17px] font-bold text-primary-dark">{formatFcfa(amount)}</span>
           </SummaryRow>
-        ))}
-        <SummaryRow label="Numéro débité">{displayPhone}</SummaryRow>
-        <SummaryRow label="Montant">
-          <span className="text-[17px] font-bold text-primary-dark">{formatFcfa(amount)}</span>
-        </SummaryRow>
-      </dl>
+        </dl>
+      )}
 
-      <fieldset className="mt-5">
-        <legend className={labelClass}>Opérateur Mobile Money</legend>
+      <fieldset className={summary ? 'mt-5' : 'mt-3'}>
+        <legend className={summary ? labelClass : 'sr-only'}>Opérateur Mobile Money</legend>
         <div role="radiogroup" className="grid grid-cols-3 gap-2.5">
           {PAYABLE_OPERATORS.map((key) => {
             const selected = operator === key;
@@ -323,7 +330,7 @@ export function MobileMoneyCheckout({
       >
         {payLabel}
       </button>
-      {!operator && <p className="mt-2 text-center text-[13px] text-muted">Choisissez un opérateur pour continuer.</p>}
+      {!operator && summary && <p className="mt-2 text-center text-[13px] text-muted">Choisissez un opérateur pour continuer.</p>}
     </section>
   );
 }

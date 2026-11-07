@@ -38,6 +38,7 @@ import { Sheet } from '@/components/ui/Sheet';
 import { ListGroup, ListRow } from '@/components/ui/ListRow';
 import {
   getActiveCycle,
+  getTurnState,
   getCircle,
   getCircleMembers,
   getCycles,
@@ -67,8 +68,9 @@ export function ManageView({ circleId }: { circleId: string }) {
 
   const cycle = getActiveCycle(circle) ?? getCycles(circle.id)[0];
   const orderedMembers = [...getCircleMembers(circle.id)].sort((a, b) => (a.turnOrder ?? 0) - (b.turnOrder ?? 0));
-  const notReceived = orderedMembers.filter((m) => !m.hasReceivedPayout);
-  const beneficiary = notReceived[0] ?? orderedMembers[0];
+  // Même règle que la fiche du cercle et le versement : bénéficiaire = premier membre pas encore servi.
+  const turnState = getTurnState(circle.id);
+  const beneficiary = turnState.beneficiary;
 
   const pendingRequests = getMembershipRequests(circle.id).filter((r) => r.status === MembershipRequestStatus.PENDING);
   const pendingDepartures = getDepartureRequests(circle.id).filter((r) => r.status === DepartureRequestStatus.PENDING);
@@ -104,7 +106,7 @@ export function ManageView({ circleId }: { circleId: string }) {
 
   const isAidAppeal = circle.type === CircleType.AID_APPEAL;
   const isNature = circle.type === CircleType.NATURE;
-  const turn = cycle?.currentTurn ?? 1;
+  const turn = turnState.turn;
 
   const openRemind = () => {
     const init: Record<string, boolean> = {};
@@ -149,8 +151,8 @@ export function ManageView({ circleId }: { circleId: string }) {
 
   return (
     <>
-      <PageHeader title="Gérer le cercle" onBack={() => router.back()} />
-      <ScreenBody>
+      <PageHeader title="Gérer le cercle" onBack={() => router.back()} width="page" />
+      <ScreenBody columns>
         <div className="flex items-center gap-3 rounded-[20px] border border-line bg-white p-4">
           <div className="min-w-0 flex-1">
             <p className="line-clamp-2 text-[17px] font-bold text-ink">{circle.name}</p>

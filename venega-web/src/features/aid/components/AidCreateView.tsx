@@ -80,7 +80,7 @@ export function AidCreateView() {
   return (
     <>
       <PageHeader title="Lancer une cagnotte" onBack={() => router.back()} />
-      <ScreenBody>
+      <ScreenBody form>
         <p className="text-[15px] text-muted">
           Collectez pour une personne dans le besoin. Vous recevez un lien à partager : chacun peut donner, avec son nom
           ou anonymement, même sans l’application.
@@ -211,7 +211,7 @@ function CreatedView({ circle, onOpen }: { circle: Circle; onOpen: () => void })
   };
 
   return (
-    <ScreenBody className="pt-8">
+    <ScreenBody form className="pt-8">
       <CenteredState icon={Check} title="Votre cagnotte est en ligne" text={circle.name} />
 
       <section className="rounded-[20px] border border-line bg-white p-4">

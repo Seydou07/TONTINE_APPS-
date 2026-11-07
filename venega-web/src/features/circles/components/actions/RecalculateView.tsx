@@ -27,7 +27,7 @@ export function RecalculateView({ circleId }: { circleId: string }) {
     return (
       <>
         <PageHeader title="Recalcul des cotisations" onBack={back} />
-        <ScreenBody>
+        <ScreenBody form>
           <CenteredState icon={Info} tone="neutral" title="Cercle introuvable" />
         </ScreenBody>
       </>
@@ -53,7 +53,7 @@ export function RecalculateView({ circleId }: { circleId: string }) {
   return (
     <>
       <PageHeader title="Recalcul des cotisations" subtitle={circle.name} onBack={back} />
-      <ScreenBody>
+      <ScreenBody form>
         <Notice icon={Info} tone="info">
           Un membre est parti sans remplaçant. Les cotisations restantes sont recalculées pour {membersAfterDeparture}{' '}
           membres.

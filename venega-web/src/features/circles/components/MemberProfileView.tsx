@@ -76,8 +76,8 @@ export function MemberProfileView({ circleId, userId }: { circleId: string; user
 
   return (
     <>
-      <PageHeader title="Profil du membre" subtitle={circle.name} backHref={backHref} />
-      <ScreenBody>
+      <PageHeader title="Profil du membre" subtitle={circle.name} backHref={backHref} width="page" />
+      <ScreenBody columns>
         <div className="flex flex-col items-center gap-2 pt-2 text-center">
           <Avatar name={fullName} uri={avatarUrl} size={56} />
           <p className="text-[20px] font-bold text-ink">{fullName}</p>

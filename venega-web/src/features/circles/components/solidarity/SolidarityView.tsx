@@ -20,7 +20,7 @@ import { AidRequestStatus, EventType, MembershipRequestStatus, Role, type Ledger
 import { useDemoStore } from '@/lib/demoStore';
 import { formatFcfa } from '@/lib/format';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { ScreenBody, ScreenFooter } from '@/components/ui/blocks';
+import { ScreenFooter } from '@/components/ui/blocks';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { Sheet } from '@/components/ui/Sheet';
@@ -49,6 +49,11 @@ import {
   ActionCard,
   CircleTab,
   CircleTabBar,
+  CircleBody,
+  CircleColumns,
+  gridList,
+  gridRow,
+  gridRowBody,
   DueCard,
   HistoryFilterButton,
   OverviewSectionHeader,
@@ -168,6 +173,7 @@ export function SolidarityView({ circleId }: { circleId: string }) {
             : `Vous êtes ${solidarityRoleLabel[myMembership?.role ?? Role.MEMBER].toLowerCase()}`
         }`}
         onBack={() => router.back()}
+        width="circle"
         right={
           <Link
             href={`/circles/${circle.id}/invite`}
@@ -191,9 +197,10 @@ export function SolidarityView({ circleId }: { circleId: string }) {
         />
       </CircleTabBar>
 
-      <ScreenBody>
+      <CircleBody>
         {tab === 'apercu' && (
-          <div>
+          <CircleColumns
+            aside={
             <OverviewStack>
               <OverviewSummaryCard
                 label="Solde de la caisse"
@@ -216,9 +223,11 @@ export function SolidarityView({ circleId }: { circleId: string }) {
                 />
               )}
             </OverviewStack>
-
+            }
+          >
             <OverviewSectionHeader
               title="Historique"
+              className="lg:mt-0"
               right={
                 monthsWithActivity.length > 1 ? (
                   <HistoryFilterButton
@@ -287,23 +296,25 @@ export function SolidarityView({ circleId }: { circleId: string }) {
               La caisse est transparente : chaque cotisation et chaque déboursement est tracé et visible de tous les
               membres du cercle.
             </p>
-          </div>
+          </CircleColumns>
         )}
 
         {tab === 'decaissements' && (
-          <div className="space-y-3">
+          <div className="space-y-3 lg:grid lg:grid-cols-2 lg:items-start lg:gap-3 lg:space-y-0">
             {!isFounder && (
-              <div className="rounded-[14px] bg-fill p-3.5 text-[13px] text-ink-soft">
+              <div className="rounded-[14px] bg-fill p-3.5 text-[13px] text-ink-soft lg:col-span-2">
                 Un événement à annoncer ? Contactez le Président du cercle — lui seul peut initier une demande
                 d&apos;aide. Vous pouvez suivre ici l&apos;avancement de chaque décaissement.
               </div>
             )}
             {requests.length === 0 && (
+              <div className="lg:col-span-2">
               <EmptyState
                 icon={HeartHandshake}
                 title="Aucun décaissement"
                 text="Les demandes d'aide du cercle apparaîtront ici."
               />
+              </div>
             )}
             {requests.map((r) => {
               const decisions = getBureauDecisions(r.id);
@@ -402,11 +413,11 @@ export function SolidarityView({ circleId }: { circleId: string }) {
         {tab === 'membres' && (
           <div>
             <h2 className="mb-2.5 px-1 text-[17px] font-bold text-ink">{sortedMembers.length} membre(s)</h2>
-            <div className="overflow-hidden rounded-[20px] border border-line bg-white">
+            <div className={gridList}>
               {sortedMembers.map((m, idx) => {
                 const fullName = `${m.user.firstName} ${m.user.lastName}`;
                 return (
-                  <div key={m.userId} className="flex items-center gap-3 pl-4">
+                  <div key={m.userId} className={`flex items-center gap-3 pl-4 ${gridRow}`}>
                     <button
                       type="button"
                       aria-label={`Voir la photo de ${fullName}`}
@@ -421,7 +432,7 @@ export function SolidarityView({ circleId }: { circleId: string }) {
                       href={`/circles/${circle.id}/solidarity-member/${m.userId}`}
                       className={`flex min-w-0 flex-1 items-center gap-3 py-3 pr-4 hover:opacity-80 ${
                         idx < sortedMembers.length - 1 ? 'border-b border-line' : ''
-                      }`}
+                      } ${gridRowBody}`}
                     >
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[15px] font-semibold text-ink">
@@ -448,7 +459,8 @@ export function SolidarityView({ circleId }: { circleId: string }) {
             {pendingMembership.length === 0 ? (
               <EmptyState icon={Inbox} title="Aucune demande" text="Aucune demande d'adhésion en attente." />
             ) : (
-              pendingMembership.map((r) => (
+              <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0 xl:grid-cols-3">
+              {pendingMembership.map((r) => (
                 <div key={r.id} className="rounded-[20px] border border-line bg-white p-4">
                   <div className="flex items-center gap-3">
                     <Avatar name={r.fullName} size={40} />
@@ -466,7 +478,8 @@ export function SolidarityView({ circleId }: { circleId: string }) {
                     </Button>
                   </div>
                 </div>
-              ))
+              ))}
+              </div>
             )}
           </div>
         )}
@@ -478,7 +491,7 @@ export function SolidarityView({ circleId }: { circleId: string }) {
             </Button>
           </ScreenFooter>
         )}
-      </ScreenBody>
+      </CircleBody>
 
       {/* Filtre par mois */}
       <Sheet open={showMonthFilter} onClose={() => setShowMonthFilter(false)} title="Filtrer par mois">

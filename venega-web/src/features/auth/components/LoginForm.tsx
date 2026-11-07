@@ -4,6 +4,7 @@ import { useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { FormAlert } from '@/components/ui/FormAlert';
+import { Sheet } from '@/components/ui/Sheet';
 import { PasswordField, TextField } from '@/components/ui/TextField';
 import { ApiError, login } from '../api';
 import { formatPhone, validateLoginPassword, validatePhone } from '../validation';
@@ -21,6 +22,9 @@ export function LoginForm() {
   const [errors, setErrors] = useState<Errors>({});
   const [formError, setFormError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  // « Mot de passe oublié » : pas encore disponible (même message que le mobile).
+  // Les boutons Google / Facebook du mobile ne sont pas repris : ils ne sont branchés nulle part.
+  const [notice, setNotice] = useState<{ title: string; text: string } | null>(null);
 
   // Une erreur affichée disparaît dès que la saisie redevient valide.
   const onPhoneChange = (value: string) => {
@@ -84,12 +88,33 @@ export function LoginForm() {
           onChange={(e) => onPasswordChange(e.target.value)}
           error={errors.password}
         />
+        <div className="-mt-1 text-right">
+          <button
+            type="button"
+            onClick={() =>
+              setNotice({
+                title: 'Mot de passe oublié',
+                text: 'La réinitialisation du mot de passe sera bientôt disponible dans Venega.',
+              })
+            }
+            className="text-[14px] font-semibold text-primary hover:text-primary-dark hover:underline"
+          >
+            Mot de passe oublié ?
+          </button>
+        </div>
         <FormAlert message={formError} />
         <Button type="submit" loading={isLoading}>
           Se connecter
         </Button>
       </form>
+      <Sheet open={!!notice} onClose={() => setNotice(null)} title={notice?.title ?? ''}>
+        <p className="mb-5 text-[15px] text-muted">{notice?.text}</p>
+        <Button variant="secondary" onClick={() => setNotice(null)}>
+          Fermer
+        </Button>
+      </Sheet>
       <AuthFooter text="Pas encore de compte ?" href="/register" label="Créer un compte" />
     </>
   );
 }
+

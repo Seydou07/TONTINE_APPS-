@@ -5,8 +5,8 @@
  * docs/api-mobile.md section 3. Les décaissements de solidarité viendront de
  * `GET /solidarity/circles/:id/ledger` (section 5).
  */
-import { mockCircles, mockTransactions, TransactionStatus, TransactionType } from '@venega/types';
-import { getLedgerEntries } from '@/features/circles/store';
+import { TransactionStatus, TransactionType } from '@venega/types';
+import { getCircles, getLedgerEntries, getTransactions } from '@/features/circles/store';
 
 export type ActivityItem = {
   id: string;
@@ -76,7 +76,8 @@ const EXTENDED_TX = [
 ];
 
 export function getActivity(): ActivityItem[] {
-  const enriched: ActivityItem[] = [...EXTENDED_TX, ...mockTransactions].map((tx) => ({
+  const circles = getCircles();
+  const enriched: ActivityItem[] = [...EXTENDED_TX, ...getTransactions()].map((tx) => ({
     id: tx.id,
     circleId: tx.circleId,
     type: tx.type,
@@ -85,11 +86,11 @@ export function getActivity(): ActivityItem[] {
     memberName: tx.memberName,
     providerReference: tx.providerReference,
     createdAt: tx.createdAt,
-    circleName: mockCircles.find((c) => c.id === tx.circleId)?.name ?? 'Tontine Familiale',
+    circleName: circles.find((c) => c.id === tx.circleId)?.name ?? '',
   }));
 
   // Décaissements de la caisse de solidarité (traces du grand livre de chaque cercle).
-  const disbursements: ActivityItem[] = mockCircles
+  const disbursements: ActivityItem[] = circles
     .filter((c) => c.solidarityAmount > 0)
     .flatMap((c) => getLedgerEntries(c.id).filter((e) => e.type === 'DEBIT'))
     .map((e) => ({
@@ -101,7 +102,7 @@ export function getActivity(): ActivityItem[] {
       memberName: e.memberName ?? '',
       providerReference: e.relatedTransactionId,
       createdAt: e.createdAt,
-      circleName: mockCircles.find((c) => c.id === e.circleId)?.name ?? '',
+      circleName: circles.find((c) => c.id === e.circleId)?.name ?? '',
     }));
 
   return [...enriched, ...disbursements];

@@ -79,9 +79,18 @@ export function AidAppealView({ circleId }: { circleId: string }) {
             />
           ) : undefined
         }
+        width="page"
       />
-      <ScreenBody>
-        <div className="h-[220px] overflow-hidden rounded-[20px] bg-primary-tint">
+      {/*
+        Téléphone : une colonne, ordre de l'app mobile. Ordinateur : photo, titre et histoire à
+        gauche ; collecte, bouton « Contribuer » et contributeurs à droite.
+      */}
+      <ScreenBody
+        width="wide"
+        className="lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start lg:gap-x-8 lg:space-y-0 lg:[grid-template-areas:'p_b'_'h_d'_'c_d'] lg:[grid-template-rows:auto_auto_1fr]"
+      >
+        <div className="space-y-5 lg:contents">
+        <div className="h-[220px] overflow-hidden rounded-[20px] bg-primary-tint lg:h-[320px] lg:[grid-area:p]">
           {appeal.beneficiaryPhoto ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -96,7 +105,7 @@ export function AidAppealView({ circleId }: { circleId: string }) {
           )}
         </div>
 
-        <header>
+        <header className="lg:mt-5 lg:[grid-area:h]">
           <span
             className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold ${
               isActive ? 'bg-primary-tint text-primary-dark' : 'bg-fill text-muted'
@@ -113,7 +122,9 @@ export function AidAppealView({ circleId }: { circleId: string }) {
             </span>
           </p>
         </header>
+        </div>
 
+        <div className="space-y-5 lg:mb-5 lg:[grid-area:b]">
         <AppealProgress
           collected={collected}
           goal={base.appeal.goalAmount}
@@ -124,7 +135,15 @@ export function AidAppealView({ circleId }: { circleId: string }) {
 
         <AcceptedPayments />
 
-        <hr className="border-line" />
+        <div className="hidden lg:block">
+          <Button icon={HeartHandshake} disabled={!isActive} onClick={() => setOpen(true)}>
+            Contribuer
+          </Button>
+        </div>
+        </div>
+
+        <div className="space-y-5 lg:mt-8 lg:[grid-area:c]">
+        <hr className="border-line lg:hidden" />
 
         <section>
           <h2 className="mb-2 text-[17px] font-bold text-ink">L’histoire</h2>
@@ -138,11 +157,14 @@ export function AidAppealView({ circleId }: { circleId: string }) {
           </div>
         </section>
 
-        <hr className="border-line" />
+        <hr className="border-line lg:hidden" />
+        </div>
 
+        <div className="lg:mt-6 lg:[grid-area:d]">
         <ContributionList contributions={contributions} totalCount={totalContributors} highlightId={lastId} />
+        </div>
 
-        <ScreenFooter>
+        <ScreenFooter className="lg:hidden">
           <Button icon={HeartHandshake} disabled={!isActive} onClick={() => setOpen(true)}>
             Contribuer
           </Button>

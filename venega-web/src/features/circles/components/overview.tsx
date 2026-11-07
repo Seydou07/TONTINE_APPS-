@@ -1,7 +1,7 @@
 'use client';
 
-import { Fragment, type ReactNode } from 'react';
-import { Calendar, SlidersHorizontal, type LucideIcon } from 'lucide-react';
+import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Calendar, ChevronLeft, ChevronRight, SlidersHorizontal, type LucideIcon } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { formatDueIn } from '../store';
@@ -15,11 +15,64 @@ import { formatDueIn } from '../store';
 
 /* ── Onglets ── */
 
-export function CircleTabBar({ children, label = 'Sections du cercle' }: { children: ReactNode; label?: string }) {
+export function CircleTabBar({
+  children,
+  label = 'Sections du cercle',
+  width = 'wide',
+}: {
+  children: ReactNode;
+  label?: string;
+  width?: 'narrow' | 'wide';
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [more, setMore] = useState({ left: false, right: false });
+
+  // Sur un petit écran, les onglets défilent : une flèche indique qu'il en reste à droite (ou à gauche).
+  const update = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    setMore({ left: el.scrollLeft > 4, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 4 });
+  }, []);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    update();
+    // Garde l'onglet actif visible.
+    el.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    el.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    return () => {
+      el.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+    };
+  }, [update, children]);
+
+  const scrollBy = (dir: 1 | -1) => ref.current?.scrollBy({ left: dir * 120, behavior: 'smooth' });
+  const arrow =
+    'absolute top-0 z-[1] flex h-11 w-9 items-center justify-center bg-white text-primary shadow-[0_0_8px_8px_#fff]';
+
   return (
-    <div className="border-b border-line bg-white">
-      <div role="tablist" aria-label={label} className="mx-auto flex max-w-2xl gap-1 overflow-x-auto px-3 sm:px-5">
-        {children}
+    <div className="sticky top-0 z-20 border-b border-line bg-white">
+      <div className={`relative mx-auto ${width === 'wide' ? 'max-w-2xl lg:max-w-6xl lg:px-3' : 'max-w-2xl'}`}>
+        {more.left && (
+          <button type="button" aria-label="Onglets précédents" onClick={() => scrollBy(-1)} className={`${arrow} left-0`}>
+            <ChevronLeft size={18} aria-hidden />
+          </button>
+        )}
+        <div
+          ref={ref}
+          role="tablist"
+          aria-label={label}
+          className="flex gap-0.5 overflow-x-auto px-1.5 [scrollbar-width:none] sm:gap-1 sm:px-5 [&::-webkit-scrollbar]:hidden"
+        >
+          {children}
+        </div>
+        {more.right && (
+          <button type="button" aria-label="Onglets suivants" onClick={() => scrollBy(1)} className={`${arrow} right-0`}>
+            <ChevronRight size={18} aria-hidden />
+          </button>
+        )}
       </div>
     </div>
   );
@@ -42,7 +95,7 @@ export function CircleTab({
       role="tab"
       aria-selected={active}
       onClick={onClick}
-      className={`flex h-11 shrink-0 items-center gap-1.5 border-b-2 px-2.5 text-[15px] transition-colors ${
+      className={`flex h-11 shrink-0 items-center gap-1.5 border-b-2 px-2 text-[14px] transition-colors sm:px-3 sm:text-[15px] ${
         active ? 'border-primary font-semibold text-primary' : 'border-transparent font-medium text-muted hover:text-ink'
       }`}
     >
@@ -174,9 +227,17 @@ export function ActionCard({
 }
 
 /** En-tête de section (« Historique »…) avec action à droite. */
-export function OverviewSectionHeader({ title, right }: { title: string; right?: ReactNode }) {
+export function OverviewSectionHeader({
+  title,
+  right,
+  className = '',
+}: {
+  title: string;
+  right?: ReactNode;
+  className?: string;
+}) {
   return (
-    <div className="mb-2.5 mt-6 flex min-h-[36px] items-center justify-between gap-3 px-1">
+    <div className={`mb-2.5 mt-6 flex min-h-[36px] items-center justify-between gap-3 px-1 ${className}`}>
       <h2 className="text-[17px] font-bold text-ink">{title}</h2>
       {right}
     </div>
@@ -204,3 +265,36 @@ export function HistoryFilterButton({ label, active, onClick }: { label: string;
 export function OverviewStack({ children }: { children: ReactNode }) {
   return <div className="space-y-3">{children}</div>;
 }
+
+/* ── Mise en page web (≥ 1024 px) ──
+ * Sur téléphone et tablette, l'écran garde exactement la disposition mobile (une colonne).
+ * Sur ordinateur : contenu large, deux colonnes, listes en grille.
+ */
+
+/** Corps d'un écran de cercle : colonne mobile, élargie sur ordinateur. */
+export function CircleBody({ children, className = '' }: { children: ReactNode; className?: string }) {
+  return <div className={`mx-auto max-w-2xl px-4 pb-10 pt-4 sm:px-6 lg:max-w-6xl lg:px-8 lg:pt-6 ${className}`}>{children}</div>;
+}
+
+/**
+ * Deux colonnes sur ordinateur : `aside` à gauche (carte de synthèse, roue, actions), collée en haut
+ * pendant le défilement ; `children` à droite (historique, liste). Une seule colonne sur téléphone.
+ */
+export function CircleColumns({ aside, children }: { aside: ReactNode; children: ReactNode }) {
+  return (
+    <div className="lg:grid lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] lg:items-start lg:gap-8 xl:grid-cols-[minmax(0,440px)_minmax(0,1fr)]">
+      <div className="lg:sticky lg:top-[60px]">{aside}</div>
+      <div className="min-w-0">{children}</div>
+    </div>
+  );
+}
+
+/**
+ * Liste de lignes : un seul bloc blanc sur téléphone (comme le mobile), une grille de cartes sur
+ * ordinateur. À combiner avec `gridRow` sur chaque ligne et `gridRowBody` sur le contenu bordé.
+ */
+export const gridList =
+  'overflow-hidden rounded-[20px] border border-line bg-white lg:grid lg:grid-cols-2 lg:gap-3 lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent';
+export const gridRow = 'lg:overflow-hidden lg:rounded-[16px] lg:border lg:border-line lg:bg-white';
+/** Supprime le filet de séparation des lignes quand elles deviennent des cartes. */
+export const gridRowBody = 'lg:border-b-0';

@@ -13,11 +13,14 @@ import { formatFcfa as formatXOF } from '@/lib/format';
 import { MobileMoneyCheckout } from '@/features/payment/components/MobileMoneyCheckout';
 import {
   PaymentAmountCard,
+  PaymentColumns,
   PaymentHint,
   PaymentSummaryCard,
   PaymentSummaryRow as SummaryRow,
 } from '@/features/payment/components/PaymentLayout';
-import { getActiveCycle, getCircle, getCircleMembers, getCurrentUser, getCycles } from '../store';
+import { canPayout, getActiveCycle, getCircle, getCurrentUser, getCycles, getTurnState, recordPayout } from '../store';
+import { OPERATORS } from '@/features/aid/format';
+import type { PayableOperator } from '@/features/aid/schema';
 
 /*
  * Versement de la cagnotte (ou remise du bien) par le fondateur — copie de
@@ -48,6 +51,14 @@ export function PayoutView({ circleId }: { circleId: string }) {
   );
   const [showNotification, setShowNotification] = useState(false);
   const [refNumber, setRefNumber] = useState('');
+  // Versement effectué (figé : le bénéficiaire affiché passe ensuite au tour suivant).
+  const [paidTo, setPaidTo] = useState<{
+    name: string;
+    amount: number;
+    fees: number;
+    commission: number;
+    operator: string;
+  } | null>(null);
   // Chaque passage par le parcours de paiement repart de zéro (clé du composant).
   const [checkoutKey, setCheckoutKey] = useState(0);
 
@@ -62,13 +73,16 @@ export function PayoutView({ circleId }: { circleId: string }) {
 
   const isNature = circle.contributionMode === ContributionMode.NATURE || circle.type === CircleType.NATURE;
   const cycle = getActiveCycle(circle) ?? getCycles(circle.id)[0];
-  const orderedMembers = [...getCircleMembers(circle.id)].sort((a, b) => (a.turnOrder ?? 0) - (b.turnOrder ?? 0));
-  const notReceived = orderedMembers.filter((m) => !m.hasReceivedPayout);
-  const beneficiary = notReceived[0] ?? orderedMembers[0];
+  // Même règle que la fiche du cercle et la gestion : bénéficiaire = premier membre pas encore servi.
+  const turnState = getTurnState(circle.id);
+  const orderedMembers = turnState.members;
+  const beneficiary = turnState.beneficiary;
+  const payoutCheck = canPayout(turnState);
 
   // Modèle financier (défini à la création du cercle) — mêmes règles que l'app mobile.
-  const baseTontineAmount = circle.tontineAmount || 10000;
-  const founderManagementFeePerTurn = circle.managementFee || 500;
+  const baseTontineAmount = circle.tontineAmount;
+  // Aucun frais inventé : 0 si le fondateur n'en a pas fixé (comme le mobile).
+  const founderManagementFeePerTurn = circle.managementFee ?? 0;
   const memberCount = orderedMembers.length;
   const totalGrossCollected = (baseTontineAmount + founderManagementFeePerTurn) * memberCount;
   const beneficiaryPotAmount = baseTontineAmount * memberCount;
@@ -77,25 +91,34 @@ export function PayoutView({ circleId }: { circleId: string }) {
   const netFounderFees = totalFounderFeesCollected - venegaCommission;
 
   const beneficiaryName = `${beneficiary?.user?.firstName ?? ''} ${beneficiary?.user?.lastName ?? ''}`.trim();
-  const turn = cycle?.currentTurn ?? 1;
+  const turn = turnState.turn;
   const title = isNature ? 'Remettre le bien' : 'Verser la cagnotte';
 
-  const handlePaid = () => {
+  const handlePaid = (operator: PayableOperator) => {
+    const operatorName = OPERATORS[operator].label;
     setRefNumber(`TX-${Math.floor(100000 + Math.random() * 900000)}`);
     const newRecord: PayoutRecord = {
       id: `p${Date.now()}`,
       circleId: circle.id,
-      cycleId: cycle?.id ?? 'cy1',
+      cycleId: cycle?.id ?? '',
       beneficiaryName,
       beneficiaryAvatar: beneficiary?.user?.avatarUrl,
       totalAmount: totalGrossCollected,
       beneficiaryAmount: beneficiaryPotAmount,
       founderFees: netFounderFees,
       venegaCommission,
-      operator: 'Mobile Money',
+      operator: operatorName,
       status: 'PAID',
       createdAt: new Date().toISOString(),
     };
+    recordPayout(circle.id);
+    setPaidTo({
+      name: beneficiaryName,
+      amount: beneficiaryPotAmount,
+      fees: netFounderFees,
+      commission: venegaCommission,
+      operator: operatorName,
+    });
     setHistory((h) => [newRecord, ...h]);
     setShowNotification(true);
   };
@@ -108,8 +131,11 @@ export function PayoutView({ circleId }: { circleId: string }) {
 
   return (
     <>
-      <PageHeader title={title} subtitle={circle.name} backHref={`/circles/${circle.id}/tontine`} />
-      <ScreenBody>
+      <PageHeader title={title} subtitle={circle.name} backHref={`/circles/${circle.id}/tontine`} width="page" />
+      <ScreenBody width="wide">
+        <PaymentColumns
+          summary={
+            <>
         <PaymentAmountCard amount={beneficiaryPotAmount} sub={`Cagnotte du tour ${turn} · ${circle.name}`} />
 
         <PaymentSummaryCard>
@@ -126,16 +152,23 @@ export function PayoutView({ circleId }: { circleId: string }) {
           <SummaryRow label="Somme à verser" value={formatXOF(beneficiaryPotAmount)} strong last />
         </PaymentSummaryCard>
         <PaymentHint>Le versement passe par le compte hub Venega (CityNet Pay).</PaymentHint>
-
+            </>
+          }
+        >
+        {payoutCheck.ok || paidTo ? (
         <MobileMoneyCheckout
           key={checkoutKey}
           title="Choisissez l'opérateur"
+          summary={false}
           amount={beneficiaryPotAmount}
           phone={me.phoneNumber}
           confirmDetail={`Versement à ${beneficiaryName || 'bénéficiaire'} · Compte hub Venega`}
           successText={`Vous avez versé ${formatXOF(beneficiaryPotAmount)} à ${beneficiaryName}.`}
           onSuccess={handlePaid}
         />
+        ) : (
+          <p className="rounded-[14px] bg-amber-tint p-3.5 text-[14px] text-ink-soft">{payoutCheck.reason}</p>
+        )}
 
         <section ref={historyRef} className="scroll-mt-4">
           <h2 className="mb-3 text-[15px] font-semibold text-ink">Historique des versements</h2>
@@ -174,6 +207,7 @@ export function PayoutView({ circleId }: { circleId: string }) {
             </div>
           )}
         </section>
+        </PaymentColumns>
       </ScreenBody>
 
       {/* Notification Venega : versement effectué */}
@@ -187,16 +221,19 @@ export function PayoutView({ circleId }: { circleId: string }) {
         </div>
         <div className="mt-4 space-y-2 rounded-[14px] bg-primary-tint p-3.5">
           <CheckLine>
-            Vous avez versé {formatXOF(beneficiaryPotAmount)} à {beneficiaryName}.
+            Vous avez versé {formatXOF(paidTo?.amount ?? 0)} à {paidTo?.name ?? '—'}.
           </CheckLine>
-          <CheckLine>Vous avez reçu {formatXOF(netFounderFees)} (frais fondateur) sur votre compte.</CheckLine>
+          {(paidTo?.fees ?? 0) > 0 && (
+            <CheckLine>Vous avez reçu {formatXOF(paidTo?.fees ?? 0)} (frais fondateur) sur votre compte.</CheckLine>
+          )}
         </div>
         <div className="mt-4">
           <PaymentSummaryCard>
-            <SummaryRow label="Bénéficiaire" value={beneficiaryName} />
-            <SummaryRow label="Somme versée" value={formatXOF(beneficiaryPotAmount)} strong />
-            <SummaryRow label="Reçu (fondateur)" value={formatXOF(netFounderFees)} />
-            <SummaryRow label="Commission Venega" value={formatXOF(venegaCommission)} />
+            <SummaryRow label="Bénéficiaire" value={paidTo?.name ?? '—'} />
+            <SummaryRow label="Somme versée" value={formatXOF(paidTo?.amount ?? 0)} strong />
+            <SummaryRow label="Reçu (fondateur)" value={formatXOF(paidTo?.fees ?? 0)} />
+            <SummaryRow label="Commission Venega" value={formatXOF(paidTo?.commission ?? 0)} />
+            <SummaryRow label="Opérateur" value={paidTo?.operator ?? '—'} />
             <SummaryRow label="Référence" value={refNumber} />
             <SummaryRow label="Date" value={formatDate(new Date().toISOString())} last />
           </PaymentSummaryCard>

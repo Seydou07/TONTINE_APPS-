@@ -5,7 +5,7 @@ interface HeroBandProps {
   /** Hauteur (px) dont le contenu suivant chevauche le bandeau (voir PageBody `overlap`). */
   overlap?: number;
   /** Largeur maximale du contenu. */
-  width?: 'narrow' | 'default' | 'wide';
+  width?: keyof typeof WIDTHS;
   className?: string;
 }
 
@@ -13,6 +13,10 @@ export const WIDTHS = {
   narrow: 'max-w-2xl',
   default: 'max-w-5xl',
   wide: 'max-w-6xl',
+  /** Colonne mobile, élargie sur ordinateur (même largeur que `ScreenBody width="wide"`). */
+  page: 'max-w-2xl lg:max-w-5xl lg:px-6',
+  /** Colonne mobile, élargie sur ordinateur (même largeur que `CircleBody`). */
+  circle: 'max-w-2xl lg:max-w-6xl lg:px-6',
 } as const;
 
 /**

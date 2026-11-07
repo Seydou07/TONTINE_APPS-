@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { appealDescription, getPublicAppeal, publicAppealUrl } from '@/features/aid/api';
 import { PublicAppealView } from '@/features/aid/components/PublicAppealView';
+import { LocalAppealFallback } from '@/features/aid/components/LocalAppealFallback';
+import { isDemoMode } from '@/lib/demo';
 
 // Données vivantes (montant collecté, contributions) : pas de rendu statique.
 export const dynamic = 'force-dynamic';
@@ -37,6 +39,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function PublicAppealPage({ params }: PageProps) {
   const data = await getPublicAppeal(params.code);
-  if (!data) notFound();
+  if (!data) {
+    // Démo : une cagnotte créée dans ce navigateur n'est connue que de lui (pas d'API) —
+    // on la cherche côté client sans renvoyer d'erreur 404. Avec l'API, un code inconnu reste un 404.
+    if (isDemoMode) return <LocalAppealFallback />;
+    notFound();
+  }
   return <PublicAppealView data={data} renderedAt={Date.now()} />;
 }

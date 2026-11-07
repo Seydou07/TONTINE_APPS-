@@ -54,7 +54,7 @@ export function EditCircleView({ circleId }: { circleId: string }) {
     return (
       <>
         <PageHeader title="Modifier le cercle" onBack={() => router.back()} />
-        <ScreenBody>
+        <ScreenBody form>
           <CenteredState icon={Info} tone="neutral" title="Cercle introuvable" />
         </ScreenBody>
       </>
@@ -107,7 +107,7 @@ function EditCircleForm({ circle }: { circle: Circle }) {
   return (
     <>
       <PageHeader title="Modifier le cercle" onBack={() => router.back()} />
-      <ScreenBody>
+      <ScreenBody form>
         <p className="text-[14px] text-muted">Les modifications s&apos;appliquent immédiatement.</p>
 
         <section className="space-y-4">

@@ -65,8 +65,11 @@ export function AppealClient({ appeal, initialContributions, renderedAt, shareUr
     setLastId(id);
   }
 
+  // Chaque bloc porte sa zone de grille (voir PublicAppealView) ; marges de la colonne mobile.
+  const block = 'mt-6 px-4 lg:px-0';
   return (
     <>
+      <div className={`${block} space-y-6 lg:mt-0 lg:[grid-area:b]`}>
       <AppealProgress
         collected={collected}
         goal={appeal.goalAmount}
@@ -78,19 +81,20 @@ export function AppealClient({ appeal, initialContributions, renderedAt, shareUr
       <AcceptedPayments />
 
       <ShareButton {...share} />
+      </div>
 
-      <hr className="border-line" />
+      <hr className={`${block} mx-4 border-line lg:hidden`} />
 
-      <section aria-labelledby="story-title">
+      <section aria-labelledby="story-title" className={`${block} lg:mt-8 lg:[grid-area:c]`}>
         <h2 id="story-title" className={sectionTitle}>
           L’histoire
         </h2>
         <p className="mt-2 whitespace-pre-line break-words text-[15px] leading-relaxed text-ink-soft">{appeal.reason}</p>
       </section>
 
-      <hr className="border-line" />
+      <hr className={`${block} mx-4 border-line lg:hidden`} />
 
-      <div ref={formAnchor} id="contribuer" className="scroll-mt-4">
+      <div ref={formAnchor} id="contribuer" className={`${block} scroll-mt-4 lg:sticky lg:top-6 lg:mt-6 lg:[grid-area:d]`}>
         {ended ? (
           <section className={`${card} p-5 text-center`}>
             <h2 className={sectionTitle}>Cette cagnotte est terminée</h2>
@@ -108,7 +112,9 @@ export function AppealClient({ appeal, initialContributions, renderedAt, shareUr
         )}
       </div>
 
-      <ContributionList contributions={contributions} totalCount={count} highlightId={lastId} />
+      <div className={`${block} lg:mt-8 lg:[grid-area:e]`}>
+        <ContributionList contributions={contributions} totalCount={count} highlightId={lastId} />
+      </div>
 
       {!ended && !formInView && (
         <div

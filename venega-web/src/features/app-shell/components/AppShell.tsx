@@ -59,7 +59,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen bg-fill">
       {/* ── Ordinateur : barre latérale ── */}
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-line bg-white md:flex">
+      {/* Le fond blanc suit toute la hauteur de la page ; le contenu reste collé en haut. */}
+      <aside className="hidden w-60 shrink-0 self-stretch border-r border-line bg-white md:block">
+        <div className="sticky top-0 flex h-screen flex-col">
         <div className="flex h-16 items-center border-b border-line px-5">
           <BrandLogo href="/dashboard" />
         </div>
@@ -79,6 +81,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="block truncate text-[12px] text-muted">+226 {profile.phone}</span>
           </span>
         </Link>
+        </div>
       </aside>
 
       {/* ── Contenu ── */}

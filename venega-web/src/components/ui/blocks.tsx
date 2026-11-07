@@ -130,11 +130,12 @@ export function CenteredState({
 /**
  * Pied d'écran collé en bas (boutons d'action), comme `ScreenFooter` mobile.
  * Sur les écrans sans onglets du bas, il reste visible pendant le défilement.
+ * Sur ordinateur, les boutons suivent simplement le contenu.
  */
-export function ScreenFooter({ children }: { children: ReactNode }) {
+export function ScreenFooter({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
     <div
-      className="sticky bottom-0 z-10 -mx-4 mt-6 border-t border-line bg-white px-4 py-3 sm:-mx-6 sm:px-6"
+      className={`${className} sticky bottom-0 z-10 -mx-4 mt-6 border-t border-line bg-white px-4 py-3 sm:-mx-6 sm:px-6 md:static md:mx-0 md:border-0 md:bg-transparent md:px-0 md:!pb-0 md:pt-2`}
       style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
     >
       <div className="space-y-2.5">{children}</div>
@@ -142,7 +143,29 @@ export function ScreenFooter({ children }: { children: ReactNode }) {
   );
 }
 
-/** Contenu d'un écran secondaire (sous un PageHeader) : colonne étroite, marges 16 px. */
-export function ScreenBody({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <div className={`mx-auto max-w-2xl space-y-5 px-4 pb-8 pt-4 sm:px-6 ${className}`}>{children}</div>;
+/**
+ * Contenu d'un écran secondaire (sous un PageHeader) : colonne étroite, marges 16 px.
+ * - `width="wide"` : la colonne s'élargit sur ordinateur (≥ 1024 px) ;
+ * - `columns` : sur ordinateur, les blocs se répartissent sur deux colonnes (listes de réglages).
+ * Sur téléphone, rien ne change : une colonne, comme l'app mobile.
+ */
+export function ScreenBody({
+  children,
+  className = '',
+  width = 'narrow',
+  columns = false,
+  form = false,
+}: {
+  children: ReactNode;
+  className?: string;
+  width?: 'narrow' | 'wide';
+  columns?: boolean;
+  /** Formulaire : sur tablette et ordinateur, posé dans une carte blanche centrée. */
+  form?: boolean;
+}) {
+  const w = width === 'wide' || columns ? 'lg:max-w-5xl lg:px-8 lg:pt-6' : '';
+  // En colonnes, l'espacement passe par une marge basse (space-y ne fonctionne pas avec `columns`).
+  const c = columns ? '[&>*]:mb-5 lg:columns-2 lg:gap-6 lg:[&>*]:break-inside-avoid' : 'space-y-5';
+  const f = form ? 'md:my-8 md:rounded-[24px] md:border md:border-line md:bg-white md:px-8 md:pb-8 md:pt-7' : '';
+  return <div className={`mx-auto max-w-2xl px-4 pb-8 pt-4 sm:px-6 ${w} ${c} ${f} ${className}`}>{children}</div>;
 }

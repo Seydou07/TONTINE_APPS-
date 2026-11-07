@@ -91,8 +91,8 @@ export function SolidarityMemberProfileView({ circleId, userId }: { circleId: st
 
   return (
     <>
-      <PageHeader title="Profil du membre" onBack={() => router.back()} />
-      <ScreenBody>
+      <PageHeader title="Profil du membre" onBack={() => router.back()} width="page" />
+      <ScreenBody columns>
         <div className="flex flex-col items-center gap-2 pt-2 text-center">
           <Avatar name={fullName} uri={member.user.avatarUrl} size={56} />
           <p className="text-[19px] font-bold text-ink">{fullName}</p>

@@ -26,7 +26,7 @@ export function ExclusionView({ circleId }: { circleId: string }) {
     return (
       <>
         <PageHeader title="Exclure un membre" onBack={back} />
-        <ScreenBody>
+        <ScreenBody form>
           <CenteredState icon={Clock} tone="neutral" title="Cercle introuvable" />
         </ScreenBody>
       </>
@@ -43,7 +43,7 @@ export function ExclusionView({ circleId }: { circleId: string }) {
   return (
     <>
       <PageHeader title="Exclure un membre" subtitle={circle.name} onBack={back} />
-      <ScreenBody>
+      <ScreenBody form>
         <Notice icon={AlertTriangle} tone="warning" title="Règle du cercle">
           Un membre peut être exclu à partir de {threshold} retards.
         </Notice>

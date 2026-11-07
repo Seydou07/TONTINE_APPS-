@@ -2,7 +2,22 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { BadgeCheck, Camera, ChevronDown, Gauge, HelpCircle, History, LogOut, ShieldCheck, Smartphone, UserRound } from 'lucide-react';
+import {
+  BadgeCheck,
+  Camera,
+  ChevronDown,
+  FileText,
+  Gauge,
+  HelpCircle,
+  History,
+  Lock,
+  LogOut,
+  Mail,
+  PhoneCall,
+  ShieldCheck,
+  Smartphone,
+  UserRound,
+} from 'lucide-react';
 import { KycStatus } from '@venega/types';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
@@ -16,6 +31,7 @@ import { logout as endSession } from '@/features/auth/api';
 import { formatPhone } from '@/features/auth/validation';
 import { getCircles, getCurrentUser } from '@/features/circles/store';
 import { getProfile } from '../store';
+import { version as appVersion } from '../../../../package.json';
 
 /** Hauteur dont la carte des chiffres clés chevauche le bandeau vert. */
 const STATS_OVERLAP = 36;
@@ -64,6 +80,8 @@ export function ProfileView() {
   const [helpSheet, setHelpSheet] = useState(false);
   const [logoutSheet, setLogoutSheet] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  // Fonction pas encore disponible (même message que l'app mobile).
+  const [comingSoon, setComingSoon] = useState<string | null>(null);
 
   const draftValid = draftPhone.replace(/\D/g, '').length === 8;
 
@@ -141,8 +159,8 @@ export function ProfileView() {
             value={kyc.text}
             valueTone={kyc.ok ? 'success' : 'muted'}
             href="/kyc/upload"
-            last
           />
+          <ListRow icon={Lock} title="Mot de passe" onClick={() => setComingSoon('Mot de passe')} last />
         </ListGroup>
 
         <ListGroup title="Paiements">
@@ -161,12 +179,20 @@ export function ProfileView() {
         </ListGroup>
 
         <ListGroup title="Aide">
-          <ListRow icon={HelpCircle} title="Centre d’aide" onClick={() => setHelpSheet(true)} last />
+          <ListRow icon={HelpCircle} title="Centre d’aide" onClick={() => setHelpSheet(true)} />
+          <ListRow
+            icon={FileText}
+            title="Conditions d’utilisation"
+            onClick={() => setComingSoon('Conditions d’utilisation')}
+            last
+          />
         </ListGroup>
 
         <ListGroup>
           <ListRow icon={LogOut} tone="danger" title="Se déconnecter" chevron={false} onClick={() => setLogoutSheet(true)} last />
         </ListGroup>
+
+        <p className="text-center text-[13px] text-subtle">Venega · version {appVersion}</p>
       </div>
 
       {/* ── Numéro mobile money ── */}
@@ -209,6 +235,23 @@ export function ProfileView() {
             );
           })}
         </div>
+        <p className="mb-2.5 mt-5 text-[13px] font-semibold text-muted">Nous contacter</p>
+        <div className="grid grid-cols-2 gap-2.5">
+          <Button size="sm" variant="secondary" icon={PhoneCall} onClick={() => setComingSoon('Appeler le support')}>
+            Appeler
+          </Button>
+          <Button size="sm" variant="secondary" icon={Mail} onClick={() => setComingSoon('Écrire au support')}>
+            E-mail
+          </Button>
+        </div>
+      </Sheet>
+
+      {/* ── Fonction bientôt disponible ── */}
+      <Sheet open={!!comingSoon} onClose={() => setComingSoon(null)} title={comingSoon ?? ''}>
+        <p className="mb-5 text-[15px] text-muted">Cette fonction sera bientôt disponible dans Venega.</p>
+        <Button variant="secondary" onClick={() => setComingSoon(null)}>
+          Fermer
+        </Button>
       </Sheet>
 
       {/* ── Déconnexion ── */}

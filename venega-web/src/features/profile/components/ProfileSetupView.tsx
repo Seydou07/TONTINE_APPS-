@@ -55,7 +55,7 @@ export function ProfileSetupView() {
         title="Votre profil"
         onBack={() => (window.history.length > 1 ? router.back() : router.replace('/dashboard'))}
       />
-      <ScreenBody>
+      <ScreenBody form>
         <p className="text-[15px] text-muted">Ces informations apparaissent auprès des membres de vos cercles.</p>
 
       <div className="relative mx-auto mt-6 w-fit">

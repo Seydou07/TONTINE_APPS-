@@ -7,6 +7,7 @@ import {
   AdhesionPaymentStatus,
   KycRequirement,
   KycStatus,
+  CircleType,
   MembershipRequestStatus,
   type Circle,
   type User,
@@ -19,6 +20,12 @@ import { useDemoStore } from '@/lib/demoStore';
 import { formatFcfa } from '@/lib/format';
 import { MobileMoneyCheckout } from '@/features/payment/components/MobileMoneyCheckout';
 import {
+  PaymentAmountCard,
+  PaymentHint,
+  PaymentSummaryCard,
+  PaymentSummaryRow,
+} from '@/features/payment/components/PaymentLayout';
+import {
   addMembershipRequest,
   buildConditionsText,
   computeAdhesionTotal,
@@ -26,8 +33,10 @@ import {
   computeRachat,
   getActiveCycle,
   getCircleByInvite,
+  getCircleMembers,
   getCirclePhase,
   getCurrentUser,
+  getMembershipRequests,
 } from '../../store';
 
 /*
@@ -63,6 +72,7 @@ export function JoinCircleView() {
   const [inviteCode, setInviteCode] = useState('');
   const [notFound, setNotFound] = useState(false);
   const [notActive, setNotActive] = useState(false);
+  const [searchError, setSearchError] = useState<string>();
   const [circle, setCircle] = useState<Circle | null>(null);
   const [conditionsAccepted, setConditionsAccepted] = useState(false);
   const [form, setForm] = useState({
@@ -92,10 +102,28 @@ export function JoinCircleView() {
     if (!inviteCode.trim()) return;
     const found = getCircleByInvite(inviteCode);
     setNotActive(false);
+    setSearchError(undefined);
     if (found) {
+      // Cagnotte d'aide : pas d'adhésion, on ouvre directement sa page de contribution.
+      if (found.type === CircleType.AID_APPEAL) {
+        router.replace(`/aid/${found.id}`);
+        return;
+      }
       if (!found.activatedAt) {
         setNotFound(false);
         setNotActive(true);
+        return;
+      }
+      if (getCircleMembers(found.id).some((m) => m.userId === me.id)) {
+        setNotFound(false);
+        setSearchError('Vous êtes déjà membre de ce cercle.');
+        return;
+      }
+      if (
+        getMembershipRequests(found.id).some((r) => r.userId === me.id && r.status === MembershipRequestStatus.PENDING)
+      ) {
+        setNotFound(false);
+        setSearchError('Votre demande pour ce cercle est déjà envoyée. Le fondateur doit encore la valider.');
         return;
       }
       setCircle(found);
@@ -220,7 +248,7 @@ export function JoinCircleView() {
         </div>
       )}
 
-      <ScreenBody>
+      <ScreenBody form>
         {/* ── Recherche par code ── */}
         {step === 'search' && (
           <form
@@ -252,13 +280,14 @@ export function JoinCircleView() {
               onChange={(e) => {
                 setInviteCode(e.target.value);
                 setNotFound(false);
+                setSearchError(undefined);
               }}
               error={
                 notFound
                   ? 'Aucun cercle ne correspond à ce code. Vérifiez-le auprès du fondateur.'
                   : notActive
                     ? "Ce cercle n'est pas encore activé par son fondateur. Réessayez plus tard."
-                    : undefined
+                    : searchError
               }
             />
             <button type="submit" hidden aria-hidden tabIndex={-1} />
@@ -396,24 +425,23 @@ export function JoinCircleView() {
         {/* ── Paiement de la place (parcours de paiement unique) ── */}
         {step === 'payment' && circle && (
           <div className="space-y-4">
-            <div className="rounded-[20px] bg-primary-tint px-5 py-5 text-center">
-              <p className="text-[13px] text-primary-dark">Montant à payer</p>
-              <p className="mt-1 text-[28px] font-bold leading-tight text-ink">{formatFcfa(total)}</p>
-              <p className="mt-0.5 text-[13px] text-muted">Adhésion · {circle.name}</p>
-            </div>
+            <PaymentAmountCard amount={total} sub={`Adhésion · ${circle.name}`} />
+            <PaymentSummaryCard>
+              <PaymentSummaryRow label="Cercle" value={circle.name} />
+              <PaymentSummaryRow label="Frais de rachat des tours passés" value={formatFcfa(rachat)} />
+              <PaymentSummaryRow label="Dépôt de garantie" value={formatFcfa(deposit)} />
+              <PaymentSummaryRow label="Numéro Mobile Money" value={me.phoneNumber} />
+              <PaymentSummaryRow label="Montant" value={formatFcfa(total)} strong last />
+            </PaymentSummaryCard>
+            <PaymentHint>Le montant est vérifié avant l&apos;approbation du fondateur.</PaymentHint>
             <MobileMoneyCheckout
               amount={total}
               phone={me.phoneNumber}
               title="Choisissez l'opérateur"
-              details={[
-                { label: 'Cercle', value: circle.name },
-                { label: 'Frais de rachat des tours passés', value: formatFcfa(rachat) },
-                { label: 'Dépôt de garantie', value: formatFcfa(deposit) },
-              ]}
+              summary={false}
               confirmDetail={`Adhésion · ${circle.name}`}
               onSuccess={onPaid}
             />
-            <p className="px-1 text-[13px] text-muted">Le montant est vérifié avant l&apos;approbation du fondateur.</p>
           </div>
         )}
 

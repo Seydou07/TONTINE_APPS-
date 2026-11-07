@@ -22,8 +22,14 @@ export function PublicAppealView({ data, renderedAt }: { data: PublicAppealData;
         <PublicHeader />
       </div>
 
-      <main className="mx-auto max-w-[560px] pb-32 sm:pt-4 md:pb-12">
-        <div className="h-[220px] overflow-hidden bg-primary-tint sm:rounded-[20px]">
+      {/*
+        Téléphone : une colonne (ordre de l'écran mobile). Ordinateur : photo, histoire et
+        contributeurs à gauche ; collecte et formulaire de contribution à droite.
+      */}
+      <main
+        className="mx-auto max-w-[560px] pb-32 sm:pt-4 md:pb-12 lg:grid lg:max-w-6xl lg:grid-cols-[minmax(0,1fr)_420px] lg:items-start lg:gap-x-10 lg:px-8 lg:pt-8 lg:[grid-template-areas:'p_b'_'h_d'_'c_d'_'e_d'_'f_d'_'g_g'] lg:[grid-template-rows:auto_auto_auto_auto_1fr_auto]"
+      >
+        <div className="h-[220px] overflow-hidden bg-primary-tint sm:rounded-[20px] lg:h-[320px] lg:[grid-area:p]">
           {appeal.beneficiaryPhoto ? (
             // Image distante (API) : <img> simple, sans dépendre des domaines autorisés de next/image.
             // eslint-disable-next-line @next/next/no-img-element
@@ -42,8 +48,7 @@ export function PublicAppealView({ data, renderedAt }: { data: PublicAppealData;
           )}
         </div>
 
-        <div className="space-y-6 px-4 pt-5">
-          <header>
+          <header className="px-4 pt-5 lg:px-0 lg:[grid-area:h]">
             <span
               className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold ${
                 active ? 'bg-primary-tint text-primary-dark' : 'bg-fill text-muted'
@@ -76,7 +81,7 @@ export function PublicAppealView({ data, renderedAt }: { data: PublicAppealData;
             shareUrl={publicAppealUrl(appeal.code)}
           />
 
-          <section className="rounded-[14px] bg-primary-tint p-4">
+          <section className="mx-4 mt-6 rounded-[14px] bg-primary-tint p-4 lg:mx-0 lg:[grid-area:f]">
             <div className="flex items-start gap-2.5">
               <ShieldCheck size={18} className="mt-px shrink-0 text-primary" aria-hidden />
               <p className="text-[13px] text-primary-dark">
@@ -93,13 +98,12 @@ export function PublicAppealView({ data, renderedAt }: { data: PublicAppealData;
             </a>
           </section>
 
-          <footer className="pt-2 text-center text-[13px] text-muted">
+          <footer className="mt-6 px-4 pt-2 text-center text-[13px] text-muted lg:[grid-area:g]">
             <Link href="/" className="font-semibold text-primary-dark hover:underline">
               Venega
             </Link>{' '}
             — tontine et caisse de solidarité.
           </footer>
-        </div>
       </main>
     </>
   );

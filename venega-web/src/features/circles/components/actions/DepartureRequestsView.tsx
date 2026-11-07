@@ -46,7 +46,7 @@ export function DepartureRequestsView({ circleId }: { circleId: string }) {
     return (
       <>
         <PageHeader title="Demandes de départ" onBack={() => router.back()} />
-        <ScreenBody>
+        <ScreenBody form>
           <CenteredState icon={HandCoins} tone="neutral" title="Cercle introuvable" />
         </ScreenBody>
       </>
@@ -79,7 +79,7 @@ export function DepartureRequestsView({ circleId }: { circleId: string }) {
   return (
     <>
       <PageHeader title="Demandes de départ" subtitle={circle.name} onBack={() => router.back()} />
-      <ScreenBody>
+      <ScreenBody form>
         <ChipGroup label="Filtrer les demandes">
           <Chip label={`En attente (${pending.length})`} selected={filter === 'pending'} onClick={() => setFilter('pending')} />
           <Chip label={`Toutes (${requests.length})`} selected={filter === 'all'} onClick={() => setFilter('all')} />

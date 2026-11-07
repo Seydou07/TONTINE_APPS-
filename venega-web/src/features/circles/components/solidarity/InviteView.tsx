@@ -52,7 +52,7 @@ export function InviteView({ circleId }: { circleId: string }) {
   return (
     <>
       <PageHeader title="Inviter un membre" subtitle={circle.name} onBack={() => router.back()} />
-      <ScreenBody>
+      <ScreenBody form>
         <div className="flex flex-col items-center px-2 pt-2 text-center">
           <span className="flex h-14 w-14 items-center justify-center rounded-full bg-primary-tint text-primary">
             <UserPlus size={24} strokeWidth={1.8} aria-hidden />

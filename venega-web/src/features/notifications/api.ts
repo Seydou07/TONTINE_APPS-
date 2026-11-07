@@ -73,6 +73,30 @@ const DEMO_NOTIFICATIONS: DemoNotification[] = [
   },
 ];
 
+// Démo : « tout lu » mémorisé dans le navigateur une fois la page Notifications ouverte.
+const SEEN_KEY = 'venega.notificationsSeen';
+
+function allSeen(): boolean {
+  try {
+    return localStorage.getItem(SEEN_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
 export function getNotifications(): DemoNotification[] {
-  return DEMO_NOTIFICATIONS.map((n) => ({ ...n }));
+  const seen = allSeen();
+  return DEMO_NOTIFICATIONS.map((n) => ({ ...n, read: n.read || seen }));
+}
+
+export function hasUnreadNotifications(): boolean {
+  return !allSeen() && DEMO_NOTIFICATIONS.some((n) => !n.read);
+}
+
+export function markNotificationsSeen(): void {
+  try {
+    localStorage.setItem(SEEN_KEY, '1');
+  } catch {
+    // stockage indisponible : la pastille restera affichée
+  }
 }

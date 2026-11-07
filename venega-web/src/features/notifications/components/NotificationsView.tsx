@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Bell, CheckCheck, CheckCircle2, Clock, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
@@ -8,7 +8,7 @@ import { Chip, ChipGroup } from '@/components/ui/choice';
 import { KeyValue } from '@/components/ui/blocks';
 import { Sheet } from '@/components/ui/Sheet';
 import { formatFcfa } from '@/lib/format';
-import { getNotifications, type DemoNotification } from '../api';
+import { getNotifications, markNotificationsSeen, type DemoNotification } from '../api';
 
 type Filter = 'ALL' | 'PAYMENTS' | 'REMINDERS';
 
@@ -18,6 +18,8 @@ export function NotificationsView() {
   const [notifications, setNotifications] = useState<DemoNotification[]>(getNotifications);
   const [filter, setFilter] = useState<Filter>('ALL');
   const [detail, setDetail] = useState<DemoNotification | null>(null);
+  // Ouvrir la page retire la pastille de la cloche (les nouvelles restent signalées pendant cette visite).
+  useEffect(() => markNotificationsSeen(), []);
 
   // TODO API: `PATCH /notifications/:id/read` (docs/api-mobile.md, section 8).
   const markAllAsRead = () => setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));

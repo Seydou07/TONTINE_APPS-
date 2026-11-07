@@ -11,7 +11,7 @@ interface PageHeaderProps {
   onBack?: () => void;
   backLabel?: string;
   right?: ReactNode;
-  width?: 'narrow' | 'default' | 'wide';
+  width?: keyof typeof WIDTHS;
 }
 
 /** En-tête blanc des pages de formulaire et de détail : retour + titre. */

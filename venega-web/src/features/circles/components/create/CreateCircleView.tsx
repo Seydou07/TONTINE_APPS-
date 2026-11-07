@@ -13,7 +13,7 @@ import { TextArea, TextField } from '@/components/ui/TextField';
 import { useDemoStore } from '@/lib/demoStore';
 import { formatFcfa } from '@/lib/format';
 import { PhotoPicker } from '@/features/aid/components/PhotoPicker';
-import { addCircle, CIRCLE_CREATION_FEE } from '../../store';
+import { addCircle, addFounderMembership, CIRCLE_CREATION_FEE } from '../../store';
 
 /*
  * Assistant de création d'un cercle (écran mobile CreateCircleScreen) en 4 étapes :
@@ -151,6 +151,7 @@ export function CreateCircleView() {
     const code = prefix + Math.floor(1000 + Math.random() * 9000).toString();
     const circle = buildCircle('c' + Date.now().toString(36), code);
     addCircle(circle);
+    addFounderMembership(circle);
     setCreatedCircle(circle);
   };
 
@@ -185,7 +186,7 @@ export function CreateCircleView() {
         ))}
       </div>
 
-      <ScreenBody>
+      <ScreenBody form>
         <div>
           <p className="text-[13px] font-semibold text-primary">{STEPS[step - 1]}</p>
 
@@ -582,7 +583,7 @@ function CreatedView({ circle, onDone }: { circle: Circle; onDone: () => void })
   };
 
   return (
-    <ScreenBody className="pt-8">
+    <ScreenBody form className="pt-8">
       <CenteredState icon={Check} title="Votre cercle est créé" text={circle.name} />
 
       <section className="rounded-[20px] border border-line bg-white p-5 text-center">

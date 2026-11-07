@@ -24,7 +24,6 @@ import {
   Role,
   TransactionStatus,
   TransactionType,
-  mockTransactions,
   mockUsers,
   type Membership,
   type Transaction,
@@ -37,6 +36,7 @@ import { ListGroup, ListRow } from '@/components/ui/ListRow';
 import { TransactionDetailSheet } from '@/components/ui/DetailSheets';
 import { useDemoStore } from '@/lib/demoStore';
 import {
+  computeTurnState,
   formatDueIn,
   getActiveCycle,
   getCircle,
@@ -44,13 +44,19 @@ import {
   getCurrentUser,
   getFounderCircleIds,
   getMembershipRequests,
+  getTransactions,
   getNextContribution,
   removeMember,
   setMemberTurnOrder,
 } from '../../store';
 import {
+  CircleBody,
+  CircleColumns,
   CircleTab,
   CircleTabBar,
+  gridList,
+  gridRow,
+  gridRowBody,
   HistoryFilterButton,
   OverviewSectionHeader,
   OverviewStack,
@@ -109,12 +115,18 @@ export function TontineView({ circleId }: { circleId: string }) {
   const [turnPickerMember, setTurnPickerMember] = useState<{ userId: string; name: string } | null>(null);
   const [memberToRemove, setMemberToRemove] = useState<{ userId: string; name: string } | null>(null);
 
+  const allTransactions = getTransactions(circleId);
   const transactions = useMemo(
     () =>
-      mockTransactions
-        .filter((t) => t.circleId === circleId)
+      allTransactions
+        // Une tontine n'affiche que ses cotisations et ses cagnottes (jamais d'opérations d'un autre type).
+        .filter(
+          (t) =>
+            t.circleId === circleId &&
+            (t.type === TransactionType.TONTINE_CONTRIBUTION || t.type === TransactionType.PAYOUT),
+        )
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
-    [circleId],
+    [allTransactions, circleId],
   );
 
   if (!circle) {
@@ -134,7 +146,7 @@ export function TontineView({ circleId }: { circleId: string }) {
   const goalItem = circle.rules?.goalItem?.trim() || undefined;
   const itemName = goalItem ?? 'Bien en nature';
   const membershipRequests = getMembershipRequests(circle.id);
-  const currentTurn = cycle?.currentTurn ?? 1;
+  const cycleTurn = Math.max(cycle?.currentTurn ?? 1, 1);
 
   const storedMembers = getCircleMembers(circle.id);
   // Données de démonstration : certains cercles fictifs (ex. la tontine moto) n'ont pas
@@ -151,22 +163,22 @@ export function TontineView({ circleId }: { circleId: string }) {
           joinedAt: circle.createdAt,
           user: u,
           reliabilityScore: 88,
-          hasReceivedPayout: idx + 1 < currentTurn,
+          hasReceivedPayout: idx + 1 < cycleTurn,
           hasDeposit: true,
         }));
   const members = [...memberSource].sort((a, b) => (a.turnOrder ?? 0) - (b.turnOrder ?? 0));
   const sortedMembers = [...members].sort((a, b) => Number(!isFounderRole(a.role)) - Number(!isFounderRole(b.role)));
   const pendingMembership = membershipRequests.filter((r) => r.status === MembershipRequestStatus.PENDING);
 
-  const completedContribByUser: Record<string, number> = {};
-  transactions.forEach((t) => {
-    if (t.type === TransactionType.TONTINE_CONTRIBUTION && t.status === TransactionStatus.COMPLETED) {
-      completedContribByUser[t.userId] = (completedContribByUser[t.userId] ?? 0) + 1;
-    }
-  });
-  const turnCompletedCount = members.filter((m) => (completedContribByUser[m.userId] ?? 0) >= currentTurn).length;
+  // Même règle que la gestion et le versement : bénéficiaire = premier membre pas encore servi,
+  // « a cotisé » = cotisation du tour en cours payée.
+  const turnState = computeTurnState(members, cycle);
+  const currentTurn = turnState.turn;
+  const turnCompletedCount = turnState.paidCount;
   const turnProgress = members.length > 0 ? turnCompletedCount / members.length : 0;
-  const turnBeneficiary = members.find((m) => m.turnOrder === currentTurn) ?? members.find((m) => !m.hasReceivedPayout);
+  const turnBeneficiary = turnState.beneficiary;
+  const myMembership = members.find((m) => m.userId === me.id);
+  const iHavePaid = myMembership?.paymentStatus === PaymentStatus.PAID;
   const turnPot = circle.tontineAmount * members.length;
 
   const monthsWithActivity = [...new Set(transactions.map((t) => monthKey(t.createdAt)))].sort((a, b) => a - b);
@@ -186,14 +198,17 @@ export function TontineView({ circleId }: { circleId: string }) {
   const openMember = (userId: string) => router.push(`/circles/${circle.id}/member/${userId}`);
   const memberName = (m: Membership) => `${m.user.firstName} ${m.user.lastName}`;
 
-  const getTurnNumber = (t: Transaction) => {
+  /** Numéro du tour d'une opération : toujours ≥ 1 (jamais « Tour 0 »), « — » s'il est inconnu. */
+  const getTurnNumber = (t: Transaction): number | '—' => {
     if (t.type === TransactionType.PAYOUT) {
-      return members.find((m) => m.userId === t.userId)?.turnOrder ?? '—';
+      const order = members.find((m) => m.userId === t.userId)?.turnOrder;
+      return order && order > 0 ? order : '—';
     }
     const sameUserContribs = transactions
       .filter((x) => x.type === TransactionType.TONTINE_CONTRIBUTION && x.userId === t.userId)
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-    return sameUserContribs.findIndex((x) => x.id === t.id) + 1;
+    const index = sameUserContribs.findIndex((x) => x.id === t.id);
+    return index >= 0 ? index + 1 : Math.max(currentTurn, 1);
   };
 
   const txLabel = (t: Transaction) => {
@@ -235,6 +250,7 @@ export function TontineView({ circleId }: { circleId: string }) {
         title={circle.name}
         subtitle={`${isNature ? 'Tontine en nature' : 'Tontine'} · Vous êtes ${isFounder ? 'fondateur' : 'membre'}`}
         backHref="/circles"
+        width="circle"
         right={
           isFounder ? (
             <button
@@ -262,9 +278,10 @@ export function TontineView({ circleId }: { circleId: string }) {
         {isFounder && <CircleTab label="Gestion" active={tab === 'gestion'} onClick={() => setTab('gestion')} />}
       </CircleTabBar>
 
-      <div className="mx-auto max-w-2xl px-4 pb-10 pt-4 sm:px-6">
+      <CircleBody>
         {tab === 'apercu' && (
-          <div>
+          <CircleColumns
+            aside={
             <OverviewStack>
               <OverviewSummaryCard
                 label={isNature ? `Bien du tour ${currentTurn}` : `Cagnotte du tour ${currentTurn}`}
@@ -323,9 +340,11 @@ export function TontineView({ circleId }: { circleId: string }) {
                 </section>
               )}
             </OverviewStack>
-
+            }
+          >
             <OverviewSectionHeader
               title="Historique"
+              className="lg:mt-0"
               right={
                 monthsWithActivity.length > 1 ? (
                   <HistoryFilterButton
@@ -409,11 +428,12 @@ export function TontineView({ circleId }: { circleId: string }) {
                 Voir plus
               </button>
             )}
-          </div>
+          </CircleColumns>
         )}
 
         {tab === 'tour' && (
-          <div>
+          <CircleColumns
+            aside={
             <RotationWheel
               title="Tour en cours"
               members={members.map((m) => ({
@@ -433,15 +453,20 @@ export function TontineView({ circleId }: { circleId: string }) {
               {nextDueDays != null && (
                 <p className="text-center text-[13px] text-muted">Prochaine cotisation {formatDueIn(nextDueDays)}</p>
               )}
-              <Button onClick={() => router.push(payHref)}>Payer {formatXOF(circle.tontineAmount)}</Button>
+              {myMembership && (
+                <Button disabled={iHavePaid} onClick={() => router.push(payHref)}>
+                  {iHavePaid ? 'Cotisation du tour payée' : `Payer ${formatXOF(circle.tontineAmount)}`}
+                </Button>
+              )}
               {isFounder && (
                 <Button variant="secondary" onClick={() => router.push(`/circles/${circle.id}/payout`)}>
                   {isNature ? 'Remettre le bien' : 'Verser la cagnotte'}
                 </Button>
               )}
             </RotationWheel>
-
-            <h2 className={`${groupTitle} mt-6`}>Ordre de passage</h2>
+            }
+          >
+            <h2 className={`${groupTitle} mt-6 lg:mt-0`}>Ordre de passage</h2>
             <div className="overflow-hidden rounded-[20px] border border-line bg-white">
               {members.map((m, idx) => {
                 const isCurrent = m.userId === turnBeneficiary?.userId;
@@ -472,13 +497,13 @@ export function TontineView({ circleId }: { circleId: string }) {
                 );
               })}
             </div>
-          </div>
+          </CircleColumns>
         )}
 
         {tab === 'membres' && (
           <div>
             <h2 className={groupTitle}>{sortedMembers.length} membre(s)</h2>
-            <div className="overflow-hidden rounded-[20px] border border-line bg-white">
+            <div className={gridList}>
               {sortedMembers.map((m, idx) => {
                 const fullName = memberName(m);
                 return (
@@ -487,10 +512,10 @@ export function TontineView({ circleId }: { circleId: string }) {
                     type="button"
                     onClick={() => openMember(m.userId)}
                     aria-label={`Voir le profil de ${fullName}`}
-                    className={rowBase}
+                    className={`${rowBase} ${gridRow}`}
                   >
                     <Avatar name={fullName} uri={m.user.avatarUrl} size={40} />
-                    <span className={rowBody(idx < sortedMembers.length - 1)}>
+                    <span className={`${rowBody(idx < sortedMembers.length - 1)} ${gridRowBody}`}>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[15px] font-semibold text-ink">
                           {fullName}
@@ -520,16 +545,16 @@ export function TontineView({ circleId }: { circleId: string }) {
             {pendingMembership.length === 0 ? (
               <EmptyBlock icon={UserPlus} title="Aucune demande" text="Aucune demande d'adhésion en attente." />
             ) : (
-              <div className="overflow-hidden rounded-[20px] border border-line bg-white">
+              <div className={gridList}>
                 {pendingMembership.map((r, idx) => (
                   <Link
                     key={r.id}
                     href={`/circles/${circle.id}/requests?requestId=${r.id}`}
                     aria-label={`Voir le dossier de ${r.fullName}`}
-                    className={rowBase}
+                    className={`${rowBase} ${gridRow}`}
                   >
                     <Avatar name={r.fullName} uri={r.user?.avatarUrl} size={40} />
-                    <span className={rowBody(idx < pendingMembership.length - 1)}>
+                    <span className={`${rowBody(idx < pendingMembership.length - 1)} ${gridRowBody}`}>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[15px] font-semibold text-ink">{r.fullName}</span>
                         <span className="mt-0.5 block text-[13px] text-muted">Demande du {formatShortDate(r.createdAt)}</span>
@@ -547,7 +572,7 @@ export function TontineView({ circleId }: { circleId: string }) {
         {tab === 'gestion' && isFounder && (
           <div>
             <h2 className={groupTitle}>Gestion des membres</h2>
-            <div className="space-y-2.5">
+            <div className="grid gap-2.5 lg:grid-cols-2 lg:gap-3">
               {sortedMembers.map((m) => {
                 const fullName = memberName(m);
                 return (
@@ -586,7 +611,7 @@ export function TontineView({ circleId }: { circleId: string }) {
                 );
               })}
             </div>
-            <ListGroup title="Paramètres" className="mt-6">
+            <ListGroup title="Paramètres" className="mt-6 lg:max-w-md">
               <ListRow
                 icon={Settings2}
                 tone="primary"
@@ -597,7 +622,7 @@ export function TontineView({ circleId }: { circleId: string }) {
             </ListGroup>
           </div>
         )}
-      </div>
+      </CircleBody>
 
       {/* ── Menu fondateur ── */}
       <Sheet open={showFounderMenu} onClose={() => setShowFounderMenu(false)} title="Options du cercle">

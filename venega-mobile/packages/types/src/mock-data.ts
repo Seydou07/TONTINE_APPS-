@@ -667,8 +667,7 @@ export const mockAidContributions: AidContribution[] = Array.from({ length: 40 }
     PaymentMethod.ORANGE_MONEY,
     PaymentMethod.MOOV_MONEY,
     PaymentMethod.WAVE,
-    PaymentMethod.MTN_MOBILE_MONEY,
-  ][i % 4]!;
+  ][i % 3]!;
   return {
     id: `ac${i + 1}`,
     appealId: 'aa1',
