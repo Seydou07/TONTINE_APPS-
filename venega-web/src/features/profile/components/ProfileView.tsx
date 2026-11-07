@@ -31,7 +31,6 @@ import { logout as endSession } from '@/features/auth/api';
 import { formatPhone } from '@/features/auth/validation';
 import { getCircles, getCurrentUser } from '@/features/circles/store';
 import { getProfile } from '../store';
-import { version as appVersion } from '../../../../package.json';
 
 /** Hauteur dont la carte des chiffres clés chevauche le bandeau vert. */
 const STATS_OVERLAP = 36;
@@ -192,7 +191,7 @@ export function ProfileView() {
           <ListRow icon={LogOut} tone="danger" title="Se déconnecter" chevron={false} onClick={() => setLogoutSheet(true)} last />
         </ListGroup>
 
-        <p className="text-center text-[13px] text-subtle">Venega · version {appVersion}</p>
+        <p className="text-center text-[13px] text-subtle">Venega · version {process.env.NEXT_PUBLIC_APP_VERSION}</p>
       </div>
 
       {/* ── Numéro mobile money ── */}
