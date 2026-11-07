@@ -1,0 +1,270 @@
+/* ========================================================================
+ * Page d'accueil publique — animations.
+ * Uniquement transform / opacity. Tout est visible sans JavaScript :
+ * sans JavaScript, une règle <noscript> annule l'état masqué ;
+ * et une sécurité ré-affiche le contenu si l'hydratation n'arrive pas.
+ * ======================================================================== */
+
+/* ── Apparition au défilement ── */
+[data-reveal] {
+  opacity: 0;
+  transform: translate3d(0, 28px, 0);
+  transition:
+    opacity 700ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--lp-delay, 0ms);
+}
+[data-reveal='left'] {
+  transform: translate3d(-32px, 0, 0);
+}
+[data-reveal='right'] {
+  transform: translate3d(32px, 0, 0);
+}
+[data-reveal='zoom'] {
+  transform: scale(0.94);
+}
+[data-reveal][data-shown] {
+  opacity: 1;
+  transform: none;
+}
+
+/* Sécurité : si le JavaScript de la page ne s'exécute pas, tout réapparaît. */
+html:not(.lp-hydrated) [data-reveal] {
+  animation: lp-failsafe 1ms 3s forwards;
+}
+@keyframes lp-failsafe {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── Héros : titre en cascade (CSS seul, sans JS) ── */
+.lp-rise {
+  animation: lp-rise 800ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--lp-delay, 0ms);
+}
+@keyframes lp-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 26px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.lp-phone-in {
+  animation: lp-phone-in 1100ms cubic-bezier(0.22, 1, 0.36, 1) 250ms both;
+}
+@keyframes lp-phone-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 60px, 0) rotate(4deg);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Légère flottaison des cartes autour du téléphone */
+.lp-float {
+  animation: lp-float 6s ease-in-out infinite;
+}
+.lp-float-slow {
+  animation: lp-float 8s ease-in-out -3s infinite;
+}
+@keyframes lp-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -10px, 0);
+  }
+}
+
+/* Cercles décoratifs du héros */
+.lp-orbit {
+  animation: lp-spin 60s linear infinite;
+}
+.lp-orbit-rev {
+  animation: lp-spin 90s linear infinite reverse;
+}
+@keyframes lp-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Halo du bénéficiaire (comme l'app) */
+.lp-halo {
+  animation: lp-halo 2.2s ease-out infinite;
+}
+@keyframes lp-halo {
+  from {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.45);
+  }
+}
+
+/* Appui simulé sur un bouton */
+.lp-press {
+  animation: lp-press 600ms ease-in-out;
+}
+@keyframes lp-press {
+  40% {
+    transform: scale(0.95);
+  }
+}
+
+/* Écran de démonstration qui entre (changement d'étape) */
+.lp-screen-in {
+  animation: lp-screen-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes lp-screen-in {
+  from {
+    opacity: 0;
+    transform: translate3d(24px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Élément de liste qui arrive (dons, cotisations) */
+.lp-pop {
+  animation: lp-pop 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes lp-pop {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -12px, 0) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Barre de progression : largeur fixe, remplissage par scaleX */
+.lp-bar {
+  transform-origin: left center;
+  transition: transform 1200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Minuteur d'une étape (barre sous l'étape active) */
+.lp-timer {
+  transform-origin: left center;
+  animation-name: lp-timer;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+}
+@keyframes lp-timer {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* Défilement continu des opérateurs */
+.lp-marquee {
+  animation: lp-marquee 28s linear infinite;
+}
+@keyframes lp-marquee {
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+/* Pièce qui circule (membres → opérateur → bénéficiaire) */
+.lp-flow {
+  animation: lp-flow 2.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+@keyframes lp-flow {
+  0% {
+    transform: translateX(0);
+    opacity: 0;
+  }
+  15%,
+  85% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+/* Saisie du code secret (points qui apparaissent) */
+.lp-type {
+  animation: lp-type 2.8s ease-in-out infinite;
+}
+@keyframes lp-type {
+  0%,
+  10% {
+    opacity: 0.12;
+  }
+  20%,
+  80% {
+    opacity: 1;
+  }
+  95%,
+  100% {
+    opacity: 0.12;
+  }
+}
+
+/* Point « en direct » */
+.lp-blink {
+  animation: lp-blink 1.6s ease-in-out infinite;
+}
+@keyframes lp-blink {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+/* ── Mouvement réduit : tout est affiché, rien ne bouge ── */
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal],
+  html:not(.lp-hydrated) [data-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+    animation: none !important;
+  }
+  .lp-rise,
+  .lp-phone-in,
+  .lp-float,
+  .lp-float-slow,
+  .lp-orbit,
+  .lp-orbit-rev,
+  .lp-halo,
+  .lp-press,
+  .lp-screen-in,
+  .lp-pop,
+  .lp-marquee,
+  .lp-blink,
+  .lp-flow,
+  .lp-type {
+    animation: none !important;
+  }
+  .lp-timer {
+    display: none;
+  }
+  .lp-bar,
+  .lp-wheel,
+  .lp-wheel-item {
+    transition: none !important;
+  }
+}
