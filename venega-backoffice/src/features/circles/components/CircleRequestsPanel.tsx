@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Button, Card, CardHeader, EmptyState, ReasonDialog, Table, Td, Th, Tr } from '@/components/ui';
+import { Button, Card, CardHeader, EmptyState, ReasonDialog, Table, Td, Th, Tr, ACTIONS_CELL } from '@/components/ui';
 import { formatDateTime, formatPhone, formatXOF } from '@/lib/format';
 import { useAdminMutation } from '@/lib/useAdminMutation';
 import { useCan } from '@/features/auth/SessionContext';
@@ -23,7 +23,7 @@ export function CircleRequestsPanel({ c }: { c: CircleDetail }) {
   const [pending, setPending] = useState<{ r: CircleRequest; d: RequestDecision } | null>(null);
   const mutation = useAdminMutation({
     mutationFn: (v: { id: string; d: RequestDecision; reason: string }) => decideRequest(v.id, v.d, v.reason),
-    successTitle: (r) => `${REQUEST_TYPE_LABEL[r.type]} de ${r.userName} traitée`,
+    successTitle: (r) => `${REQUEST_TYPE_LABEL[r.type]} de ${r.userName} : demande traitée`,
     onSuccess: () => setPending(null),
   });
 
@@ -75,7 +75,7 @@ export function CircleRequestsPanel({ c }: { c: CircleDetail }) {
                 <Td>
                   <RequestStatusBadge status={r.status} contested={r.contested} />
                 </Td>
-                <Td className="whitespace-nowrap text-right">
+                <Td className={`whitespace-nowrap text-right ${ACTIONS_CELL}`}>
                   {can('circle.requests') && (
                     <span className="inline-flex gap-1.5">
                       {r.status === 'PENDING' && (

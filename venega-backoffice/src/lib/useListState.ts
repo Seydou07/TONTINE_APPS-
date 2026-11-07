@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { DEFAULT_PAGE_SIZE, type ListParams } from './list';
 
 /**
@@ -24,6 +24,21 @@ export function useListState<F extends string>(
     }, 250);
     return () => clearTimeout(t);
   }, [search]);
+
+  // Navigation vers la même page avec d'autres paramètres d'URL (recherche Ctrl+K, lien
+  // « Ouvrir dans la file KYC », menu latéral) : le composant n'est pas remonté, on
+  // réapplique donc le filtre et la recherche venus de l'URL.
+  const mounted = useRef(false);
+  useEffect(() => {
+    if (!mounted.current) {
+      mounted.current = true;
+      return;
+    }
+    setStatusRaw(initialStatus);
+    setSearch(initialSearch);
+    setQ(initialSearch.trim());
+    setPage(1);
+  }, [initialStatus, initialSearch]);
 
   const setStatus = (s: F | 'ALL') => {
     setStatusRaw(s);

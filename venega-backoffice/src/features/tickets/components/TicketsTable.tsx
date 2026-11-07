@@ -17,14 +17,14 @@ export function TicketsTable({ items, onOpen, compact }: { items: Ticket[]; onOp
           <Th>Priorité</Th>
           <Th>Statut</Th>
           <Th>Assigné à</Th>
-          <Th>Mis à jour</Th>
+          {!compact && <Th>Mis à jour</Th>}
         </tr>
       </thead>
       <tbody>
         {items.map((t) => (
           <Tr key={t.id} onClick={() => onOpen(t.id)}>
             <Td className="whitespace-nowrap font-mono text-sm">{t.number}</Td>
-            <Td className="max-w-[320px]">
+            <Td className={compact ? "max-w-[200px]" : "max-w-[320px]"}>
               <p className="truncate font-medium">{TICKET_CATEGORY_LABEL[t.category]}</p>
               <p className="truncate text-sm text-ink-muted">{t.description}</p>
             </Td>
@@ -40,8 +40,11 @@ export function TicketsTable({ items, onOpen, compact }: { items: Ticket[]; onOp
             <Td>
               <TicketStatusBadge status={t.status} />
             </Td>
-            <Td className="whitespace-nowrap text-sm">{t.assignee ?? <span className="text-accent-ink">Non assigné</span>}</Td>
-            <Td className="whitespace-nowrap text-sm text-ink-soft">{formatRelative(t.updatedAt)}</Td>
+            <Td className="whitespace-nowrap text-sm">
+              {t.assignee ?? <span className="text-accent-ink">Non assigné</span>}
+              {compact && <span className="block text-xs text-ink-muted">{formatRelative(t.updatedAt)}</span>}
+            </Td>
+            {!compact && <Td className="whitespace-nowrap text-sm text-ink-soft">{formatRelative(t.updatedAt)}</Td>}
           </Tr>
         ))}
       </tbody>

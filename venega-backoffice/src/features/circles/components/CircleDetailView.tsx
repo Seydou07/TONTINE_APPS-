@@ -202,7 +202,11 @@ function FreezeDialog({ c, onClose }: { c: CircleDetail; onClose: () => void }) 
 }
 
 function TransferFounderDialog({ c, onClose }: { c: CircleDetail; onClose: () => void }) {
-  const candidates = c.members.filter((m) => m.status === 'ACTIVE' && m.userId !== c.founderId);
+  // Comptes suspendus exclus (l'API les refuse) ; membres au KYC vérifié et sans retard proposés en premier.
+  const acc = (id: string) => c.memberAccounts?.[id] ?? { suspended: false, kycVerified: false };
+  const candidates = c.members
+    .filter((m) => m.status === 'ACTIVE' && m.userId !== c.founderId && !acc(m.userId).suspended)
+    .sort((a, b) => Number(acc(b.userId).kycVerified) - Number(acc(a.userId).kycVerified) || a.lateCount - b.lateCount);
   const [to, setTo] = useState(candidates[0]?.userId ?? '');
   const label = roleLabel('PRESIDENT', c.kind).toLowerCase();
   const mutation = useAdminMutation({
@@ -222,13 +226,15 @@ function TransferFounderDialog({ c, onClose }: { c: CircleDetail; onClose: () =>
             {c.founderName} perd ses droits de gestion (versements, demandes, ordre de passage). Tous les membres sont prévenus. Choisissez de préférence un membre au KYC vérifié, avec
             l’accord du groupe.
           </p>
+          {candidates.length === 0 && <Notice tone="red">Aucun membre actif, non suspendu, ne peut reprendre le rôle.</Notice>}
           <FormField label={`Nouveau ou nouvelle ${label}`}>
             {(id) => (
               <Select id={id} value={to} onChange={(e) => setTo(e.target.value)}>
                 {candidates.map((m) => (
                   <option key={m.userId} value={m.userId}>
                     {m.name}
-                    {m.lateCount > 0 ? ` (${m.lateCount} retard)` : ''}
+                    {acc(m.userId).kycVerified ? ' · KYC vérifié' : ' · KYC non vérifié'}
+                    {m.lateCount > 0 ? ` · ${m.lateCount} retard(s)` : ''}
                   </option>
                 ))}
               </Select>
@@ -247,7 +253,7 @@ function TransferFounderDialog({ c, onClose }: { c: CircleDetail; onClose: () =>
 
 function Timeline({ c }: { c: CircleDetail }) {
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_420px]">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_420px]">
       <Card>
         <CardHeader title="Chronologie du cercle" subtitle="Tout ce qui s’est passé, du plus récent au plus ancien." />
         {c.events.length === 0 ? (
@@ -287,7 +293,7 @@ function CircleSupport({ c }: { c: CircleDetail }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const query = useQuery({ queryKey: ['tickets', 'circle', c.id], queryFn: () => listTickets({ circleId: c.id, status: 'ALL', page: 1, pageSize: 50 }) });
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
       <div className="space-y-4">
         <Card>
           <CardHeader title="Tickets liés à ce cercle" />

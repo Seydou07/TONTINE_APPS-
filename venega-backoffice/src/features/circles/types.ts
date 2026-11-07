@@ -185,6 +185,8 @@ export interface CircleDetail extends AdminCircle {
   events: CircleEvent[];
   solidarityRequests: SolidarityRequest[];
   ledger: LedgerEntry[];
+  /** État du compte de chaque membre (choix d'un nouveau responsable). */
+  memberAccounts: Record<string, { suspended: boolean; kycVerified: boolean }>;
 }
 
 export const CIRCLE_KIND_LABEL: Record<CircleKind, string> = {

@@ -67,7 +67,7 @@ Le back-office (`venega-backoffice`) fonctionne aujourd'hui sur des données sim
 |---|---|
 | `GET /circles?type=&status=&late=true&overduePayout=true&q=&page=&pageSize=` — filtres : type, avec retards, versement en retard, demandes en attente, solidarité bloquée, gelés | tous |
 | `GET /circles/counts` | tous |
-| `GET /circles/:id` (+ `/contributions` grille membres × tours, `/payouts`, `/requests`, `/turn-order-history`, `/events`, `/solidarity`) | tous |
+| `GET /circles/:id` (+ `/contributions` grille membres × tours, `/payouts`, `/requests`, `/turn-order-history`, `/events`, `/solidarity`) — chaque membre porte aussi `accountSuspended` et `kycVerified` (choix d’un nouveau responsable) | tous |
 | `GET /requests?type=&status=&userId=` | tous |
 | `POST /circles/:id/freeze` `{ reason }`, `POST /circles/:id/unfreeze` `{ reason }` | SUPER_ADMIN, SUPPORT |
 | `POST /circles/:id/transfer-founder` `{ newFounderUserId, reason }` — membre actif, compte non suspendu | SUPER_ADMIN, SUPPORT |

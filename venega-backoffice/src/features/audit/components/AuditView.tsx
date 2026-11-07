@@ -54,7 +54,7 @@ export function AuditView() {
     <>
       <PageHeader
         title="Journal d’audit"
-        description="Qui a fait quoi, quand, sur quoi, avec quel motif, et l’état avant / après. Les lignes « Local » n’existent que dans ce navigateur."
+        description="Qui a fait quoi, quand, sur quoi, avec quel motif, et l’état avant / après. Les lignes « Local » n’existent que dans cet onglet et disparaissent au rechargement de la page."
       />
       {!allowed ? (
         <Notice tone="amber">Le journal complet est réservé au super admin. L’historique de chaque utilisateur et de chaque cercle reste visible dans sa fiche.</Notice>

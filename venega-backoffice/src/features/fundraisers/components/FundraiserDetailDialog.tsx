@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Ban, Check, Copy, ExternalLink, Flag, Headphones, Lock, RotateCcw, Snowflake, Sun } from 'lucide-react';
 import { Badge, Button, Dialog, Field, Notice, ProgressBar, ReasonDialog } from '@/components/ui';
@@ -65,8 +65,12 @@ const REASON_PRESETS: Record<'SUSPEND' | 'CLOSE', string[]> = {
   CLOSE: ['Objectif atteint', 'Demande de l’organisateur', 'Fraude avérée', 'Cagnotte en double'],
 };
 
-export function FundraiserDetailDialog({ fundraiser, onClose }: { fundraiser: Fundraiser | null; onClose: () => void }) {
+export function FundraiserDetailDialog({ fundraiser: initial, onClose }: { fundraiser: Fundraiser | null; onClose: () => void }) {
   const can = useCan();
+  // Copie locale mise à jour après chaque action : la fiche reste ouverte pour enchaîner
+  // (ex. geler les retraits puis suspendre une cagnotte signalée).
+  const [fundraiser, setFundraiser] = useState<Fundraiser | null>(initial);
+  useEffect(() => setFundraiser(initial), [initial]);
   const [pending, setPending] = useState<FundraiserAction | null>(null);
   const [freezing, setFreezing] = useState(false);
   const [ticket, setTicket] = useState(false);
@@ -75,19 +79,20 @@ export function FundraiserDetailDialog({ fundraiser, onClose }: { fundraiser: Fu
   const freeze = useAdminMutation({
     mutationFn: (reason: string) => setWithdrawalsFrozen(fundraiser!.id, !fundraiser!.withdrawalsFrozen, reason),
     successTitle: (f) => (f.withdrawalsFrozen ? 'Retraits gelés' : 'Retraits de nouveau autorisés'),
-    onSuccess: () => {
+    onSuccess: (f) => {
       setFreezing(false);
-      onClose();
+      setFundraiser(f);
     },
   });
 
   const mutation = useAdminMutation({
     mutationFn: (v: { action: FundraiserAction; reason?: string }) => moderateFundraiser(fundraiser!.id, v.action, v.reason),
     invalidate: ['fundraisers'],
-    successTitle: (f, v) => `« ${f.title} » : ${ACTION_UI[v.action].label.toLowerCase()} effectué`,
-    onSuccess: () => {
+    successTitle: (f, v) =>
+      `« ${f.title} » ${({ ACTIVATE: 'activée', REACTIVATE: 'réactivée', SUSPEND: 'suspendue', CLOSE: 'clôturée' } as const)[v.action]}`,
+    onSuccess: (f) => {
       setPending(null);
-      onClose();
+      setFundraiser(f);
     },
   });
 

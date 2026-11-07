@@ -73,7 +73,7 @@ export async function globalSearch(q: string): Promise<SearchResult[]> {
         .map((f): SearchResult => ({ kind: 'fundraiser', id: f.id, title: f.title, subtitle: `Cagnotte ${f.code} · ${f.organizerName}`, href: `/cagnottes?q=${encodeURIComponent(f.code)}` }));
 
   const tickets = db.tickets
-    .filter((t) => (phone ? !!t.callerPhone && phoneMatches(query, t.callerPhone) : exact(t.number) || (/^t-?\d+$/i.test(query) && matchesQuery(query, t.number))))
+    .filter((t) => (phone ? !!t.callerPhone && phoneMatches(query, t.callerPhone) : exact(t.number) || (/^t[-\s]?\d+$/i.test(query) && t.number.replace(/\D/g, '').includes(query.replace(/\D/g, '')))))
     .slice(0, LIMIT)
     .map((t): SearchResult => ({
       kind: 'ticket', id: t.id, title: `${t.number} · ${t.userName ?? t.circleName ?? 'Appel'}`,

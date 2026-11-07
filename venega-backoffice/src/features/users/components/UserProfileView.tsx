@@ -97,7 +97,7 @@ export function UserProfileView({ id }: { id: string }) {
             <span className="font-mono">{u.id}</span>
           </div>
         </div>
-        <Button icon={<Headphones size={16} />} onClick={() => setCreatingTicket(true)}>
+        <Button icon={<Headphones size={16} />} onClick={() => setCreatingTicket(true)} className="w-full sm:w-auto">
           Créer un ticket
         </Button>
       </div>
@@ -177,7 +177,7 @@ function Overview({ d }: { d: UserDetail }) {
       ]
     : [];
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
       <div className="space-y-4">
         <Card>
           <CardHeader title="Identité" />
@@ -577,7 +577,7 @@ function UserSupport({ d }: { d: UserDetail }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const query = useQuery({ queryKey: ['tickets', 'user', d.user.id], queryFn: () => listTickets({ userId: d.user.id, status: 'ALL', page: 1, pageSize: 50 }) });
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
       <Card>
         <CardHeader title="Tickets" />
         {query.isLoading ? <LoadingState /> : !query.data?.items.length ? <EmptyState title="Aucun ticket" /> : <TicketsTable items={query.data.items} onOpen={setOpenId} compact />}

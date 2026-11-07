@@ -9,10 +9,12 @@
  */
 import { db, clone, latency, newId, refreshCircle } from '@/mocks/db';
 import { matchesQuery, paginate, type ListParams, type Paginated } from '@/lib/list';
-import { formatXOF } from '@/lib/format';
+import { formatPhone, formatXOF } from '@/lib/format';
 import { assertCan, currentActorName } from '@/features/auth/api';
 import { recordLocalAction } from '@/features/audit/api';
 import {
+  PAYOUT_STATUS_LABEL,
+  SOLIDARITY_STATUS_LABEL,
   CIRCLE_STATUS_LABEL,
   REQUEST_TYPE_LABEL,
   roleLabel,
@@ -90,6 +92,12 @@ export async function getCircle(id: string): Promise<CircleDetail | null> {
     events: db.circleEvents.filter((x) => x.circleId === id).sort((a, b) => b.at.localeCompare(a.at)),
     solidarityRequests: db.solidarityRequests.filter((x) => x.circleId === id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     ledger: db.ledger.filter((x) => x.circleId === id).sort((a, b) => b.at.localeCompare(a.at)),
+    memberAccounts: Object.fromEntries(
+      c.members.map((m) => {
+        const u = db.users.find((x) => x.id === m.userId);
+        return [m.userId, { suspended: u?.accountStatus === 'SUSPENDED', kycVerified: u?.kycStatus === 'VERIFIED' }];
+      }),
+    ),
   };
   return clone(detail);
 }
@@ -345,7 +353,7 @@ export async function solidarityAction(requestId: string, action: SolidarityActi
   refreshCircle(c.id);
   const label = action === 'DISBURSE' ? 'Aide décaissée par Venega' : action === 'CLOSE_VOTE_APPROVE' ? 'Vote clôturé par Venega : aide approuvée' : 'Vote clôturé par Venega : aide refusée';
   event(c.id, { label, detail: `${r.userName} · ${formatXOF(r.amount)}. Motif : ${clean}`, tone: action === 'CLOSE_VOTE_REJECT' ? 'neutral' : 'green' });
-  recordLocalAction({ action: label, targetType: 'circle', targetId: c.id, targetLabel: c.name, reason: clean, before, after: r.status, relatedIds: [r.userId], detail: `${r.userName} · ${formatXOF(r.amount)}` });
+  recordLocalAction({ action: label, targetType: 'circle', targetId: c.id, targetLabel: c.name, reason: clean, before: SOLIDARITY_STATUS_LABEL[before], after: SOLIDARITY_STATUS_LABEL[r.status], relatedIds: [r.userId], detail: `${r.userName} · ${formatXOF(r.amount)}` });
   return clone(r);
 }
 
@@ -384,7 +392,7 @@ export async function payoutAction(payoutId: string, action: PayoutAction, reaso
   event(c.id, { label, detail: `${p.beneficiaryName} · ${formatXOF(p.amount)}. Motif : ${clean}`, tone: 'amber' });
   recordLocalAction({
     action: label, targetType: 'circle', targetId: c.id, targetLabel: c.name, reason: clean,
-    before: `${before}${destination && destination !== beforeDest ? ` · ${beforeDest}` : ''}`, after: `En cours · ${p.destination}`,
+    before: `${PAYOUT_STATUS_LABEL[before]}${destination && destination !== beforeDest ? ` · ${formatPhone(beforeDest)}` : ''}`, after: `En cours · ${formatPhone(p.destination)}`,
     relatedIds: [p.beneficiaryId, pay.id],
   });
   return clone(p);

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { AlertCircle, Check, Clock, RefreshCw, Send } from 'lucide-react';
-import { Button, Card, CardHeader, EmptyState, FormField, Notice, ReasonDialog, Table, Td, TextInput, Th, Tr } from '@/components/ui';
+import { Button, Card, CardHeader, EmptyState, FormField, Notice, ReasonDialog, Table, Td, TextInput, Th, Tr, ACTIONS_CELL } from '@/components/ui';
 import { cn } from '@/lib/cn';
 import { formatDate, formatPhone, formatXOF, daysSince } from '@/lib/format';
 import { toE164BF } from '@/lib/phone';
@@ -44,6 +44,7 @@ export const isPayoutOverdue = (p: Payout) => p.status === 'FAILED' || (p.status
 export function ContributionGrid({ c }: { c: CircleDetail }) {
   const can = useCan();
   const isSolidarity = c.kind === 'SOLIDARITY';
+  const frozen = c.status === 'FROZEN';
   const turns = [...new Set(c.contributions.map((x) => x.turn))].sort((a, b) => a - b);
   const members = [...c.members].sort((a, b) => (a.turnOrder ?? 99) - (b.turnOrder ?? 99) || a.name.localeCompare(b.name));
   const cellOf = (userId: string, turn: number) => c.contributions.find((x) => x.userId === userId && x.turn === turn);
@@ -200,14 +201,14 @@ export function ContributionGrid({ c }: { c: CircleDetail }) {
                       <Td className="whitespace-nowrap text-sm text-ink-soft">
                         {p.paidAt ? `versé le ${formatDate(p.paidAt)}` : p.status === 'WAITING' ? `échéance ${formatDate(p.dueDate)}` : `attendu depuis ${daysSince(p.dueDate)} j`}
                       </Td>
-                      <Td className="whitespace-nowrap text-right">
+                      <Td className={`whitespace-nowrap text-right ${ACTIONS_CELL}`}>
                         {can('payout.manage') && p.status === 'FAILED' && (
-                          <Button size="sm" icon={<RefreshCw size={14} />} onClick={() => setPending({ payout: p, action: 'RETRY' })}>
+                          <Button size="sm" icon={<RefreshCw size={14} />} disabled={frozen} title={frozen ? 'Cercle gelé : dégelez-le avant de verser' : undefined} onClick={() => setPending({ payout: p, action: 'RETRY' })}>
                             Relancer
                           </Button>
                         )}
                         {can('payout.manage') && p.status === 'READY' && overdue && (
-                          <Button size="sm" icon={<Send size={14} />} onClick={() => setPending({ payout: p, action: 'FORCE' })}>
+                          <Button size="sm" icon={<Send size={14} />} disabled={frozen} title={frozen ? 'Cercle gelé : dégelez-le avant de verser' : undefined} onClick={() => setPending({ payout: p, action: 'FORCE' })}>
                             Verser
                           </Button>
                         )}

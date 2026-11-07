@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Button, ReasonDialog, Table, Td, Th, Tr } from '@/components/ui';
+import { Button, ReasonDialog, Table, Td, Th, Tr, ACTIONS_CELL } from '@/components/ui';
 import { formatDateTime, formatPhone, formatXOF } from '@/lib/format';
 import { useAdminMutation } from '@/lib/useAdminMutation';
 import { useCan } from '@/features/auth/SessionContext';
@@ -74,7 +74,7 @@ export function RefundsTable({ items }: { items: Refund[] }) {
               <Td>
                 <RefundStatusBadge status={r.status} />
               </Td>
-              <Td className="whitespace-nowrap text-right">
+              <Td className={`whitespace-nowrap text-right ${ACTIONS_CELL}`}>
                 {can('refund.decide') && (
                   <span className="inline-flex gap-1.5">
                     {r.status === 'REQUESTED' && (

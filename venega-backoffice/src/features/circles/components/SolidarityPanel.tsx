@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Button, Card, CardHeader, EmptyState, ReasonDialog, StatCard, Table, Td, Th, Tr } from '@/components/ui';
+import { Button, Card, CardHeader, EmptyState, ReasonDialog, StatCard, Table, Td, Th, Tr, ACTIONS_CELL } from '@/components/ui';
 import { formatDate, formatDateTime, formatXOF, daysSince } from '@/lib/format';
 import { useAdminMutation } from '@/lib/useAdminMutation';
 import { useCan } from '@/features/auth/SessionContext';
@@ -93,7 +93,7 @@ export function SolidarityPanel({ c }: { c: CircleDetail }) {
                       <SolidarityStatusBadge status={r.status} blocked={blocked} />
                       {r.decisionNote && <span className="block max-w-[200px] text-xs text-ink-muted">{r.decisionNote}</span>}
                     </Td>
-                    <Td className="whitespace-nowrap text-right">
+                    <Td className={`whitespace-nowrap text-right ${ACTIONS_CELL}`}>
                       {can('solidarity.manage') && (
                         <span className="inline-flex gap-1.5">
                           {blocked && (
@@ -107,7 +107,7 @@ export function SolidarityPanel({ c }: { c: CircleDetail }) {
                             </>
                           )}
                           {r.status === 'APPROVED' && (
-                            <Button size="sm" onClick={() => setPending({ r, a: 'DISBURSE' })}>
+                            <Button size="sm" disabled={c.status === 'FROZEN'} title={c.status === 'FROZEN' ? 'Cercle gelé : dégelez-le avant de décaisser' : undefined} onClick={() => setPending({ r, a: 'DISBURSE' })}>
                               Décaisser
                             </Button>
                           )}

@@ -13,7 +13,7 @@ export interface WorkQueue {
   contributions: { late: number; circles: number };
   requests: { pending: number; contestedExclusions: number };
   solidarity: { approvedNotDisbursed: number; blockedVotes: number };
-  fundraisers: { reported: number; pending: number; unfrozenReported: number };
+  fundraisers: { reported: number; reportedContained: number; pending: number; unfrozenReported: number };
   tickets: { active: number; high: number; unassigned: number };
   alerts: { open: number; critical: number };
   accounts: { locked: number; otpFailing: number; suspended: number };
@@ -34,6 +34,8 @@ export async function getWorkQueue(): Promise<WorkQueue> {
     return circle?.members.some((m) => m.userId === c.userId && m.status === 'ACTIVE');
   });
   const reported = db.fundraisers.filter((f) => f.reports.length > 0 && f.status !== 'CLOSED');
+  // Signalée et contenue (suspendue + retraits gelés) : en attente des justificatifs, plus d'action urgente.
+  const contained = (f: (typeof reported)[number]) => f.status === 'SUSPENDED' && f.withdrawalsFrozen;
   const activeTickets = db.tickets.filter((t) => t.status !== 'RESOLVED');
   const openAlerts = db.alerts.filter((a) => a.status === 'OPEN');
   const openRefunds = db.refunds.filter((r) => r.status === 'REQUESTED' || r.status === 'APPROVED');
@@ -66,7 +68,8 @@ export async function getWorkQueue(): Promise<WorkQueue> {
       blockedVotes: db.solidarityRequests.filter((r) => r.status === 'VOTING' && new Date(r.voteDeadline).getTime() < now).length,
     },
     fundraisers: {
-      reported: reported.length,
+      reported: reported.filter((f) => !contained(f)).length,
+      reportedContained: reported.filter(contained).length,
       pending: db.fundraisers.filter((f) => f.status === 'PENDING').length,
       unfrozenReported: reported.filter((f) => !f.withdrawalsFrozen).length,
     },

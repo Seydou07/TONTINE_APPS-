@@ -49,7 +49,7 @@ export function KycQueue({ pendingCount, initialQ = '' }: { pendingCount?: numbe
   };
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[400px_minmax(0,1fr)]">
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[400px_minmax(0,1fr)]">
       <Card className={cn('flex flex-col', selected && 'hidden xl:flex')}>
         <div className="space-y-3 border-b border-line p-3">
           <SearchInput value={list.search} onChange={list.setSearch} placeholder="Nom, téléphone, n° de CNIB…" className="sm:w-full" />

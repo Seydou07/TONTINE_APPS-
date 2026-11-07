@@ -26,12 +26,77 @@ export function PaymentsTable({
   onRefund?: (p: Payment) => void;
 }) {
   const can = useCan();
+  const actions = (p: Payment, mobile = false) => {
+    const unmatched = isUnmatched(p);
+    const reconcile = unmatched && onReconcile && can('payment.reconcile');
+    const refund = p.direction === 'IN' && p.status === 'COMPLETED' && onRefund && can('refund.request');
+    if (!reconcile && !refund) return null;
+    return (
+      <span className={mobile ? 'mt-2 flex gap-2' : 'inline-flex flex-col items-stretch gap-1.5'}>
+        {reconcile && (
+          <Button size="sm" icon={<Link2 size={14} />} onClick={() => onReconcile!(p)} className={mobile ? 'flex-1' : undefined}>
+            Rattacher
+          </Button>
+        )}
+        {refund && (
+          <Button size="sm" variant="secondary" icon={<Undo2 size={14} />} onClick={() => onRefund!(p)} className={mobile ? 'flex-1' : undefined}>
+            Rembourser
+          </Button>
+        )}
+      </span>
+    );
+  };
   return (
+    <>
+      {/* Téléphone : une carte par paiement, actions visibles sans défilement horizontal. */}
+      <ul className="divide-y divide-line sm:hidden">
+        {items.map((p) => {
+          const unmatched = isUnmatched(p);
+          return (
+            <li key={p.id} className="px-4 py-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-mono text-sm">{p.reference}</p>
+                  <p className="font-mono text-xs text-ink-muted">{p.providerReference ?? 'sans réf. opérateur'}</p>
+                </div>
+                <p className={`whitespace-nowrap text-right text-base font-semibold ${p.direction === 'OUT' ? 'text-ink-soft' : 'text-ink'}`}>
+                  {p.direction === 'OUT' ? '− ' : '+ '}
+                  {formatXOF(p.amount)}
+                </p>
+              </div>
+              <p className="mt-1 text-sm text-ink-soft">
+                {formatDateTime(p.createdAt)} · {formatPhone(p.payerPhone)} · {PROVIDER_LABEL[p.provider]}
+              </p>
+              <p className="text-sm">
+                {PURPOSE_LABEL[p.purpose]}
+                {p.turn ? ` · tour ${p.turn}` : ''}
+                {showUser &&
+                  (p.userId ? (
+                    <>
+                      {' · '}
+                      <Link href={`/users/${p.userId}`} className="text-brand hover:underline">
+                        {p.userName}
+                      </Link>
+                    </>
+                  ) : (
+                    <span className="text-accent-ink"> · aucun compte</span>
+                  ))}
+              </p>
+              {unmatched && p.unmatchedReason && <p className="text-xs text-accent-ink">{p.unmatchedReason}</p>}
+              {p.status === 'FAILED' && p.failureReason && <p className="text-xs text-danger">{p.failureReason}</p>}
+              <div className="mt-1.5">
+                <PaymentStatusBadge payment={p} />
+              </div>
+              {actions(p, true)}
+            </li>
+          );
+        })}
+      </ul>
+      <div className="hidden sm:block">
     <Table>
       <thead>
         <tr>
-          <Th>Date et heure</Th>
-          <Th>Références</Th>
+          <Th>Date · références</Th>
           <Th>Payeur / destinataire</Th>
           {showUser && <Th>Compte</Th>}
           <Th>Objet</Th>
@@ -45,8 +110,8 @@ export function PaymentsTable({
           const unmatched = isUnmatched(p);
           return (
             <Tr key={p.id}>
-              <Td className="whitespace-nowrap text-sm text-ink-soft">{formatDateTime(p.createdAt)}</Td>
               <Td className="whitespace-nowrap">
+                <p className="text-sm text-ink-soft">{formatDateTime(p.createdAt)}</p>
                 <p className="font-mono text-sm">{p.reference}</p>
                 <p className="font-mono text-xs text-ink-muted">{p.providerReference ?? 'sans réf. opérateur'}</p>
               </Td>
@@ -84,25 +149,14 @@ export function PaymentsTable({
                 <PaymentStatusBadge payment={p} />
               </Td>
               {(onReconcile || onRefund) && (
-                <Td className="whitespace-nowrap text-right">
-                  <span className="inline-flex gap-1.5">
-                    {unmatched && onReconcile && can('payment.reconcile') && (
-                      <Button size="sm" icon={<Link2 size={14} />} onClick={() => onReconcile(p)}>
-                        Rattacher
-                      </Button>
-                    )}
-                    {p.direction === 'IN' && p.status === 'COMPLETED' && onRefund && can('refund.request') && (
-                      <Button size="sm" variant="secondary" icon={<Undo2 size={14} />} onClick={() => onRefund(p)}>
-                        Rembourser
-                      </Button>
-                    )}
-                  </span>
-                </Td>
+                <Td className="whitespace-nowrap text-right">{actions(p)}</Td>
               )}
             </Tr>
           );
         })}
       </tbody>
     </Table>
+      </div>
+    </>
   );
 }

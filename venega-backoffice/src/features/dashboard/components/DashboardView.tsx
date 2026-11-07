@@ -175,14 +175,14 @@ export function DashboardView() {
             icon={<HandHeart size={18} />}
             label="Cagnottes signalées"
             value={w.fundraisers.reported}
-            hint={`${w.fundraisers.unfrozenReported} sans gel des retraits · ${w.fundraisers.pending} en attente de validation`}
+            hint={`${w.fundraisers.unfrozenReported} sans gel des retraits · ${w.fundraisers.reportedContained} suspendue(s), en attente de décision · ${w.fundraisers.pending} en attente de validation`}
             tone="red"
           />
           <QueueCard href="/users?status=SUSPENDED" icon={<Users size={18} />} label="Comptes suspendus" value={w.accounts.suspended} tone="amber" />
         </div>
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card>
           <CardHeader
             title="Tickets prioritaires"

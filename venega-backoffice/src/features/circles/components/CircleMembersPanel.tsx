@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { ArrowUpDown, BellRing } from 'lucide-react';
-import { Badge, Button, Card, CardHeader, EmptyState, FormField, Notice, ReasonDialog, Select, Table, Td, Th, Tr } from '@/components/ui';
+import { Badge, Button, Card, CardHeader, EmptyState, FormField, Notice, ReasonDialog, Select, Table, Td, Th, Tr, ACTIONS_CELL } from '@/components/ui';
 import { formatDateTime, formatRelative } from '@/lib/format';
 import { useAdminMutation } from '@/lib/useAdminMutation';
 import { PhoneLinks } from '@/components/ui/PhoneLinks';
@@ -75,7 +75,7 @@ export function CircleMembersPanel({ c }: { c: CircleDetail }) {
                   {m.paidLateCount > 0 && <span className="block text-xs font-normal text-accent-ink">+{m.paidLateCount} payé(s) en retard</span>}
                 </Td>
                 <Td className="whitespace-nowrap text-sm text-ink-soft">{m.remindersSent > 0 ? `${m.remindersSent} · ${formatRelative(m.lastReminderAt!)}` : '—'}</Td>
-                <Td className="whitespace-nowrap text-right">
+                <Td className={`whitespace-nowrap text-right ${ACTIONS_CELL}`}>
                   <span className="inline-flex gap-1.5">
                     {can('circle.remind') && m.status === 'ACTIVE' && m.paymentStatus !== 'PAID' && (
                       <Button size="sm" variant="ghost" icon={<BellRing size={14} />} onClick={() => remind.mutate([m.userId])} title="Envoyer un rappel par SMS">

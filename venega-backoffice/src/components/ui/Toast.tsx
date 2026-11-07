@@ -52,7 +52,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const api: ToastApi = {
     notify,
     local: (title) =>
-      notify('local', title, "Modifié uniquement dans ce navigateur : l'API admin n'est pas encore branchée, rien n'a été envoyé au serveur."),
+      notify('local', title, "Modifié uniquement dans cet onglet, jusqu’au rechargement de la page : l'API admin n'est pas encore branchée, rien n'a été envoyé au serveur."),
     error: (e) => notify('error', 'Action impossible', e instanceof Error ? e.message : String(e)),
   };
 
