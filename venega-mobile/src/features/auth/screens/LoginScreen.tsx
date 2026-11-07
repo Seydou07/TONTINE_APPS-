@@ -8,6 +8,7 @@ import {
   Platform,
   StatusBar,
   ScrollView,
+  Alert,
 } from 'react-native';
 import type { TextInputInstance } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -107,7 +108,17 @@ export default function LoginScreen() {
                   error={errors.password}
                   ref={passwordRef}
                 />
-                <TouchableOpacity style={styles.forgot} hitSlop={8} activeOpacity={0.6}>
+                <TouchableOpacity
+                  style={styles.forgot}
+                  hitSlop={8}
+                  activeOpacity={0.6}
+                  onPress={() =>
+                    Alert.alert(
+                      'Mot de passe oublié',
+                      'La réinitialisation du mot de passe sera bientôt disponible dans Venega.',
+                    )
+                  }
+                >
                   <Text style={styles.forgotText}>Mot de passe oublié ?</Text>
                 </TouchableOpacity>
               </View>

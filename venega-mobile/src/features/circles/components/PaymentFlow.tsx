@@ -3,6 +3,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { colors, radius, typography } from '@venega/design-tokens';
 import { Button, Sheet } from '../../../components/ui';
+import { isLockShown, onLockShownChange, whenUnlocked } from '../../../lib/appLock';
 import { checkPayment, dialAndWait } from '../ussd';
 import type { PaymentOutcome } from '../ussd';
 import { operatorLogos } from './OperatorPicker';
@@ -49,23 +50,42 @@ const setHost = (next: HostState) => {
 
 async function verify(pending: Pending) {
   setHost({ step: 'checking' });
-  const outcome = await checkPayment(pending.operatorId, pending.amount);
+  let outcome: PaymentOutcome;
+  try {
+    outcome = await checkPayment(pending.operatorId, pending.amount);
+  } catch {
+    outcome = { status: 'NOT_RECEIVED' };
+  }
   if (outcome.status === 'COMPLETED') {
     setHost({ step: 'idle' });
+    // Si le verrou s'est affiché pendant le paiement, on attend le déverrouillage : la suite (navigation)
+    // ne doit ni passer par-dessus l'écran de verrou ni le remplacer.
+    await whenUnlocked();
     pending.onCompleted();
   } else {
     setHost({ step: 'result', outcome, pending });
   }
 }
 
+/** Un seul paiement à la fois (double appui sur « Confirmer » ou « Réessayer »). */
+let inFlight = false;
+
 async function pay(pending: Pending) {
+  if (inFlight) return;
+  inFlight = true;
+  // La feuille de résultat précédente (« Réessayer », « Compléter ») se ferme pendant le nouveau paiement.
+  setHost({ step: 'idle' });
   try {
-    await dialAndWait(pending.operatorId, pending.amount);
-  } catch {
-    setHost({ step: 'result', outcome: { status: 'NOT_RECEIVED' }, pending });
-    return;
+    try {
+      await dialAndWait(pending.operatorId, pending.amount);
+    } catch {
+      setHost({ step: 'result', outcome: { status: 'NOT_RECEIVED' }, pending });
+      return;
+    }
+    await verify(pending);
+  } finally {
+    inFlight = false;
   }
-  await verify(pending);
 }
 
 /** Lance le code USSD ; `onReturn` est appelé seulement quand le montant complet est reçu. */
@@ -85,12 +105,18 @@ export function useUssdPayment(onReturn: () => void) {
 /** À monter une seule fois (app/_layout.tsx) : vérification, paiement incomplet, paiement non reçu. */
 export function PaymentResultHost() {
   const [state, setState] = useState<HostState>(hostState);
+  const [locked, setLocked] = useState(isLockShown());
   useEffect(() => {
     listeners.add(setState);
+    const offLock = onLockShownChange(setLocked);
     return () => {
       listeners.delete(setState);
+      offLock();
     };
   }, []);
+
+  // Rien par-dessus l'écran de verrou : la feuille réapparaît après le déverrouillage.
+  if (locked) return null;
 
   const close = () => setHost({ step: 'idle' });
 

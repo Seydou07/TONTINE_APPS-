@@ -22,6 +22,8 @@ import {
 import { colors, radius, typography } from '@venega/design-tokens';
 import {
   getCircleByInvite,
+  getCircleMembers,
+  getMembershipRequests,
   getActiveCycle,
   getCirclePhase,
   computeRachat,
@@ -31,7 +33,10 @@ import {
   addMembershipRequest,
   getCurrentUser,
 } from '../circleStore';
-import { KycRequirement, MembershipRequestStatus, AdhesionPaymentStatus, KycStatus } from '@venega/types';
+import { CircleType, KycRequirement, MembershipRequestStatus, AdhesionPaymentStatus, KycStatus } from '@venega/types';
+import { getProfile } from '../../profile/profileStore';
+import { formatPhone, validatePhone } from '../../auth/validation';
+import { toE164 } from '../../auth/api';
 import type { Circle, User } from '@venega/types';
 import { Button, IconButton, TextField } from '../../../components/ui';
 import OperatorPicker from '../components/OperatorPicker';
@@ -73,13 +78,37 @@ export default function JoinCircleScreen() {
   const [inviteCode, setInviteCode] = useState('');
   const [notFound, setNotFound] = useState(false);
   const [notActive, setNotActive] = useState(false);
+  const [searchError, setSearchError] = useState<string>();
   const [circle, setCircle] = useState<Circle | null>(null);
   const [conditionsAccepted, setConditionsAccepted] = useState(false);
+  const localPhone = formatPhone(me.phoneNumber.replace(/^\+?226/, ''));
   const [form, setForm] = useState({
     fullName: me.displayName,
-    phoneNumber: me.phoneNumber,
-    depositNumber: me.phoneNumber,
+    phoneNumber: localPhone,
+    depositNumber: getProfile().mobileMoneyNumber || localPhone,
   });
+  type FormField = keyof typeof form;
+  const [formErrors, setFormErrors] = useState<Partial<Record<FormField, string>>>({});
+  const validateField = (field: FormField, value: string): string | undefined => {
+    if (field === 'fullName') return value.trim().length >= 2 ? undefined : 'Indiquez votre nom complet.';
+    return validatePhone(value);
+  };
+  const changeField = (field: FormField) => (raw: string) => {
+    const value = field === 'fullName' ? raw : formatPhone(raw);
+    setForm((p) => ({ ...p, [field]: value }));
+    // L'erreur affichée disparaît dès que la saisie redevient valide.
+    if (formErrors[field]) setFormErrors((e) => ({ ...e, [field]: validateField(field, value) }));
+  };
+  /** Vérifie tout le formulaire ; vrai s'il est valide. */
+  const checkForm = () => {
+    const next = {
+      fullName: validateField('fullName', form.fullName),
+      phoneNumber: validateField('phoneNumber', form.phoneNumber),
+      depositNumber: validateField('depositNumber', form.depositNumber),
+    };
+    setFormErrors(next);
+    return !next.fullName && !next.phoneNumber && !next.depositNumber;
+  };
   const [docs, setDocs] = useState({ cnibFront: false, cnibBack: false, selfie: false });
 
   const [selectedOperator, setSelectedOperator] = useState<string | null>(null);
@@ -98,16 +127,35 @@ export default function JoinCircleScreen() {
   const needsSelfie = !accountVerified && kyc === KycRequirement.CNIB_SELFIE;
   const needsPayment = total > 0;
 
-  const formFilled = form.fullName.trim() && form.phoneNumber.trim() && form.depositNumber.trim();
   const docsOk = (!needsDocs || (docs.cnibFront && docs.cnibBack)) && (!needsSelfie || docs.selfie);
 
   const handleSearch = () => {
     const found = getCircleByInvite(inviteCode);
     setNotActive(false);
+    setSearchError(undefined);
     if (found) {
+      // Cagnotte d'aide : pas d'adhésion, on ouvre directement sa page de contribution.
+      if (found.type === CircleType.AID_APPEAL) {
+        router.replace(`/aid/${found.id}` as any);
+        return;
+      }
       if (!found.activatedAt) {
         setNotFound(false);
         setNotActive(true);
+        return;
+      }
+      if (getCircleMembers(found.id).some((m) => m.userId === me.id)) {
+        setNotFound(false);
+        setSearchError('Vous êtes déjà membre de ce cercle.');
+        return;
+      }
+      if (
+        getMembershipRequests(found.id).some(
+          (r) => r.userId === me.id && r.status === MembershipRequestStatus.PENDING,
+        )
+      ) {
+        setNotFound(false);
+        setSearchError('Votre demande pour ce cercle est déjà envoyée. Le fondateur doit encore la valider.');
         return;
       }
       setCircle(found);
@@ -133,7 +181,7 @@ export default function JoinCircleScreen() {
     if (!circle) return;
     const candidateUser: User = {
       id: me.id,
-      phoneNumber: form.phoneNumber.trim(),
+      phoneNumber: toE164(form.phoneNumber),
       displayName: form.fullName.trim(),
       firstName: form.fullName.trim().split(' ')[0] || '',
       lastName: form.fullName.trim().split(' ').slice(1).join(' ') || '',
@@ -147,8 +195,8 @@ export default function JoinCircleScreen() {
       userId: me.id,
       status: MembershipRequestStatus.PENDING,
       fullName: form.fullName.trim(),
-      phoneNumber: form.phoneNumber.trim(),
-      depositNumber: form.depositNumber.trim(),
+      phoneNumber: toE164(form.phoneNumber),
+      depositNumber: toE164(form.depositNumber),
       cnibFrontUrl: needsDocs ? '/mock/cnib-front-candidat.jpg' : '',
       cnibBackUrl: needsDocs ? '/mock/cnib-back-candidat.jpg' : '',
       selfieUrl: needsSelfie ? '/mock/selfie-candidat.jpg' : undefined,
@@ -209,8 +257,12 @@ export default function JoinCircleScreen() {
         return (
           <Button
             title={needsPayment ? 'Continuer vers le paiement' : 'Envoyer la demande'}
-            disabled={!formFilled || !docsOk}
-            onPress={() => (needsPayment ? setStep('payment') : submitRequest())}
+            disabled={!docsOk}
+            onPress={() => {
+              if (!checkForm()) return;
+              if (needsPayment) setStep('payment');
+              else submitRequest();
+            }}
           />
         );
       case 'payment':
@@ -270,6 +322,8 @@ export default function JoinCircleScreen() {
                   onChangeText={(v) => {
                     setInviteCode(v);
                     setNotFound(false);
+                    setNotActive(false);
+                    setSearchError(undefined);
                   }}
                   autoCapitalize="characters"
                   autoCorrect={false}
@@ -281,7 +335,7 @@ export default function JoinCircleScreen() {
                       ? 'Aucun cercle ne correspond à ce code. Vérifiez-le auprès du fondateur.'
                       : notActive
                       ? "Ce cercle n'est pas encore activé par son fondateur. Réessayez plus tard."
-                      : undefined
+                      : searchError
                   }
                 />
               </>
@@ -357,21 +411,28 @@ export default function JoinCircleScreen() {
                     label="Nom complet"
                     placeholder="Ex. Aminata Ouédraogo"
                     value={form.fullName}
-                    onChangeText={(v) => setForm((p) => ({ ...p, fullName: v }))}
+                    onChangeText={changeField('fullName')}
+                    error={formErrors.fullName}
                   />
                   <TextField
                     label="Numéro de téléphone"
-                    placeholder="+226 70 12 34 56"
+                    prefix="+226"
+                    placeholder="70 12 34 56"
                     keyboardType="phone-pad"
+                    maxLength={11}
                     value={form.phoneNumber}
-                    onChangeText={(v) => setForm((p) => ({ ...p, phoneNumber: v }))}
+                    onChangeText={changeField('phoneNumber')}
+                    error={formErrors.phoneNumber}
                   />
                   <TextField
                     label="Numéro de dépôt Mobile Money"
-                    placeholder="+226 70 12 34 56"
+                    prefix="+226"
+                    placeholder="70 12 34 56"
                     keyboardType="phone-pad"
+                    maxLength={11}
                     value={form.depositNumber}
-                    onChangeText={(v) => setForm((p) => ({ ...p, depositNumber: v }))}
+                    onChangeText={changeField('depositNumber')}
+                    error={formErrors.depositNumber}
                     hint="Numéro sur lequel vous recevrez la cagnotte."
                   />
                 </View>

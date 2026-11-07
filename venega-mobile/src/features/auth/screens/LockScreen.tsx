@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { BackHandler, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -19,21 +19,31 @@ export default function LockScreen() {
   const router = useRouter();
   const { next } = useLocalSearchParams<{ next?: string }>();
   const [failed, setFailed] = useState(false);
+  // Une seule demande à la fois : un second appui pendant que l'empreinte est demandée échouerait aussitôt.
+  const authenticating = useRef(false);
 
   const unlock = useCallback(async () => {
+    if (authenticating.current) return;
+    authenticating.current = true;
     setFailed(false);
-    if (await authenticate()) {
-      setLockShown(false);
-      if (next === 'tabs' || !router.canGoBack()) router.replace('/(tabs)');
-      else router.back();
-    } else {
-      setFailed(true);
+    try {
+      if (await authenticate()) {
+        setLockShown(false);
+        if (next === 'tabs' || !router.canGoBack()) router.replace('/(tabs)');
+        else router.back();
+      } else {
+        setFailed(true);
+      }
+    } finally {
+      authenticating.current = false;
     }
   }, [next, router]);
 
   useEffect(() => {
     setLockShown(true);
     unlock();
+    // Si l'écran disparaît sans déverrouillage (ex. déconnexion), le verrou doit pouvoir réapparaître plus tard.
+    return () => setLockShown(false);
   }, []);
 
   // Le bouton retour d'Android ne doit pas contourner le verrou.
@@ -47,6 +57,8 @@ export default function LockScreen() {
   const signOut = async () => {
     await logout();
     setLockShown(false);
+    // On vide toute la pile : sinon « retour » depuis la connexion ramènerait dans l'app sans session.
+    if (router.canDismiss()) router.dismissAll();
     router.replace('/login');
   };
 

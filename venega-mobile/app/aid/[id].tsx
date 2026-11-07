@@ -7,7 +7,8 @@ import { ArrowLeft, HeartHandshake, ShieldCheck, Check, EyeOff, Share2 } from 'l
 import { colors, radius, typography } from '@venega/design-tokens';
 import { mockAidAppeal, mockAidContributions, PaymentMethod, ContributorVisibility } from '@venega/types';
 import { Avatar, Button, Chip, IconButton, Sheet, SettingRow, TextField, Toggle } from '../../src/components/ui';
-import { getAidAppeal, getAidShareLink, getCircle } from '../../src/features/circles/circleStore';
+import { getAidAppeal, getAidShareLink, getCircle, recordAidContribution } from '../../src/features/circles/circleStore';
+import { formatPhone, validatePhone } from '../../src/features/auth/validation';
 import OperatorPicker, { operatorLogos } from '../../src/features/circles/components/OperatorPicker';
 import {
   PAYMENT_OPERATORS,
@@ -54,8 +55,8 @@ ${getAidShareLink(circle)}`,
   const [showContribute, setShowContribute] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [contributed, setContributed] = useState(false);
-  const [contributionCount, setContributionCount] = useState(0);
-  const [localCollected, setLocalCollected] = useState(0);
+  /** Montant de la dernière contribution confirmée (affiché dans le remerciement). */
+  const [paidAmount, setPaidAmount] = useState(0);
 
   // Formulaire de contribution (sans compte)
   const [anonymous, setAnonymous] = useState(false);
@@ -66,17 +67,37 @@ ${getAidShareLink(circle)}`,
   const [operator, setOperator] = useState<string | null>(null);
 
   const amount = customAmount ? parseInt(customAmount, 10) || 0 : quickAmount;
-  const phoneDigits = contributorPhone.replace(/\D/g, '');
-  const canPay = amount > 0 && !!operator && phoneDigits.length >= 8;
+  const minAmount = circle?.rules?.minContribution ?? 100;
+
+  // Erreurs sous les champs, effacées dès que la saisie est corrigée.
+  type Field = 'amount' | 'name' | 'phone' | 'operator';
+  const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
+  const validate = (field: Field, v: { amount: number; name: string; phone: string; operator: string | null }) => {
+    switch (field) {
+      case 'amount':
+        return v.amount >= minAmount ? undefined : `Le montant minimum est de ${formatXOF(minAmount)}.`;
+      case 'name':
+        return anonymous || v.name.trim().length >= 2 ? undefined : 'Indiquez votre nom, ou choisissez de rester anonyme.';
+      case 'phone':
+        return validatePhone(v.phone);
+      case 'operator':
+        return v.operator ? undefined : 'Choisissez votre opérateur.';
+    }
+  };
+  const current = { amount, name: contributorName, phone: contributorPhone, operator };
+  const recheck = (field: Field, next: Partial<typeof current>) => {
+    if (errors[field]) setErrors((e) => ({ ...e, [field]: validate(field, { ...current, ...next }) }));
+  };
 
   const { dial } = useUssdPayment(() => {
-    setLocalCollected((prev) => prev + amount);
-    setContributionCount((n) => n + 1);
+    // Enregistrée dans la cagnotte : la somme reste affichée après avoir quitté puis rouvert la page.
+    recordAidContribution(appeal.circleId, amount);
+    setPaidAmount(amount);
     setContributed(true);
   });
 
   const goal = appeal.goalAmount;
-  const collected = appeal.collectedAmount + localCollected;
+  const collected = appeal.collectedAmount;
   const progress = goal > 0 ? Math.min(collected / goal, 1) : 0;
   const percent = Math.round(progress * 100);
   const remaining = Math.max(goal - collected, 0);
@@ -84,7 +105,7 @@ ${getAidShareLink(circle)}`,
 
   const visibleContributions = contributions.slice(0, visibleCount);
   const hasMore = visibleCount < contributions.length;
-  const totalContributors = appeal.contributorCount + contributionCount;
+  const totalContributors = appeal.contributorCount;
 
   const daysLeft = appeal.deadline
     ? Math.max(Math.ceil((new Date(appeal.deadline).getTime() - Date.now()) / 86_400_000), 0)
@@ -101,6 +122,14 @@ ${getAidShareLink(circle)}`,
   };
 
   const goToConfirm = () => {
+    const found = {
+      amount: validate('amount', current),
+      name: validate('name', current),
+      phone: validate('phone', current),
+      operator: validate('operator', current),
+    };
+    setErrors(found);
+    if (Object.values(found).some(Boolean)) return;
     setShowContribute(false);
     setShowConfirm(true);
   };
@@ -275,6 +304,7 @@ ${getAidShareLink(circle)}`,
                 onPress={() => {
                   setCustomAmount('');
                   setQuickAmount(a);
+                  recheck('amount', { amount: a });
                 }}
               />
             ))}
@@ -284,13 +314,24 @@ ${getAidShareLink(circle)}`,
             suffix="F CFA"
             keyboardType="number-pad"
             value={customAmount}
-            onChangeText={(t) => setCustomAmount(t.replace(/\D/g, ''))}
+            onChangeText={(t) => {
+              const digits = t.replace(/\D/g, '');
+              setCustomAmount(digits);
+              recheck('amount', { amount: digits ? parseInt(digits, 10) || 0 : quickAmount });
+            }}
+            error={errors.amount}
             containerStyle={styles.fieldTight}
           />
 
           <View style={styles.settingBox}>
             <SettingRow title="Rester anonyme" description="Votre nom n’apparaîtra pas dans la liste" last>
-              <Toggle value={anonymous} onValueChange={setAnonymous} />
+              <Toggle
+                value={anonymous}
+                onValueChange={(v) => {
+                  setAnonymous(v);
+                  if (v) setErrors((e) => ({ ...e, name: undefined }));
+                }}
+              />
             </SettingRow>
           </View>
 
@@ -299,7 +340,11 @@ ${getAidShareLink(circle)}`,
               label="Nom complet"
               placeholder="Votre nom complet"
               value={contributorName}
-              onChangeText={setContributorName}
+              onChangeText={(v) => {
+                setContributorName(v);
+                recheck('name', { name: v });
+              }}
+              error={errors.name}
               containerStyle={styles.field}
             />
           )}
@@ -308,15 +353,29 @@ ${getAidShareLink(circle)}`,
             prefix="+226"
             placeholder="70 00 00 00"
             keyboardType="phone-pad"
+            maxLength={11}
             value={contributorPhone}
-            onChangeText={setContributorPhone}
+            onChangeText={(v) => {
+              const formatted = formatPhone(v);
+              setContributorPhone(formatted);
+              recheck('phone', { phone: formatted });
+            }}
+            error={errors.phone}
             containerStyle={styles.field}
           />
 
           <Text style={styles.fieldLabel}>Moyen de paiement</Text>
-          <OperatorPicker operators={PAYMENT_OPERATORS} value={operator} onChange={setOperator} />
+          <OperatorPicker
+            operators={PAYMENT_OPERATORS}
+            value={operator}
+            onChange={(id) => {
+              setOperator(id);
+              setErrors((e) => ({ ...e, operator: undefined }));
+            }}
+          />
+          {errors.operator ? <Text style={styles.fieldError}>{errors.operator}</Text> : null}
 
-          <Button title={payButtonTitle(amount)} onPress={goToConfirm} disabled={!canPay} style={styles.sheetCta} />
+          <Button title={payButtonTitle(amount)} onPress={goToConfirm} style={styles.sheetCta} />
         </ScrollView>
       </Sheet>
 
@@ -337,7 +396,7 @@ ${getAidShareLink(circle)}`,
         </View>
         <Text style={styles.successTitle}>Merci pour votre générosité</Text>
         <Text style={styles.successSub}>
-          Votre contribution de {formatXOF(amount)} pour {appeal.beneficiaryName} a été prise en compte. Vous recevrez
+          Votre contribution de {formatXOF(paidAmount)} pour {appeal.beneficiaryName} a été prise en compte. Vous recevrez
           un SMS de confirmation de {operatorName(operator)}.
         </Text>
         <Button title="Fermer" variant="secondary" onPress={() => setContributed(false)} style={styles.successCta} />
@@ -347,6 +406,7 @@ ${getAidShareLink(circle)}`,
 }
 
 const styles = StyleSheet.create({
+  fieldError: { ...typography.footnote, color: colors.danger.DEFAULT, marginTop: 6 },
   container: { flex: 1, backgroundColor: colors.bg },
   flex: { flex: 1 },
   scroll: { paddingBottom: 32 },

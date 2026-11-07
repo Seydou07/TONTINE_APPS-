@@ -70,6 +70,16 @@ export default function OtpScreen() {
   };
 
   const handleCodeChange = (index: number, value: string) => {
+    value = value.replace(/\D/g, '');
+    // Code collé ou rempli automatiquement depuis le SMS : on répartit les chiffres dans les cases.
+    if (value.length > 1 && index === 0) {
+      const digits = value.slice(0, CODE_LENGTH).split('');
+      const filled = Array.from({ length: CODE_LENGTH }, (_, i) => digits[i] ?? '');
+      setCode(filled);
+      if (error) setError('');
+      inputsRef.current[Math.min(digits.length, CODE_LENGTH - 1)]?.focus();
+      return;
+    }
     if (value.length > 1) value = value.slice(-1);
     const newCode = [...code];
     newCode[index] = value;
@@ -91,7 +101,7 @@ export default function OtpScreen() {
     setIsLoading(true);
     try {
       await verifyOtp(phone, code.join(''));
-      router.replace('/profile-setup');
+      router.replace({ pathname: '/profile-setup', params: { phone, onboarding: '1' } });
     } catch (e) {
       const message = e instanceof ApiError ? e.message : 'Code incorrect.';
       triggerShake(isDemoMode ? `${message} En démo, utilisez ${DEMO_OTP_CODE}.` : message);
@@ -127,7 +137,7 @@ export default function OtpScreen() {
             icon={ArrowLeft}
             variant="plain"
             accessibilityLabel="Retour"
-            onPress={() => router.replace('/register')}
+            onPress={() => (router.canGoBack() ? router.back() : router.replace('/register'))}
           />
         </View>
 
@@ -163,7 +173,7 @@ export default function OtpScreen() {
                     keyboardType="number-pad"
                     textContentType="oneTimeCode"
                     autoComplete={index === 0 ? 'sms-otp' : 'off'}
-                    maxLength={1}
+                    maxLength={index === 0 ? CODE_LENGTH : 1}
                     selectTextOnFocus
                     autoFocus={index === 0}
                     accessibilityLabel={`Chiffre ${index + 1} sur ${CODE_LENGTH}`}
@@ -194,7 +204,11 @@ export default function OtpScreen() {
 
           <View style={styles.footer}>
             <Text style={styles.footerText}>Mauvais numéro ? </Text>
-            <TouchableOpacity onPress={() => router.replace('/register')} hitSlop={8} activeOpacity={0.6}>
+            <TouchableOpacity
+              onPress={() => (router.canGoBack() ? router.back() : router.replace('/register'))}
+              hitSlop={8}
+              activeOpacity={0.6}
+            >
               <Text style={styles.footerLink}>Modifier</Text>
             </TouchableOpacity>
           </View>

@@ -57,7 +57,31 @@ export async function authenticate(promptMessage = 'Déverrouiller Venega'): Pro
 
 // Écran de verrou déjà affiché : évite de l'empiler deux fois.
 let lockShown = false;
+const lockListeners = new Set<(shown: boolean) => void>();
+
 export const setLockShown = (value: boolean) => {
+  if (lockShown === value) return;
   lockShown = value;
+  lockListeners.forEach((l) => l(value));
 };
 export const isLockShown = () => lockShown;
+
+/** Prévenu à chaque affichage / retrait de l'écran de verrou. Renvoie la fonction de désabonnement. */
+export function onLockShownChange(listener: (shown: boolean) => void): () => void {
+  lockListeners.add(listener);
+  return () => {
+    lockListeners.delete(listener);
+  };
+}
+
+/** Se résout tout de suite si l'app n'est pas verrouillée, sinon dès qu'elle est déverrouillée. */
+export function whenUnlocked(): Promise<void> {
+  if (!lockShown) return Promise.resolve();
+  return new Promise((resolve) => {
+    const off = onLockShownChange((shown) => {
+      if (shown) return;
+      off();
+      resolve();
+    });
+  });
+}

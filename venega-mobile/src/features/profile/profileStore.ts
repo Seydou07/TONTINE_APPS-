@@ -9,6 +9,8 @@
 export interface UserProfile {
   name: string;
   avatarUrl: string;
+  /** Numéro Mobile Money (8 chiffres, format « 70 12 34 56 ») ; vide = numéro de téléphone du compte. */
+  mobileMoneyNumber?: string;
 }
 
 let profile: UserProfile = {
@@ -22,6 +24,10 @@ export function getProfile(): UserProfile {
 
 export function setAvatarUrl(url: string): void {
   profile = { ...profile, avatarUrl: url };
+}
+
+export function setMobileMoneyNumber(value: string): void {
+  profile = { ...profile, mobileMoneyNumber: value.trim() };
 }
 
 export function setProfileName(name: string): void {

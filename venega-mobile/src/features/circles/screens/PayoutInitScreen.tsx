@@ -5,8 +5,18 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Check, CheckCircle2, History, Bell } from 'lucide-react-native';
 import { colors, radius, typography } from '@venega/design-tokens';
-import { getCircle, getCircles, getActiveCycle, getCycles, getCurrentUser } from '../circleStore';
-import { CircleType, ContributionMode, mockMemberships, mockPayoutRecords } from '@venega/types';
+import {
+  canPayout,
+  getActiveCycle,
+  getCircle,
+  getCircles,
+  getCurrentUser,
+  getCycles,
+  getFounderCircleIds,
+  getTurnState,
+  recordPayout,
+} from '../circleStore';
+import { CircleType, ContributionMode, mockPayoutRecords } from '@venega/types';
 import type { PayoutRecord } from '@venega/types';
 import { Avatar, Button, Sheet } from '../../../components/ui';
 import OperatorPicker from '../components/OperatorPicker';
@@ -38,15 +48,19 @@ export default function PayoutInitScreen() {
   const circle = getCircle(circleId) ?? getCircles()[0]!;
   const isNature = circle.contributionMode === ContributionMode.NATURE || circle.type === CircleType.NATURE;
   const cycle = getActiveCycle(circle) ?? getCycles(circle.id)[0];
-  const memberships = mockMemberships.filter((m) => m.circleId === circle.id);
-  const orderedMembers = [...memberships].sort((a, b) => (a.turnOrder ?? 0) - (b.turnOrder ?? 0));
-  const notReceived = orderedMembers.filter((m) => !m.hasReceivedPayout);
-  const beneficiary = notReceived[0] ?? orderedMembers[0];
+  const [, refresh] = useState(0);
+  const turnState = getTurnState(circle.id);
+  const beneficiary = turnState.beneficiary;
+  // Versement réservé au fondateur, une seule fois par tour, et seulement quand toutes les cotisations sont reçues.
+  const isFounder = getFounderCircleIds().includes(circle.id);
+  const payoutCheck = isFounder
+    ? canPayout(turnState)
+    : { ok: false, reason: 'Seul le fondateur du cercle peut verser la cagnotte.' };
 
-  // Modèle financier (défini à la création du cercle)
-  const baseTontineAmount = circle.tontineAmount || 10000;
-  const founderManagementFeePerTurn = circle.managementFee || 500;
-  const memberCount = orderedMembers.length;
+  // Modèle financier (défini à la création du cercle) : aucun frais inventé si le fondateur n'en a pas fixé.
+  const baseTontineAmount = circle.tontineAmount;
+  const founderManagementFeePerTurn = circle.managementFee ?? 0;
+  const memberCount = turnState.members.length;
 
   const totalGrossCollected = (baseTontineAmount + founderManagementFeePerTurn) * memberCount;
   const beneficiaryPotAmount = baseTontineAmount * memberCount;
@@ -60,6 +74,8 @@ export default function PayoutInitScreen() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [refNumber, setRefNumber] = useState('');
   const [showNotification, setShowNotification] = useState(false);
+  /** Versement confirmé, figé au moment du paiement (le bénéficiaire affiché passe ensuite au tour suivant). */
+  const [paidTo, setPaidTo] = useState<{ name: string; amount: number; fees: number; commission: number } | null>(null);
 
   const [history, setHistory] = useState<PayoutRecord[]>(() =>
     mockPayoutRecords
@@ -69,7 +85,7 @@ export default function PayoutInitScreen() {
 
   const beneficiaryName = `${beneficiary?.user?.firstName ?? ''} ${beneficiary?.user?.lastName ?? ''}`.trim();
   const operatorName = selectedOperator ? getOperatorName(selectedOperator) : undefined;
-  const turn = cycle?.currentTurn ?? 1;
+  const turn = turnState.turn;
 
   // Au retour de l'USSD : le versement est enregistré et la notification Venega s'affiche.
   const { dial } = useUssdPayment(() => {
@@ -77,7 +93,7 @@ export default function PayoutInitScreen() {
     const newRecord: PayoutRecord = {
       id: `p${Date.now()}`,
       circleId: circle.id,
-      cycleId: cycle?.id ?? 'cy1',
+      cycleId: cycle?.id ?? '',
       beneficiaryName,
       beneficiaryAvatar: beneficiary?.user?.avatarUrl,
       totalAmount: totalGrossCollected,
@@ -88,12 +104,15 @@ export default function PayoutInitScreen() {
       status: 'PAID',
       createdAt: now.toISOString(),
     };
+    recordPayout(circle.id);
+    setPaidTo({ name: beneficiaryName, amount: beneficiaryPotAmount, fees: netFounderFees, commission: venegaCommission });
     setHistory((h) => [newRecord, ...h]);
     setShowNotification(true);
+    refresh((n) => n + 1);
   });
 
   const handleConfirm = () => {
-    if (!selectedOperator) return;
+    if (!selectedOperator || !payoutCheck.ok) return;
     setShowConfirm(false);
     setRefNumber(`TX-${Math.floor(100000 + Math.random() * 900000)}`);
     dial(selectedOperator, beneficiaryPotAmount);
@@ -137,8 +156,16 @@ export default function PayoutInitScreen() {
           </SummaryCard>
           <PaymentHint>Le versement passe par le compte hub Venega (CityNet Pay).</PaymentHint>
 
-          <PaymentSectionTitle>Choisissez l'opérateur</PaymentSectionTitle>
-          <OperatorPicker operators={PAYMENT_OPERATORS} value={selectedOperator} onChange={setSelectedOperator} />
+          {payoutCheck.ok ? (
+            <>
+              <PaymentSectionTitle>Choisissez l'opérateur</PaymentSectionTitle>
+              <OperatorPicker operators={PAYMENT_OPERATORS} value={selectedOperator} onChange={setSelectedOperator} />
+            </>
+          ) : (
+            <View style={styles.blocked}>
+              <Text style={styles.blockedText}>{payoutCheck.reason}</Text>
+            </View>
+          )}
 
           {/* Historique des versements (seulement les payés) */}
           <PaymentSectionTitle>Historique des versements</PaymentSectionTitle>
@@ -178,7 +205,7 @@ export default function PayoutInitScreen() {
         <PaymentFooter>
           <Button
             title={payButtonTitle(beneficiaryPotAmount)}
-            disabled={!selectedOperator}
+            disabled={!selectedOperator || !payoutCheck.ok}
             onPress={() => setShowConfirm(true)}
           />
         </PaymentFooter>
@@ -207,17 +234,19 @@ export default function PayoutInitScreen() {
 
           <View style={styles.paidNotice}>
             <CheckLine>
-              Vous avez versé {formatXOF(beneficiaryPotAmount)} à {beneficiaryName}.
+              Vous avez versé {formatXOF(paidTo?.amount ?? 0)} à {paidTo?.name ?? '—'}.
             </CheckLine>
-            <CheckLine>Vous avez reçu {formatXOF(netFounderFees)} (frais fondateur) sur votre compte.</CheckLine>
+            {(paidTo?.fees ?? 0) > 0 && (
+              <CheckLine>Vous avez reçu {formatXOF(paidTo?.fees ?? 0)} (frais fondateur) sur votre compte.</CheckLine>
+            )}
           </View>
 
           <View style={styles.sheetBlock}>
             <SummaryCard>
-              <SummaryRow label="Bénéficiaire" value={beneficiaryName} />
-              <SummaryRow label="Somme versée" value={formatXOF(beneficiaryPotAmount)} strong />
-              <SummaryRow label="Reçu (fondateur)" value={formatXOF(netFounderFees)} />
-              <SummaryRow label="Commission Venega" value={formatXOF(venegaCommission)} />
+              <SummaryRow label="Bénéficiaire" value={paidTo?.name ?? '—'} />
+              <SummaryRow label="Somme versée" value={formatXOF(paidTo?.amount ?? 0)} strong />
+              <SummaryRow label="Reçu (fondateur)" value={formatXOF(paidTo?.fees ?? 0)} />
+              <SummaryRow label="Commission Venega" value={formatXOF(paidTo?.commission ?? 0)} />
               <SummaryRow label="Opérateur" value={operatorName ?? '—'} />
               <SummaryRow label="Référence" value={refNumber} />
               <SummaryRow label="Date" value={formatDate(new Date().toISOString())} last />
@@ -248,6 +277,14 @@ function CheckLine({ children }: { children: React.ReactNode }) {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  blocked: {
+    padding: 14,
+    borderRadius: radius.md,
+    backgroundColor: colors.accent.tint,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  blockedText: { ...typography.callout, color: colors.inkSoft },
   rowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
 
   /* Historique */

@@ -14,7 +14,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Send, Smile, Paperclip } from 'lucide-react-native';
 import { colors, radius, typography } from '@venega/design-tokens';
-import { mockCircles, mockChatMessages, mockUsers, mockCurrentUser } from '@venega/types';
+import { mockChatMessages, mockUsers } from '@venega/types';
+import { getCircle, getCircles, getCurrentUser } from '../circleStore';
 import { Avatar, IconButton } from '../../../components/ui';
 
 type ChatMsg = {
@@ -33,13 +34,13 @@ export default function CircleChatScreen() {
   const circleId = params.id;
   const flatListRef = useRef<FlatList<any>>(null);
 
-  const circle = mockCircles.find((c) => c.id === circleId) ?? mockCircles[0];
+  const circle = (getCircle(circleId) ?? getCircles()[0]);
   const circleMessages = mockChatMessages.filter((m) => m.circleId === circle?.id);
 
   const [messages, setMessages] = useState<ChatMsg[]>(circleMessages);
   const [inputText, setInputText] = useState('');
 
-  const currentUser = mockCurrentUser;
+  const currentUser = getCurrentUser();
 
   const handleSend = () => {
     if (!inputText.trim()) return;

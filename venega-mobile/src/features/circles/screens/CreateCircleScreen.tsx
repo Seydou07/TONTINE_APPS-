@@ -33,7 +33,7 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 import { colors, radius, typography } from '@venega/design-tokens';
 import type { Circle } from '@venega/types';
 import { ReplacementRule, UnlockRule, RefundRule, KycRequirement } from '@venega/types';
-import { addCircle, CIRCLE_CREATION_FEE } from '../circleStore';
+import { addCircle, addFounderMembership, CIRCLE_CREATION_FEE } from '../circleStore';
 import {
   Button,
   Chip,
@@ -122,12 +122,27 @@ export default function CreateCircleScreen() {
 
   const typeLabel = !isTontine ? 'Caisse de solidarité' : isNature ? 'Tontine en nature' : 'Tontine en espèces';
 
-  const stepValid =
-    step === 1
-      ? !isNature || goalItem.trim().length > 1
-      : step === 2
-      ? name.trim().length >= 3 && contribution > 0 && (frequency !== 'CUSTOM' || toNumber(customDays) > 0)
-      : true;
+  type FieldError = Partial<Record<'goalItem' | 'name' | 'amount' | 'customDays', string>>;
+  const [errors, setErrors] = useState<FieldError>({});
+  const validateStep = (): FieldError => {
+    if (step === 1) {
+      return { goalItem: !isNature || goalItem.trim().length > 1 ? undefined : 'Indiquez le bien remis à chaque tour.' };
+    }
+    if (step === 2) {
+      return {
+        name: name.trim().length >= 3 ? undefined : 'Le nom doit contenir au moins 3 caractères.',
+        amount: contribution > 0 ? undefined : 'Indiquez le montant de la cotisation.',
+        customDays:
+          frequency !== 'CUSTOM' || toNumber(customDays) > 0 ? undefined : 'Indiquez le nombre de jours entre deux cotisations.',
+      };
+    }
+    return {};
+  };
+  /** L'erreur affichée sous un champ disparaît dès que la saisie est corrigée. */
+  const edit = (field: keyof FieldError, setter: (v: string) => void) => (v: string) => {
+    setter(v);
+    if (errors[field]) setErrors((e) => ({ ...e, [field]: undefined }));
+  };
 
   const pickGoalImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -189,11 +204,18 @@ export default function CreateCircleScreen() {
     const code = prefix + Math.floor(1000 + Math.random() * 9000).toString();
     const circle = buildCircle('c' + Date.now().toString(36), code);
     addCircle(circle);
+    addFounderMembership(circle);
     setCreatedCircle(circle);
   };
 
   const goBack = () => (step > 1 ? setStep(step - 1) : router.back());
-  const goNext = () => (step < STEPS.length ? setStep(step + 1) : handleCreate());
+  const goNext = () => {
+    const found = validateStep();
+    setErrors(found);
+    if (Object.values(found).some(Boolean)) return;
+    if (step < STEPS.length) setStep(step + 1);
+    else handleCreate();
+  };
 
   if (createdCircle) {
     return <CreatedView circle={createdCircle} onDone={() => router.replace('/(tabs)/circles')} />;
@@ -307,7 +329,8 @@ export default function CreateCircleScreen() {
                           label="Nom du bien"
                           placeholder="Ex. Moto Bajaj Boxer 100cc"
                           value={goalItem}
-                          onChangeText={setGoalItem}
+                          onChangeText={edit('goalItem', setGoalItem)}
+                          error={errors.goalItem}
                         />
                         <TextField
                           label="Détails (facultatif)"
@@ -342,7 +365,8 @@ export default function CreateCircleScreen() {
                       label="Nom du cercle"
                       placeholder={isTontine ? 'Ex. Tontine des commerçants de Dassasgho' : 'Ex. Mutuelle du quartier'}
                       value={name}
-                      onChangeText={setName}
+                      onChangeText={edit('name', setName)}
+                      error={errors.name}
                       maxLength={48}
                     />
                     <View>
@@ -352,12 +376,13 @@ export default function CreateCircleScreen() {
                         keyboardType="number-pad"
                         suffix="F CFA"
                         value={amount}
-                        onChangeText={setAmount}
+                        onChangeText={edit('amount', setAmount)}
+                        error={errors.amount}
                       />
                       {suggestedNature > 0 && contribution !== suggestedNature && (
                         <TouchableOpacity
                           style={styles.suggestion}
-                          onPress={() => setAmount(String(suggestedNature))}
+                          onPress={() => edit('amount', setAmount)(String(suggestedNature))}
                           activeOpacity={0.7}
                         >
                           <Text style={styles.suggestionText}>
@@ -393,7 +418,8 @@ export default function CreateCircleScreen() {
                         keyboardType="number-pad"
                         suffix="jours"
                         value={customDays}
-                        onChangeText={setCustomDays}
+                        onChangeText={edit('customDays', setCustomDays)}
+                        error={errors.customDays}
                         hint="Intervalle entre deux cotisations."
                       />
                     )}
@@ -570,7 +596,6 @@ export default function CreateCircleScreen() {
             <Button
               title={step === STEPS.length ? 'Créer le cercle' : 'Continuer'}
               onPress={goNext}
-              disabled={!stepValid}
             />
           </View>
         </KeyboardAvoidingView>

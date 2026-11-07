@@ -11,8 +11,9 @@ import {
   computeDepartureBreakdown,
   computeRecalculatedContribution,
   requestDeparture,
+  getDepartureRequests,
 } from '../circleStore';
-import { mockMemberships } from '@venega/types';
+import { DepartureRequestStatus, mockMemberships } from '@venega/types';
 import type { DepartureRequest } from '@venega/types';
 import { Button } from '../../../components/ui';
 import {
@@ -42,7 +43,13 @@ export default function DepartureScreen() {
 
   const [confirmed, setConfirmed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [request, setRequest] = useState<DepartureRequest | null>(null);
+  // Une demande déjà en attente est réaffichée : pas de seconde demande pour le même départ.
+  const [request, setRequest] = useState<DepartureRequest | null>(
+    () =>
+      getDepartureRequests(circleId).find(
+        (r) => r.userId === me.id && r.status === DepartureRequestStatus.PENDING,
+      ) ?? null,
+  );
 
   if (!circle || !currentMembership || !me) return null;
 
@@ -104,6 +111,7 @@ export default function DepartureScreen() {
   }
 
   const handleSubmit = () => {
+    if (submitting) return;
     setSubmitting(true);
     setTimeout(() => {
       const created = requestDeparture(circle!.id, me.id, me.displayName);

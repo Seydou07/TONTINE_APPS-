@@ -32,6 +32,7 @@ import {
   getSolidarityTotals,
   getCircleMembers,
   disburseSolidarityRequest,
+  canDisburse,
 } from '../circleStore';
 
 export default function SolidarityDisburseScreen() {
@@ -67,9 +68,11 @@ export default function SolidarityDisburseScreen() {
   }
 
   const amount = request.amountRequested;
+  // Pas de paiement possible si le versement serait refusé ensuite (déjà versé, validations incomplètes…).
+  const check = canDisburse(request.id, me.id);
 
   const handleConfirm = () => {
-    if (!selectedOperator) return;
+    if (!selectedOperator || !check.ok) return;
     setShowConfirm(false);
     dial(selectedOperator, amount);
   };
@@ -99,12 +102,22 @@ export default function SolidarityDisburseScreen() {
           </SummaryCard>
           <PaymentHint>Ce motif sera visible par tous les membres, avec le montant.</PaymentHint>
 
-          <PaymentSectionTitle>Choisissez l'opérateur</PaymentSectionTitle>
-          <OperatorPicker operators={PAYMENT_OPERATORS} value={selectedOperator} onChange={setSelectedOperator} />
+          {check.ok ? (
+            <>
+              <PaymentSectionTitle>Choisissez l'opérateur</PaymentSectionTitle>
+              <OperatorPicker operators={PAYMENT_OPERATORS} value={selectedOperator} onChange={setSelectedOperator} />
+            </>
+          ) : (
+            <PaymentHint>{check.reason}</PaymentHint>
+          )}
         </ScrollView>
 
         <PaymentFooter>
-          <Button title={payButtonTitle(amount)} disabled={!selectedOperator} onPress={() => setShowConfirm(true)} />
+          <Button
+            title={payButtonTitle(amount)}
+            disabled={!selectedOperator || !check.ok}
+            onPress={() => setShowConfirm(true)}
+          />
         </PaymentFooter>
       </SafeAreaView>
 

@@ -11,35 +11,60 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, Camera, Check } from 'lucide-react-native';
 import { colors, typography } from '@venega/design-tokens';
 import { Button, IconButton, Sheet, TextField } from '../../../components/ui';
 import { ApiError } from '../../../lib/api';
-import { getProfile } from '../../profile/profileStore';
+import { getProfile, setMobileMoneyNumber as saveMobileMoneyNumber } from '../../profile/profileStore';
+import { getCurrentUser } from '../../circles/circleStore';
 import { saveDisplayName } from '../api';
+import { formatPhone, validatePhone } from '../validation';
 
 export default function ProfileSetupScreen() {
   const router = useRouter();
+  // `onboarding=1` : fin de l'inscription (après le code SMS). Sinon : « Modifier le profil » depuis le Profil.
+  const params = useLocalSearchParams<{ phone?: string; onboarding?: string }>();
+  const isOnboarding = params.onboarding === '1';
+  const phone = formatPhone(params.phone || getCurrentUser().phoneNumber.replace(/^\+?226/, ''));
   const [fullName, setFullName] = useState(getProfile().name);
+  const [nameError, setNameError] = useState<string>();
   const [saving, setSaving] = useState(false);
-  const phone = '70 12 34 56';
   const [email, setEmail] = useState('');
-  const [mobileMoneyNumber, setMobileMoneyNumber] = useState('70 12 34 56');
+  const [emailError, setEmailError] = useState<string>();
+  const [mobileMoneyNumber, setMobileMoneyNumber] = useState(getProfile().mobileMoneyNumber || phone);
+  const [momoError, setMomoError] = useState<string>();
   const [showSuccess, setShowSuccess] = useState(false);
+
+  const validateFullName = (v: string) =>
+    v.trim().split(/\s+/).filter((p) => p.length >= 2).length >= 2 ? undefined : 'Indiquez votre prénom et votre nom.';
+  const validateEmail = (v: string) =>
+    !v.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()) ? undefined : 'Adresse e-mail invalide.';
+
+  const goBack = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)');
+  };
 
   const nameParts = fullName.trim().split(/\s+/);
   const initials = ((nameParts[0]?.[0] ?? '') + (nameParts[1]?.[0] ?? '')).toUpperCase() || 'A';
 
   const handleSave = async () => {
-    if (!fullName.trim()) {
-      Alert.alert('Erreur', 'Veuillez indiquer votre nom complet.');
-      return;
-    }
+    const errors = {
+      name: validateFullName(fullName),
+      email: validateEmail(email),
+      momo: validatePhone(mobileMoneyNumber),
+    };
+    setNameError(errors.name);
+    setEmailError(errors.email);
+    setMomoError(errors.momo);
+    if (errors.name || errors.email || errors.momo) return;
     setSaving(true);
     try {
       await saveDisplayName(fullName);
-      setShowSuccess(true);
+      saveMobileMoneyNumber(mobileMoneyNumber);
+      if (isOnboarding) setShowSuccess(true);
+      else goBack();
     } catch (e) {
       Alert.alert('Erreur', e instanceof ApiError ? e.message : 'Le profil n’a pas pu être enregistré.');
     } finally {
@@ -56,7 +81,7 @@ export default function ProfileSetupScreen() {
             icon={ArrowLeft}
             variant="plain"
             accessibilityLabel="Retour"
-            onPress={() => router.replace('/otp')}
+            onPress={() => (isOnboarding ? router.replace('/(tabs)') : goBack())}
           />
         </View>
 
@@ -66,7 +91,7 @@ export default function ProfileSetupScreen() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            <Text style={styles.title}>Votre profil</Text>
+            <Text style={styles.title}>{isOnboarding ? 'Votre profil' : 'Modifier le profil'}</Text>
             <Text style={styles.subtitle}>Ces informations apparaissent auprès des membres de vos cercles.</Text>
 
             <View style={styles.avatarWrap}>
@@ -75,7 +100,7 @@ export default function ProfileSetupScreen() {
               </View>
               <TouchableOpacity
                 style={styles.cameraBtn}
-                onPress={() => Alert.alert('Photo de profil', 'Changement de photo simulé avec succès.')}
+                onPress={() => router.push('/profile-photo')}
                 activeOpacity={0.85}
                 accessibilityRole="button"
                 accessibilityLabel="Ajouter une photo de profil"
@@ -91,7 +116,11 @@ export default function ProfileSetupScreen() {
                 autoComplete="name"
                 textContentType="name"
                 value={fullName}
-                onChangeText={setFullName}
+                onChangeText={(v) => {
+                  setFullName(v);
+                  if (nameError) setNameError(validateFullName(v));
+                }}
+                error={nameError}
               />
               <TextField
                 label="Adresse e-mail"
@@ -100,7 +129,11 @@ export default function ProfileSetupScreen() {
                 autoCapitalize="none"
                 autoComplete="email"
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(v) => {
+                  setEmail(v);
+                  if (emailError) setEmailError(validateEmail(v));
+                }}
+                error={emailError}
                 hint="Facultatif"
               />
               <TextField
@@ -116,15 +149,21 @@ export default function ProfileSetupScreen() {
                 prefix="+226"
                 placeholder="70 12 34 56"
                 keyboardType="phone-pad"
+                maxLength={11}
                 value={mobileMoneyNumber}
-                onChangeText={setMobileMoneyNumber}
+                onChangeText={(v) => {
+                  const formatted = formatPhone(v);
+                  setMobileMoneyNumber(formatted);
+                  if (momoError) setMomoError(validatePhone(formatted));
+                }}
+                error={momoError}
                 hint="Utilisé pour vos cotisations et versements"
               />
             </View>
           </ScrollView>
 
           <View style={styles.footer}>
-            <Button title="Terminer" onPress={handleSave} loading={saving} />
+            <Button title={isOnboarding ? 'Terminer' : 'Enregistrer'} onPress={handleSave} loading={saving} />
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>

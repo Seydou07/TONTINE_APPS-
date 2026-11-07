@@ -4,7 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, radius, typography } from '@venega/design-tokens';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ArrowRight, Calculator, Info, TrendingUp } from 'lucide-react-native';
-import { mockCircles, mockMemberships, mockCycles } from '@venega/types';
+import { mockMemberships, mockCycles } from '@venega/types';
+import { getCircle, getCircles } from '../circleStore';
 import { Button, Chip } from '../../../components/ui';
 import {
   ScreenHeader,
@@ -23,7 +24,7 @@ export default function RecalculateScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id: string }>();
   const circleId = params.id ?? 'c1';
-  const circle = mockCircles.find((c) => c.id === circleId) ?? mockCircles[0];
+  const circle = (getCircle(circleId) ?? getCircles()[0]);
   const cycle = mockCycles.find((c) => c.circleId === circleId && c.isActive);
   const memberships = mockMemberships.filter((m) => m.circleId === circleId);
 

@@ -19,9 +19,9 @@ import { Chip, HeroHeader, HeroStatusBar, HeroTitle } from '../../../components/
 
 /** Hauteur dont la carte Entrées / Sorties chevauche le bandeau vert. */
 const SUMMARY_OVERLAP = 40;
-import { mockTransactions, mockCircles, mockCycles } from '@venega/types';
+import { mockTransactions, mockCycles } from '@venega/types';
 import { TransactionType, TransactionStatus } from '@venega/types';
-import { getLedgerEntries } from '../circleStore';
+import { getCircles, getLedgerEntries } from '../circleStore';
 import TransactionDetailModal from '../../../components/TransactionDetailModal';
 
 const formatXOF = (amount: number) =>
@@ -159,10 +159,10 @@ export default function ActivityScreen() {
   ];
 
   const enriched = mockExtendedTx.map((tx) => {
-    const circle = mockCircles.find((c) => c.id === tx.circleId);
+    const circle = getCircles().find((c) => c.id === tx.circleId);
     const cycle = mockCycles.find((c) => c.id === tx.cycleId);
     const month = new Date(tx.createdAt).getMonth();
-    const turnNumber = cycle ? cycle.currentTurn - Math.abs(6 - month) : 1;
+    const turnNumber = cycle ? Math.max(cycle.currentTurn - Math.abs(6 - month), 1) : 1;
     return {
       ...tx,
       circleName: circle?.name ?? 'Tontine Familiale',
@@ -172,7 +172,7 @@ export default function ActivityScreen() {
   });
 
   // Décaissements de la caisse de solidarité (traces du grand livre de chaque cercle)
-  const solidarityDisbursements = mockCircles
+  const solidarityDisbursements = getCircles()
     .filter((c) => c.solidarityAmount > 0)
     .flatMap((c) => getLedgerEntries(c.id).filter((e) => e.type === 'DEBIT'))
     .map((e) => ({
@@ -185,7 +185,7 @@ export default function ActivityScreen() {
       memberName: e.memberName ?? '',
       providerReference: e.relatedTransactionId,
       createdAt: e.createdAt,
-      circleName: mockCircles.find((c) => c.id === e.circleId)?.name ?? '',
+      circleName: getCircles().find((c) => c.id === e.circleId)?.name ?? '',
       circleInviteCode: undefined,
       turnNumber: 1,
     }));

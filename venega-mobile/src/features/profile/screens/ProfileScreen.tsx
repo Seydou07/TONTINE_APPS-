@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { Alert, View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import Constants from 'expo-constants';
@@ -22,7 +22,8 @@ import {
 } from 'lucide-react-native';
 import { colors, radius, typography } from '@venega/design-tokens';
 import { KycStatus } from '@venega/types';
-import { getProfile } from '../profileStore';
+import { getProfile, setMobileMoneyNumber } from '../profileStore';
+import { formatPhone, validatePhone } from '../../auth/validation';
 import { logout as endSession } from '../../auth/api';
 import { authenticate, canUseDeviceLock, isLockEnabled, setLockEnabled } from '../../../lib/appLock';
 import { getCircles, getCurrentUser } from '../../circles/circleStore';
@@ -79,8 +80,9 @@ export default function ProfileScreen() {
   const kyc = kycLabel[user.kycStatus] ?? kycLabel[KycStatus.NOT_SUBMITTED]!;
 
   const [avatarUrl, setAvatarUrl] = useState(getProfile().avatarUrl);
-  const [momoPhone, setMomoPhone] = useState(localPhone(user.phoneNumber));
+  const momoPhone = getProfile().mobileMoneyNumber || localPhone(user.phoneNumber);
   const [draftPhone, setDraftPhone] = useState(momoPhone);
+  const [draftError, setDraftError] = useState<string>();
 
   const [phoneSheet, setPhoneSheet] = useState(false);
   const [helpSheet, setHelpSheet] = useState(false);
@@ -89,16 +91,21 @@ export default function ProfileScreen() {
   const [lockOn, setLockOn] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
+  // Relu au retour (photo, nom modifié, vérification d'identité terminée…).
+  const [, refresh] = useState(0);
   useFocusEffect(
     useCallback(() => {
       isLockEnabled().then(setLockOn);
       setAvatarUrl(getProfile().avatarUrl);
+      refresh((n) => n + 1);
     }, []),
   );
 
   const savePhone = () => {
-    if (draftPhone.replace(/\D/g, '').length !== 8) return;
-    setMomoPhone(draftPhone.trim());
+    const error = validatePhone(draftPhone);
+    setDraftError(error);
+    if (error) return;
+    setMobileMoneyNumber(formatPhone(draftPhone));
     setPhoneSheet(false);
   };
 
@@ -119,9 +126,15 @@ export default function ProfileScreen() {
     setLockOn(true);
   };
 
+  // Fonctions pas encore disponibles : on le dit plutôt que de laisser un bouton sans effet.
+  const comingSoon = (title: string) =>
+    Alert.alert(title, 'Cette fonction sera bientôt disponible dans Venega.');
+
   const logout = async () => {
     setLogoutSheet(false);
     await endSession();
+    // On vide toute la pile : sinon « retour » depuis la connexion ramènerait dans l'app sans session.
+    if (router.canDismiss()) router.dismissAll();
     router.replace('/login');
   };
 
@@ -197,7 +210,7 @@ export default function ProfileScreen() {
               valueTone={kyc.ok ? 'success' : 'muted'}
               onPress={() => router.push('/kyc-upload')}
             />
-            <ListRow icon={Lock} title="Mot de passe" onPress={() => {}} />
+            <ListRow icon={Lock} title="Mot de passe" onPress={() => comingSoon('Mot de passe')} />
             <ListRow
               icon={Fingerprint}
               title="Verrouiller l’application"
@@ -215,6 +228,7 @@ export default function ProfileScreen() {
               value={momoPhone}
               onPress={() => {
                 setDraftPhone(momoPhone);
+                setDraftError(undefined);
                 setPhoneSheet(true);
               }}
             />
@@ -224,7 +238,12 @@ export default function ProfileScreen() {
 
           <ListGroup title="Aide" style={styles.group}>
             <ListRow icon={HelpCircle} title="Centre d’aide" onPress={() => setHelpSheet(true)} />
-            <ListRow icon={FileText} title="Conditions d’utilisation" onPress={() => {}} last />
+            <ListRow
+              icon={FileText}
+              title="Conditions d’utilisation"
+              onPress={() => comingSoon('Conditions d’utilisation')}
+              last
+            />
           </ListGroup>
 
           <ListGroup style={styles.group}>
@@ -244,13 +263,18 @@ export default function ProfileScreen() {
           keyboardType="phone-pad"
           maxLength={11}
           value={draftPhone}
-          onChangeText={setDraftPhone}
+          onChangeText={(v) => {
+            const formatted = formatPhone(v);
+            setDraftPhone(formatted);
+            if (draftError) setDraftError(validatePhone(formatted));
+          }}
+          onSubmitEditing={savePhone}
+          error={draftError}
           autoFocus
         />
         <Button
           title="Enregistrer"
           onPress={savePhone}
-          disabled={draftPhone.replace(/\D/g, '').length !== 8}
           style={styles.sheetCta}
         />
       </Sheet>
@@ -277,8 +301,22 @@ export default function ProfileScreen() {
         </ScrollView>
         <Text style={styles.contactTitle}>Nous contacter</Text>
         <View style={styles.contactRow}>
-          <Button title="Appeler" icon={PhoneCall} variant="secondary" size="sm" style={styles.flex} />
-          <Button title="E-mail" icon={Mail} variant="secondary" size="sm" style={styles.flex} />
+          <Button
+            title="Appeler"
+            icon={PhoneCall}
+            variant="secondary"
+            size="sm"
+            style={styles.flex}
+            onPress={() => comingSoon('Appeler le support')}
+          />
+          <Button
+            title="E-mail"
+            icon={Mail}
+            variant="secondary"
+            size="sm"
+            style={styles.flex}
+            onPress={() => comingSoon('Écrire au support')}
+          />
         </View>
       </Sheet>
 

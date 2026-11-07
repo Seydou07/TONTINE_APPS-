@@ -22,6 +22,7 @@ import { colors, radius, typography } from '@venega/design-tokens';
 import { KycStatus } from '@venega/types';
 import type { Circle } from '@venega/types';
 import { createAidAppeal, getAidShareLink, getCurrentUser } from '../../circles/circleStore';
+import { formatPhone, validatePhone } from '../../auth/validation';
 import { Button, Chip, IconButton, TextField } from '../../../components/ui';
 
 const formatXOF = (amount: number) => new Intl.NumberFormat('fr-FR').format(amount) + ' F';
@@ -59,13 +60,23 @@ export default function CreateAidScreen() {
 
   const goal = toNumber(goalText);
   const phoneDigits = phone.replace(/\D/g, '');
-  const canSubmit =
-    verified &&
-    title.trim().length >= 5 &&
-    beneficiary.trim().length >= 2 &&
-    phoneDigits.length === 8 &&
-    story.trim().length >= MIN_STORY &&
-    goal >= MIN_GOAL;
+
+  // Erreurs sous les champs, affichées à l'envoi puis effacées dès que la saisie est corrigée.
+  type Field = 'title' | 'beneficiary' | 'phone' | 'story' | 'goal';
+  const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
+  const rules: Record<Field, (v: string) => string | undefined> = {
+    title: (v) => (v.trim().length >= 5 ? undefined : 'Le titre doit contenir au moins 5 caractères.'),
+    beneficiary: (v) => (v.trim().length >= 2 ? undefined : 'Indiquez le nom de la personne aidée.'),
+    phone: (v) => validatePhone(v),
+    story: (v) => (v.trim().length >= MIN_STORY ? undefined : `Expliquez la situation en au moins ${MIN_STORY} caractères.`),
+    goal: (v) => (toNumber(v) >= MIN_GOAL ? undefined : `Minimum ${formatXOF(MIN_GOAL)}`),
+  };
+  const values: Record<Field, string> = { title, beneficiary, phone, story, goal: goalText };
+  const change = (field: Field, setter: (v: string) => void, transform?: (v: string) => string) => (raw: string) => {
+    const v = transform ? transform(raw) : raw;
+    setter(v);
+    if (errors[field]) setErrors((e) => ({ ...e, [field]: rules[field](v) }));
+  };
 
   const pickPhoto = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -83,7 +94,13 @@ export default function CreateAidScreen() {
   };
 
   const submit = () => {
-    if (!canSubmit) return;
+    if (!verified) return;
+    const found: Partial<Record<Field, string>> = {};
+    (Object.keys(rules) as Field[]).forEach((f) => {
+      found[f] = rules[f](values[f]);
+    });
+    setErrors(found);
+    if (Object.values(found).some(Boolean)) return;
     // TODO: envoyer à l'API (création + modération) ; la photo doit être téléversée, pas une URI locale.
     const { circle } = createAidAppeal({
       title: title.trim(),
@@ -169,14 +186,16 @@ export default function CreateAidScreen() {
                 label="Titre de la cagnotte"
                 placeholder="Ex. Soins de dialyse pour Mariam"
                 value={title}
-                onChangeText={setTitle}
+                onChangeText={change('title', setTitle)}
+                error={errors.title}
                 maxLength={70}
               />
               <TextField
                 label="Pour qui ?"
                 placeholder="Nom de la personne aidée"
                 value={beneficiary}
-                onChangeText={setBeneficiary}
+                onChangeText={change('beneficiary', setBeneficiary)}
+                error={errors.beneficiary}
                 maxLength={60}
               />
               <TextField
@@ -186,7 +205,8 @@ export default function CreateAidScreen() {
                 keyboardType="phone-pad"
                 maxLength={11}
                 value={phone}
-                onChangeText={setPhone}
+                onChangeText={change('phone', setPhone, formatPhone)}
+                error={errors.phone}
                 hint="Les fonds y seront versés après validation."
               />
               <TextField
@@ -194,7 +214,8 @@ export default function CreateAidScreen() {
                 placeholder="Expliquez la situation et à quoi servira l’argent."
                 multiline
                 value={story}
-                onChangeText={setStory}
+                onChangeText={change('story', setStory)}
+                error={errors.story}
                 maxLength={1000}
                 hint={
                   story.trim().length < MIN_STORY
@@ -210,12 +231,12 @@ export default function CreateAidScreen() {
                   placeholder="500 000"
                   keyboardType="number-pad"
                   value={goal ? new Intl.NumberFormat('fr-FR').format(goal) : ''}
-                  onChangeText={setGoalText}
-                  error={goalText && goal < MIN_GOAL ? `Minimum ${formatXOF(MIN_GOAL)}` : undefined}
+                  onChangeText={change('goal', setGoalText)}
+                  error={errors.goal ?? (goalText && goal < MIN_GOAL ? `Minimum ${formatXOF(MIN_GOAL)}` : undefined)}
                 />
                 <View style={styles.chips}>
                   {GOAL_PRESETS.map((g) => (
-                    <Chip key={g} label={formatXOF(g)} selected={goal === g} onPress={() => setGoalText(String(g))} />
+                    <Chip key={g} label={formatXOF(g)} selected={goal === g} onPress={() => change('goal', setGoalText)(String(g))} />
                   ))}
                 </View>
               </View>
@@ -240,7 +261,7 @@ export default function CreateAidScreen() {
           </ScrollView>
 
           <View style={styles.footer}>
-            <Button title="Lancer la cagnotte" disabled={!canSubmit} onPress={submit} />
+            <Button title="Lancer la cagnotte" disabled={!verified} onPress={submit} />
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>

@@ -5,9 +5,9 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { Bell, ChevronRight, Gift, HandHeart, HeartHandshake, Plus, UserPlus, Users } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
 import { colors, radius, typography } from '@venega/design-tokens';
-import { mockCurrentUser, CircleType } from '@venega/types';
+import { CircleType } from '@venega/types';
 import type { Circle } from '@venega/types';
-import { getCircles, getNextContribution } from '../../circles/circleStore';
+import { getCircles, getCurrentUser, getNextContribution } from '../../circles/circleStore';
 import { HeroHeader, HeroStatusBar, heroColors } from '../../../components/ui';
 import PromoCarousel from '../components/PromoCarousel';
 
@@ -39,7 +39,7 @@ export default function DashboardScreen() {
     }, []),
   );
 
-  const me = mockCurrentUser;
+  const me = getCurrentUser();
   const fullName = [me.firstName, me.lastName].filter(Boolean).join(' ');
 
   const openCircle = (c: Circle) => {

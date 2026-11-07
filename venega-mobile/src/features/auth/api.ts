@@ -9,8 +9,14 @@ import { KycStatus } from '@venega/types';
 import { ApiError, DEMO_OTP_CODE, apiRequest, clearTokens, getTokens, isDemoMode, setTokens } from '../../lib/api';
 import type { Tokens } from '../../lib/api';
 import { setLockEnabled } from '../../lib/appLock';
-import { setCurrentUserKycStatus } from '../circles/circleStore';
-import { setProfileName } from '../profile/profileStore';
+import { setCurrentUserKycStatus, setCurrentUserName, setCurrentUserPhone } from '../circles/circleStore';
+import { setProfileName as setStoredProfileName } from '../profile/profileStore';
+
+/** Le nom est affiché à la fois par le profil et par les cercles (accueil, membres, paiements). */
+function setProfileName(fullName: string): void {
+  setStoredProfileName(fullName);
+  setCurrentUserName(fullName);
+}
 
 /** Profil renvoyé par l'API (champs sensibles déjà retirés côté serveur). */
 export type ApiUser = {
@@ -37,10 +43,18 @@ const DEMO_TOKENS: Tokens = { accessToken: 'demo', refreshToken: 'demo' };
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+/**
+ * Jetons reçus à l'inscription, gardés en mémoire jusqu'à la vérification du numéro : si l'app est
+ * fermée sur l'écran du code, aucune session n'est enregistrée et l'utilisateur ne se retrouve pas
+ * connecté avec un numéro non vérifié.
+ */
+let pendingTokens: Tokens | null = null;
+
 async function loadProfile(): Promise<void> {
   const me = await apiRequest<ApiUser>('/users/me');
   setProfileName(me.displayName || `${me.firstName} ${me.lastName}`);
   setCurrentUserKycStatus(me.kycStatus);
+  setCurrentUserPhone(me.phoneNumber);
 }
 
 export async function register(params: {
@@ -67,7 +81,7 @@ export async function register(params: {
     if (e instanceof ApiError && e.status === 409) throw new ApiError(PHONE_TAKEN, 409);
     throw e;
   });
-  await setTokens(tokens);
+  pendingTokens = tokens;
 }
 
 export async function login(phone: string, password: string): Promise<void> {
@@ -88,7 +102,13 @@ export async function login(phone: string, password: string): Promise<void> {
     throw e;
   });
   await setTokens(tokens);
-  await loadProfile();
+  try {
+    await loadProfile();
+  } catch (e) {
+    // Profil illisible : on n'affiche pas une erreur tout en laissant une session enregistrée.
+    await clearTokens();
+    throw e;
+  }
 }
 
 export async function verifyOtp(phone: string, code: string): Promise<void> {
@@ -103,6 +123,10 @@ export async function verifyOtp(phone: string, code: string): Promise<void> {
     auth: false,
     body: { phoneNumber: toE164(phone), code },
   });
+  if (pendingTokens) {
+    await setTokens(pendingTokens);
+    pendingTokens = null;
+  }
   await loadProfile();
 }
 
@@ -123,6 +147,7 @@ export async function resendOtp(_phone: string): Promise<void> {
 }
 
 export async function logout(): Promise<void> {
+  pendingTokens = null;
   await setLockEnabled(false);
   if (!isDemoMode) {
     const tokens = await getTokens();

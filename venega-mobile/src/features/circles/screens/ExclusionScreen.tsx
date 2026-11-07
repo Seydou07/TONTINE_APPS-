@@ -4,8 +4,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, radius, typography } from '@venega/design-tokens';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { AlertTriangle, Ban, Clock } from 'lucide-react-native';
-import { mockCircles, mockMemberships, mockReliabilityEvents } from '@venega/types';
+import { mockMemberships, mockReliabilityEvents } from '@venega/types';
 import { ReliabilityEventType } from '@venega/types';
+import { getCircle, getCircles } from '../circleStore';
 import { Avatar, Button } from '../../../components/ui';
 import {
   ScreenHeader,
@@ -20,7 +21,7 @@ export default function ExclusionScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id: string }>();
   const circleId = params.id ?? 'c1';
-  const circle = mockCircles.find((c) => c.id === circleId) ?? mockCircles[0];
+  const circle = (getCircle(circleId) ?? getCircles()[0]);
   const memberships = mockMemberships.filter((m) => m.circleId === circleId && m.userId !== 'u1');
   const circleEvents = mockReliabilityEvents.filter((e) => e.circleId === circleId);
 

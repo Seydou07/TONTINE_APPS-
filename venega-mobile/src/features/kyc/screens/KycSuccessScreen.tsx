@@ -20,10 +20,10 @@ export default function KYCSuccessScreen() {
           </Animated.View>
 
           <Animated.View entering={FadeIn.delay(150).duration(350)}>
-            <Text style={styles.title}>Identité vérifiée</Text>
+            <Text style={styles.title}>Documents envoyés</Text>
             <Text style={styles.subtitle}>
-              Vous pouvez maintenant créer des cercles, inviter des membres et utiliser toutes les fonctionnalités de
-              Venega.
+              Votre identité est en cours de vérification. Dès qu’elle est validée, vous pourrez créer des cercles et
+              lancer des cagnottes. Suivez l’avancement dans votre profil.
             </Text>
           </Animated.View>
         </View>

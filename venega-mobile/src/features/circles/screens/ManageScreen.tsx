@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ArrowLeft,
@@ -28,6 +28,7 @@ import {
   getCycles,
   getMembershipRequests,
   getDepartureRequests,
+  getTurnState,
 } from '../circleStore';
 import {
   mockMemberships,
@@ -47,14 +48,17 @@ export default function ManageScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id: string }>();
   const circleId = params.id ?? 'c1';
+  // Relu au retour d'un écran (versement, demandes, départs…) pour afficher le tour à jour.
+  const [, refresh] = useState(0);
+  useFocusEffect(useCallback(() => refresh((n) => n + 1), []));
 
   const circle = getCircle(circleId) ?? getCircles()[0]!;
   const cycle = getActiveCycle(circle) ?? getCycles(circle.id)[0];
   const memberships = mockMemberships.filter((m) => m.circleId === circle.id);
 
   const orderedMembers = [...memberships].sort((a, b) => (a.turnOrder ?? 0) - (b.turnOrder ?? 0));
-  const notReceived = orderedMembers.filter((m) => !m.hasReceivedPayout);
-  const beneficiary = notReceived[0] ?? orderedMembers[0];
+  const turnState = getTurnState(circle.id);
+  const beneficiary = turnState.beneficiary;
 
   const pendingRequests = getMembershipRequests(circle.id).filter(
     (r) => r.status === MembershipRequestStatus.PENDING
@@ -176,7 +180,7 @@ export default function ManageScreen() {
               icon={Wallet}
               tone="primary"
               title={isNature ? 'Remettre le bien' : 'Verser la cagnotte'}
-              subtitle={`Bénéficiaire : ${beneficiary?.user?.firstName ?? '—'} ${beneficiary?.user?.lastName ?? ''} (tour ${cycle?.currentTurn ?? 1})`}
+              subtitle={`Bénéficiaire : ${beneficiary?.user?.firstName ?? '—'} ${beneficiary?.user?.lastName ?? ''} (tour ${turnState.turn})`}
               onPress={openPayout}
             />
             <ListRow
@@ -313,14 +317,14 @@ export default function ManageScreen() {
                 <UserCheck size={24} color={colors.primary.DEFAULT} strokeWidth={1.8} />
               </View>
               <Text style={styles.emptyTitle}>Aucun membre en retard</Text>
-              <Text style={styles.emptyText}>Tous les membres ont cotisé pour le tour {cycle?.currentTurn ?? 1}.</Text>
+              <Text style={styles.emptyText}>Tous les membres ont cotisé pour le tour {turnState.turn}.</Text>
             </View>
             <Button title="Fermer" variant="secondary" onPress={() => setShowRemindModal(false)} />
           </>
         ) : (
           <>
             <Text style={styles.sheetText}>
-              {lateMembers.length} membre(s) en retard pour le tour {cycle?.currentTurn ?? 1}. Décochez ceux que vous
+              {lateMembers.length} membre(s) en retard pour le tour {turnState.turn}. Décochez ceux que vous
               ne voulez pas relancer.
             </Text>
 

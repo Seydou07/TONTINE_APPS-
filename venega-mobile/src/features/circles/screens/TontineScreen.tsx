@@ -53,6 +53,7 @@ import {
   setMemberTurnOrder,
   getNextContribution,
   formatDueIn,
+  computeTurnState,
 } from '../circleStore';
 
 // Dans une tontine il n'y a que deux statuts : le fondateur (rôle PRESIDENT) et les membres.
@@ -151,7 +152,7 @@ export default function TontineScreen() {
     router.push(`/circle/${circle.id}/edit` as any);
   };
 
-  const currentTurn = cycle?.currentTurn ?? 1;
+  const cycleTurn = Math.max(cycle?.currentTurn ?? 1, 1);
   const storedMembers = getCircleMembers(circle.id);
   // Données de démonstration : certains cercles fictifs (ex. la tontine moto) n'ont pas
   // encore d'adhésions dans les données de test — on reprend le repli de l'ancienne fiche.
@@ -167,22 +168,22 @@ export default function TontineScreen() {
           joinedAt: circle.createdAt,
           user: u,
           reliabilityScore: 88,
-          hasReceivedPayout: idx + 1 < currentTurn,
+          hasReceivedPayout: idx + 1 < cycleTurn,
           hasDeposit: true,
         }));
   const members = [...memberSource].sort((a, b) => (a.turnOrder ?? 0) - (b.turnOrder ?? 0));
   const sortedMembers = [...members].sort((a, b) => Number(!isFounderRole(a.role)) - Number(!isFounderRole(b.role)));
   const pendingMembership = membershipRequests.filter((r) => r.status === MembershipRequestStatus.PENDING);
 
-  const completedContribByUser: Record<string, number> = {};
-  transactions.forEach((t) => {
-    if (t.type === TransactionType.TONTINE_CONTRIBUTION && t.status === TransactionStatus.COMPLETED) {
-      completedContribByUser[t.userId] = (completedContribByUser[t.userId] ?? 0) + 1;
-    }
-  });
-  const turnCompletedCount = members.filter((m) => (completedContribByUser[m.userId] ?? 0) >= currentTurn).length;
+  // Même règle que la gestion et le versement : bénéficiaire = premier membre pas encore servi,
+  // « a cotisé » = cotisation du tour en cours payée.
+  const turnState = computeTurnState(members, cycle);
+  const currentTurn = turnState.turn;
+  const turnCompletedCount = turnState.paidCount;
   const turnProgress = members.length > 0 ? turnCompletedCount / members.length : 0;
-  const turnBeneficiary = members.find((m) => m.turnOrder === currentTurn) ?? members.find((m) => !m.hasReceivedPayout);
+  const turnBeneficiary = turnState.beneficiary;
+  const myMembership = members.find((m) => m.userId === me.id);
+  const iHavePaid = myMembership?.paymentStatus === PaymentStatus.PAID;
   const turnPot = circle.tontineAmount * members.length;
 
   const monthsWithActivity = [...new Set(transactions.map((t) => new Date(t.createdAt).getMonth()))].sort((a, b) => a - b);
@@ -434,7 +435,13 @@ export default function TontineScreen() {
                     Prochaine cotisation {formatDueIn(nextDueDays)}
                   </Text>
                 )}
-                <Button title={payButtonTitle(circle.tontineAmount)} onPress={handlePayNow} />
+                {myMembership && (
+                  <Button
+                    title={iHavePaid ? 'Cotisation du tour payée' : payButtonTitle(circle.tontineAmount)}
+                    disabled={iHavePaid}
+                    onPress={handlePayNow}
+                  />
+                )}
                 {isFounder && (
                   <Button
                     title={isNature ? 'Remettre le bien' : 'Verser la cagnotte'}

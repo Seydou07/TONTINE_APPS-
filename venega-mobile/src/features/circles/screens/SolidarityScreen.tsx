@@ -160,6 +160,7 @@ export default function SolidarityScreen() {
     setReqEventType(EventType.MALADIE);
     setReqReason('');
     setReqAmount('');
+    setReqErrors({});
     setShowRequestModal(true);
   };
 
@@ -167,10 +168,27 @@ export default function SolidarityScreen() {
     router.push({ pathname: '/circle/[id]/invite', params: { id: circle.id } });
   };
 
+  type ReqField = 'beneficiary' | 'reason' | 'amount';
+  const [reqErrors, setReqErrors] = useState<Partial<Record<ReqField, string>>>({});
+  const reqAmountValue = parseInt(reqAmount.replace(/\D/g, ''), 10) || 0;
+  const validateReq = (field: ReqField, v: { beneficiary: string | null; reason: string; amount: number }) => {
+    if (field === 'beneficiary') return v.beneficiary ? undefined : 'Choisissez le membre concerné.';
+    if (field === 'reason') return v.reason.trim().length >= 5 ? undefined : 'Expliquez la situation en quelques mots.';
+    if (v.amount <= 0) return 'Indiquez le montant à décaisser.';
+    return v.amount <= totals.balance ? undefined : `Le solde de la caisse est de ${formatXOF(totals.balance)}.`;
+  };
+
   const handleSubmitRequest = () => {
-    const amount = parseInt(reqAmount.replace(/\D/g, ''), 10);
+    const amount = reqAmountValue;
+    const v = { beneficiary: reqBeneficiaryId, reason: reqReason, amount };
+    const found = {
+      beneficiary: validateReq('beneficiary', v),
+      reason: validateReq('reason', v),
+      amount: validateReq('amount', v),
+    };
+    setReqErrors(found);
     const beneficiary = members.find((m) => m.userId === reqBeneficiaryId);
-    if (!beneficiary || !reqReason.trim() || !amount) return;
+    if (!beneficiary || found.reason || found.amount) return;
     submitSolidarityRequest({
       circleId: circle.id,
       userId: beneficiary.userId,
@@ -194,7 +212,6 @@ export default function SolidarityScreen() {
   };
 
 
-  const canSubmit = !!reqBeneficiaryId && !!reqReason.trim() && !!reqAmount;
   const showFooter = isFounder && tab === 'decaissements';
 
   return (
@@ -526,7 +543,10 @@ export default function SolidarityScreen() {
                     accessibilityRole="radio"
                     accessibilityState={{ selected: active }}
                     accessibilityLabel={fullName}
-                    onPress={() => setReqBeneficiaryId(m.userId)}
+                    onPress={() => {
+                      setReqBeneficiaryId(m.userId);
+                      setReqErrors((e) => ({ ...e, beneficiary: undefined }));
+                    }}
                   >
                     <Avatar name={fullName} uri={m.user.avatarUrl} size={40} highlighted={active} />
                     <Text style={[styles.beneficiaryName, active && styles.beneficiaryNameActive]} numberOfLines={1}>
@@ -536,6 +556,7 @@ export default function SolidarityScreen() {
                 );
               })}
             </View>
+            {reqErrors.beneficiary ? <Text style={styles.fieldError}>{reqErrors.beneficiary}</Text> : null}
 
             <Text style={styles.formLabel}>Type d'événement</Text>
             <View style={styles.chipWrap}>
@@ -549,7 +570,11 @@ export default function SolidarityScreen() {
                 label="Motif de la demande"
                 placeholder="Expliquez brièvement la situation aux membres du cercle…"
                 value={reqReason}
-                onChangeText={setReqReason}
+                onChangeText={(t) => {
+                  setReqReason(t);
+                  if (reqErrors.reason) setReqErrors((e) => ({ ...e, reason: validateReq('reason', { beneficiary: reqBeneficiaryId, reason: t, amount: reqAmountValue }) }));
+                }}
+                error={reqErrors.reason}
                 multiline
                 numberOfLines={3}
               />
@@ -557,14 +582,21 @@ export default function SolidarityScreen() {
                 label="Montant à décaisser"
                 placeholder="Ex : 45000"
                 value={reqAmount}
-                onChangeText={setReqAmount}
-                keyboardType="numeric"
+                onChangeText={(t) => {
+                  const digits = t.replace(/\D/g, '');
+                  setReqAmount(digits);
+                  if (reqErrors.amount) {
+                    setReqErrors((e) => ({ ...e, amount: validateReq('amount', { beneficiary: reqBeneficiaryId, reason: reqReason, amount: parseInt(digits, 10) || 0 }) }));
+                  }
+                }}
+                error={reqErrors.amount}
+                keyboardType="number-pad"
                 suffix="F CFA"
               />
             </View>
           </ScrollView>
 
-          <Button title="Envoyer aux approbateurs" disabled={!canSubmit} onPress={handleSubmitRequest} style={styles.sheetSubmit} />
+          <Button title="Envoyer aux approbateurs" onPress={handleSubmitRequest} style={styles.sheetSubmit} />
         </Sheet>
 
         {selectedEntry && (
@@ -612,6 +644,7 @@ function StatusPill({ status }: { status: AidRequestStatus }) {
 }
 
 const styles = StyleSheet.create({
+  fieldError: { ...typography.footnote, color: colors.danger.DEFAULT, marginTop: 6 },
   container: { flex: 1, backgroundColor: colors.fill },
   flex: { flex: 1 },
   safe: { flex: 1, backgroundColor: colors.bg },

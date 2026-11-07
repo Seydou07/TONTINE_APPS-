@@ -25,6 +25,7 @@ import {
 import type { LucideIcon } from 'lucide-react-native';
 import { colors, radius, typography } from '@venega/design-tokens';
 import { Button, IconButton, ListGroup, ListRow, Sheet } from '../../../components/ui';
+import { submitKycVerification } from '../../circles/circleStore';
 
 /* ── Ligne d'étape (document à fournir) ── */
 
@@ -138,6 +139,8 @@ export default function KycUploadScreen() {
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
+      // Le dossier part en vérification (statut « En cours ») : sans cela le statut restait « À faire ».
+      submitKycVerification();
       router.replace('/kyc-success');
     }, 1500);
   };

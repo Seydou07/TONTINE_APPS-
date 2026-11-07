@@ -25,9 +25,9 @@ async function canCallDirectly(): Promise<boolean> {
   return result === PermissionsAndroid.RESULTS.GRANTED;
 }
 
-async function launchUssd(code: string): Promise<void> {
+async function launchUssd(code: string, direct: boolean): Promise<void> {
   const uri = `tel:${encodeURIComponent(code)}`;
-  if (await canCallDirectly()) {
+  if (direct) {
     // Pas d'attente du résultat : le retour dans l'app est détecté par AppState.
     IntentLauncher.startActivityAsync('android.intent.action.CALL', { data: uri }).catch(() => Linking.openURL(uri));
     return;
@@ -35,17 +35,59 @@ async function launchUssd(code: string): Promise<void> {
   await Linking.openURL(uri);
 }
 
-/** Lance le code USSD puis se résout quand l'utilisateur revient dans l'application. */
-export function dialAndWait(operatorId: string, amount: number): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') {
-        sub.remove();
-        resolve();
-      }
-    });
-    launchUssd(buildUssdCode(operatorId, amount)).catch((e) => {
-      sub.remove();
+/**
+ * Si l'app n'a jamais été quittée ni recouverte après ce délai, le code n'a sans doute pas été lancé
+ * (iOS, téléphone sans fonction d'appel…) : on passe quand même à la vérification pour ne pas rester bloqué.
+ */
+const NO_LEAVE_TIMEOUT_MS = 15000;
+
+/**
+ * Lance le code USSD puis se résout quand l'utilisateur revient dans l'application.
+ * « Revenir » = l'app repasse au premier plan après être partie en arrière-plan, OU (Android) reprend
+ * le focus après avoir été recouverte par la fenêtre de l'opérateur sans passer en arrière-plan.
+ */
+export async function dialAndWait(operatorId: string, amount: number): Promise<void> {
+  // L'autorisation est demandée AVANT d'écouter AppState : sa fenêtre fait elle-même quitter puis
+  // revenir l'app, ce qui aurait été pris pour un retour de paiement avant même le lancement du code.
+  const direct = await canCallDirectly();
+  const code = buildUssdCode(operatorId, amount);
+
+  return new Promise<void>((resolve, reject) => {
+    let left = false;
+    let settled = false;
+    const subs: { remove: () => void }[] = [];
+    const cleanup = () => {
+      settled = true;
+      clearTimeout(fallback);
+      subs.forEach((s) => s.remove());
+    };
+    const back = () => {
+      if (settled) return;
+      cleanup();
+      resolve();
+    };
+
+    subs.push(
+      AppState.addEventListener('change', (state) => {
+        if (state === 'active') {
+          if (left) back();
+        } else {
+          left = true;
+        }
+      }),
+    );
+    if (Platform.OS === 'android') {
+      // Fenêtre USSD affichée par-dessus l'app : pas de passage en arrière-plan, seulement blur / focus.
+      subs.push(AppState.addEventListener('blur', () => (left = true)));
+      subs.push(AppState.addEventListener('focus', () => left && back()));
+    }
+    const fallback = setTimeout(() => {
+      if (!left) back();
+    }, NO_LEAVE_TIMEOUT_MS);
+
+    launchUssd(code, direct).catch((e) => {
+      if (settled) return;
+      cleanup();
       reject(e);
     });
   });

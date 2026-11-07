@@ -4,7 +4,15 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Info } from 'lucide-react-native';
 import { colors, radius, typography } from '@venega/design-tokens';
-import { getCircle, getCircles, getCurrentUser, activateCircle, CIRCLE_CREATION_FEE } from '../circleStore';
+import {
+  getCircle,
+  getCircles,
+  getCurrentUser,
+  activateCircle,
+  recordContribution,
+  recordSolidarityContribution,
+  CIRCLE_CREATION_FEE,
+} from '../circleStore';
 import { CircleType } from '@venega/types';
 import { Button } from '../../../components/ui';
 import OperatorPicker from '../components/OperatorPicker';
@@ -29,7 +37,9 @@ import {
 export default function PaymentScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ circleId?: string; amount?: string; type?: string }>();
-  const circle = getCircle(params.circleId ?? '') ?? getCircles()[0]!;
+  // Cercle introuvable : on ne paie jamais « par défaut » pour un autre cercle (ex. activer le mauvais).
+  const found = getCircle(params.circleId ?? '');
+  const circle = found ?? getCircles()[0]!;
   const paymentType = params.type === 'SOLIDARITY' ? 'SOLIDARITY' : params.type === 'ACTIVATION' ? 'ACTIVATION' : 'TONTINE';
   const amount = paymentType === 'ACTIVATION' ? CIRCLE_CREATION_FEE : (parseFloat(params.amount || '0') || circle.tontineAmount || 0);
   const me = getCurrentUser();
@@ -42,15 +52,35 @@ export default function PaymentScreen() {
       activateCircle(circle.id);
       router.replace((circle.type === CircleType.SOLIDARITY_ONLY ? `/circle/${circle.id}/solidarity` : `/circle/${circle.id}`) as any);
     } else {
+      // Montant complet confirmé : la cotisation du tour est enregistrée (statut « payé », caisse créditée).
+      if (paymentType === 'SOLIDARITY') {
+        recordSolidarityContribution(circle.id, me.id, `${me.firstName} ${me.lastName}`, amount);
+      } else {
+        recordContribution(circle.id, me.id);
+      }
       router.back();
     }
   });
 
   const handleConfirm = () => {
-    if (!selectedOperator) return;
+    if (!selectedOperator || !found) return;
     setShowConfirm(false);
     dial(selectedOperator, amount);
   };
+
+  if (!found) {
+    return (
+      <View style={paymentStyles.container}>
+        <StatusBar barStyle="dark-content" />
+        <SafeAreaView style={paymentStyles.flex} edges={['top', 'bottom']}>
+          <PaymentHeader title="Paiement" onBack={() => router.back()} />
+          <View style={paymentStyles.scroll}>
+            <PaymentHint>Ce cercle est introuvable. Revenez en arrière et réessayez depuis la fiche du cercle.</PaymentHint>
+          </View>
+        </SafeAreaView>
+      </View>
+    );
+  }
 
   const typeLabel =
     paymentType === 'SOLIDARITY' ? 'Cotisation solidarité'
