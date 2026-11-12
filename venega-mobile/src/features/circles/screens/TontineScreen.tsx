@@ -54,7 +54,12 @@ import {
   getNextContribution,
   formatDueIn,
   computeTurnState,
+  canPrepayNextTurn,
+  getTurnOrderMethod,
+  isRotationStarted,
+  formatDayMonth,
 } from '../circleStore';
+import { TurnOrderMethod } from '@venega/types';
 
 // Dans une tontine il n'y a que deux statuts : le fondateur (rôle PRESIDENT) et les membres.
 const isFounderRole = (role: Role) => role === Role.PRESIDENT;
@@ -143,8 +148,9 @@ export default function TontineScreen() {
 
   const handlePickTurn = (turnOrder: number) => {
     if (!turnPickerMember) return;
-    setMemberTurnOrder(circle.id, turnPickerMember.userId, turnOrder);
+    const result = setMemberTurnOrder(circle.id, turnPickerMember.userId, turnOrder);
     setTurnPickerMember(null);
+    if (!result.ok) Alert.alert('Ordre de passage', result.reason);
     forceRender((n) => n + 1);
   };
 
@@ -177,7 +183,13 @@ export default function TontineScreen() {
 
   // Même règle que la gestion et le versement : bénéficiaire = premier membre pas encore servi,
   // « a cotisé » = cotisation du tour en cours payée.
-  const turnState = computeTurnState(members, cycle);
+  const turnState = computeTurnState(members, cycle, circle);
+  const orderMethod = getTurnOrderMethod(circle);
+  const rotationStarted = isRotationStarted(circle);
+  // Règle « payer le tour suivant d'abord » : le bénéficiaire voit le bouton d'avance.
+  const canPrepay = canPrepayNextTurn(turnState, me.id);
+  const waitingMyPrepay =
+    turnState.nextPaymentRequired && turnState.hasNextTurn && turnState.beneficiary?.userId === me.id && !turnState.beneficiaryPrepaid;
   const currentTurn = turnState.turn;
   const turnCompletedCount = turnState.paidCount;
   const turnProgress = members.length > 0 ? turnCompletedCount / members.length : 0;
@@ -442,6 +454,24 @@ export default function TontineScreen() {
                     onPress={handlePayNow}
                   />
                 )}
+                {waitingMyPrepay && (
+                  <View style={styles.prepayBox}>
+                    <Text style={styles.prepayText}>
+                      Vous recevez ce tour. Règle du cercle : payez d’abord votre cotisation du tour {currentTurn + 1}
+                      {iHavePaid ? '.' : ', après celle de ce tour.'}
+                    </Text>
+                    {canPrepay && (
+                      <Button
+                        title={`Payer le tour ${currentTurn + 1} d’avance`}
+                        variant="secondary"
+                        size="sm"
+                        onPress={() =>
+                          router.push(`/payment?circleId=${circle.id}&amount=${circle.tontineAmount}&type=TONTINE_NEXT` as any)
+                        }
+                      />
+                    )}
+                  </View>
+                )}
                 {isFounder && (
                   <Button
                     title={isNature ? 'Remettre le bien' : 'Verser la cagnotte'}
@@ -452,6 +482,24 @@ export default function TontineScreen() {
               </RotationWheel>
 
               <Text style={[styles.groupTitle, styles.tourListTitle]}>Ordre de passage</Text>
+              {orderMethod !== TurnOrderMethod.FIXED_BY_FOUNDER && (
+                <Text style={styles.orderNote}>
+                  {orderMethod === TurnOrderMethod.RANDOM_DRAW
+                    ? circle.turnOrderDrawnAt
+                      ? `Tiré au sort le ${formatDayMonth(new Date(circle.turnOrderDrawnAt))}, au démarrage. Personne ne peut le modifier.`
+                      : 'Sera tiré au sort au démarrage du premier tour, une seule fois.'
+                    : 'Ordre d’arrivée des membres. Personne ne peut le modifier.'}
+                </Text>
+              )}
+              {isFounder && !rotationStarted && (
+                <Button
+                  title="Démarrer la tontine"
+                  variant="secondary"
+                  size="sm"
+                  onPress={() => router.push(`/circle/${circle.id}/manage` as any)}
+                  style={styles.startLink}
+                />
+              )}
               <View style={styles.card}>
                 {members.map((m, idx) => {
                   const isCurrent = m.userId === turnBeneficiary?.userId;
@@ -580,6 +628,7 @@ export default function TontineScreen() {
                       </View>
                       {m.userId !== me.id && (
                         <View style={styles.decisionRow}>
+                          {orderMethod === TurnOrderMethod.FIXED_BY_FOUNDER && !m.hasReceivedPayout && (
                           <TouchableOpacity
                             style={styles.actionBtn}
                             activeOpacity={0.7}
@@ -589,6 +638,7 @@ export default function TontineScreen() {
                             <Repeat size={15} color={colors.inkSoft} />
                             <Text style={styles.actionBtnText}>Changer le tour</Text>
                           </TouchableOpacity>
+                          )}
                           <TouchableOpacity
                             style={[styles.actionBtn, styles.actionBtnDanger]}
                             activeOpacity={0.7}
@@ -788,6 +838,10 @@ const styles = StyleSheet.create({
   /* ── Tour ── */
   tourProgressText: { ...typography.callout, fontWeight: '600', color: colors.primary.DEFAULT, textAlign: 'center' },
   tourDueText: { ...typography.footnote, color: colors.muted, textAlign: 'center', marginTop: -4 },
+  prepayBox: { gap: 10, padding: 12, borderRadius: radius.md, backgroundColor: colors.accent.tint, alignSelf: 'stretch' },
+  prepayText: { ...typography.footnote, color: colors.inkSoft },
+  orderNote: { ...typography.footnote, color: colors.muted, marginBottom: 10, marginLeft: 4 },
+  startLink: { alignSelf: 'flex-start', marginBottom: 12 },
   tourListTitle: { marginTop: 24 },
   turnStatus: { ...typography.footnote, fontWeight: '600', color: colors.muted },
 

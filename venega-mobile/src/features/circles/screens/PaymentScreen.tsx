@@ -11,6 +11,7 @@ import {
   activateCircle,
   recordContribution,
   recordSolidarityContribution,
+  recordNextTurnPrepayment,
   CIRCLE_CREATION_FEE,
 } from '../circleStore';
 import { CircleType } from '@venega/types';
@@ -40,7 +41,14 @@ export default function PaymentScreen() {
   // Cercle introuvable : on ne paie jamais « par défaut » pour un autre cercle (ex. activer le mauvais).
   const found = getCircle(params.circleId ?? '');
   const circle = found ?? getCircles()[0]!;
-  const paymentType = params.type === 'SOLIDARITY' ? 'SOLIDARITY' : params.type === 'ACTIVATION' ? 'ACTIVATION' : 'TONTINE';
+  const paymentType =
+    params.type === 'SOLIDARITY'
+      ? 'SOLIDARITY'
+      : params.type === 'ACTIVATION'
+        ? 'ACTIVATION'
+        : params.type === 'TONTINE_NEXT'
+          ? 'TONTINE_NEXT'
+          : 'TONTINE';
   const amount = paymentType === 'ACTIVATION' ? CIRCLE_CREATION_FEE : (parseFloat(params.amount || '0') || circle.tontineAmount || 0);
   const me = getCurrentUser();
 
@@ -55,6 +63,9 @@ export default function PaymentScreen() {
       // Montant complet confirmé : la cotisation du tour est enregistrée (statut « payé », caisse créditée).
       if (paymentType === 'SOLIDARITY') {
         recordSolidarityContribution(circle.id, me.id, `${me.firstName} ${me.lastName}`, amount);
+      } else if (paymentType === 'TONTINE_NEXT') {
+        // Avance sur le tour suivant, exigée du bénéficiaire avant de recevoir la cagnotte.
+        recordNextTurnPrepayment(circle.id, me.id);
       } else {
         recordContribution(circle.id, me.id);
       }
@@ -85,6 +96,7 @@ export default function PaymentScreen() {
   const typeLabel =
     paymentType === 'SOLIDARITY' ? 'Cotisation solidarité'
     : paymentType === 'ACTIVATION' ? "Frais d'activation"
+    : paymentType === 'TONTINE_NEXT' ? 'Cotisation du tour suivant (avance)'
     : 'Cotisation tontine';
 
   return (

@@ -11,6 +11,8 @@ import {
   setTreasurer,
   getSolidarityValidators,
   toggleSolidarityValidator,
+  getApprovalProgress,
+  describeApprovalRule,
 } from '../circleStore';
 import { Avatar } from '../../../components/ui';
 import { ScreenHeader, SectionTitle, Notice, actionStyles } from '../components/ActionScreenParts';
@@ -32,6 +34,7 @@ export default function GovernanceScreen() {
   const eligibleForTreasurer = members.filter((m) => m.role !== Role.PRESIDENT);
   const validators = getSolidarityValidators(circleId);
   const hasSolidarity = circle.solidarityAmount > 0;
+  const progress = getApprovalProgress(circleId);
 
   const handleSetTreasurer = (userId: string, name: string) => {
     Alert.alert(
@@ -116,10 +119,14 @@ export default function GovernanceScreen() {
             {hasSolidarity && (
               <>
                 <SectionTitle style={styles.sectionGap}>Validateurs de la caisse de solidarité</SectionTitle>
-                <Text style={styles.sectionHint}>
-                  Ces membres doivent tous approuver avant qu'un décaissement de la caisse de solidarité puisse être
-                  exécuté.
-                </Text>
+                <View style={styles.ruleCard}>
+                  <Text style={styles.ruleTitle}>{describeApprovalRule(progress.required || 1, circle.rules.unlockRule)}</Text>
+                  <Text style={styles.ruleSub}>
+                    {progress.missing > 0
+                      ? `${progress.designated} désigné${progress.designated > 1 ? 's' : ''} sur ${progress.required} : encore ${progress.missing} à choisir. Aucun versement avant.`
+                      : `${progress.designated} sur ${progress.required} désignés. Règle modifiable dans les paramètres du cercle.`}
+                  </Text>
+                </View>
                 <View style={styles.group}>
                   {members.map((m, idx) => {
                     const checked = validators.includes(m.userId);
@@ -163,6 +170,14 @@ export default function GovernanceScreen() {
 const styles = StyleSheet.create({
   sectionGap: { marginTop: 28 },
   sectionHint: { ...typography.footnote, color: colors.muted, marginBottom: 10, marginLeft: 4 },
+  ruleCard: {
+    padding: 14,
+    marginBottom: 12,
+    borderRadius: radius.md,
+    backgroundColor: colors.primary.tint,
+  },
+  ruleTitle: { ...typography.callout, fontWeight: '600', color: colors.primary.dark },
+  ruleSub: { ...typography.footnote, color: colors.inkSoft, marginTop: 2 },
   hint: { ...typography.footnote, color: colors.muted, marginTop: 8, marginLeft: 4 },
 
   group: {

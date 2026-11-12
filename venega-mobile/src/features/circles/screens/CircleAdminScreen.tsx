@@ -304,7 +304,9 @@ export default function CircleAdminScreen() {
                         </View>
 
                         <Text style={styles.hint}>
-                          Le décaissement nécessite l'accord de tous les validateurs désignés.
+                          {circle.rules?.unlockRule === 'MAJORITY'
+                            ? 'Le décaissement nécessite l’accord de la majorité des validateurs désignés.'
+                            : 'Le décaissement nécessite l’accord de tous les validateurs désignés.'}
                         </Text>
 
                         {isValidator && !iApproved && (

@@ -50,6 +50,7 @@ import {
   getBureauDecisions,
   setBureauDecision,
   isBureauFullyApproved,
+  getApprovalProgress,
   getCircleMembers,
   getMembershipRequests,
   updateMembershipRequest,
@@ -346,6 +347,8 @@ export default function SolidarityScreen() {
                 const decisions = getBureauDecisions(r.id);
                 const fullyApproved = isBureauFullyApproved(circle.id, r.id);
                 const approvedCount = validators.filter((v) => decisions[v] === true).length;
+                // Seuil selon la règle du cercle : tous les validateurs, ou la majorité.
+                const progress = getApprovalProgress(circle.id, r.id);
                 const myDecision = decisions[me.id];
                 const isExpanded = expandedRequestId === r.id;
                 const isPendingBureau = r.status === AidRequestStatus.APPROVED;
@@ -380,13 +383,28 @@ export default function SolidarityScreen() {
                           </Text>
                         )}
 
+                        {isPendingBureau && progress.missing > 0 && (
+                          <Text style={styles.hintTextLeft}>
+                            Encore {progress.missing} validateur{progress.missing > 1 ? 's' : ''} à désigner avant tout
+                            versement (règle du cercle : {progress.required}).
+                          </Text>
+                        )}
+
                         {isPendingBureau && validators.length > 0 && (
                           <>
                             <View style={styles.progressBlock}>
                               <View style={styles.progressTrack}>
-                                <View style={[styles.progressFill, { width: `${(approvedCount / validators.length) * 100}%` }]} />
+                                <View
+                                  style={[
+                                    styles.progressFill,
+                                    { width: `${Math.min(approvedCount / Math.max(progress.threshold, 1), 1) * 100}%` },
+                                  ]}
+                                />
                               </View>
-                              <Text style={styles.progressText}>{approvedCount}/{validators.length} approbateurs</Text>
+                              <Text style={styles.progressText}>
+                                {approvedCount}/{progress.threshold} accord{progress.threshold > 1 ? 's' : ''}
+                                {progress.rule === 'MAJORITY' && progress.designated > 1 ? ' (majorité)' : ''}
+                              </Text>
                             </View>
 
                             {isValidator && (

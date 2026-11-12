@@ -41,7 +41,7 @@ const FAQ_ITEMS = [
   {
     question: 'Que se passe-t-il si un membre prend du retard ?',
     answer:
-      'Des pénalités peuvent s’appliquer selon les règles du cercle. Le score de fiabilité du membre diminue et il peut être relancé ou remplacé.',
+      'Aucune pénalité n’est appliquée. En tontine, la cagnotte n’est versée que lorsque toutes les cotisations du tour sont reçues. Le score de fiabilité du membre diminue et il peut être relancé, puis exclu au-delà du nombre de retards fixé par le cercle.',
   },
   {
     question: 'Comment payer mes cotisations ?',
