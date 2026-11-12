@@ -14,38 +14,51 @@ import Animated, {
 import type { SharedValue } from 'react-native-reanimated';
 import { colors, radius, sizes, typography } from '@venega/design-tokens';
 import { markOnboardingSeen } from '../onboardingSeen';
+import { ContributionsArt, RotationArt, SolidarityArt } from '../components/OnboardingArt';
+import { PressableScale } from '../../../components/ui';
+
+/** Logo d'origine (vert), toujours posé sur fond blanc : jamais recoloré. */
+const wordmark = require('../../../../assets/logo-wordmark.png');
 
 const SLIDES = [
   {
-    id: 1,
-    image: require('../../../../assets/images/onboarding/on1.jpg'),
-    title: 'Une tontine simple et sécurisée',
-    description: 'Épargnez en toute confiance avec vos proches et atteignez vos objectifs ensemble.',
+    id: 'rotation',
+    eyebrow: 'Tontine',
+    title: 'Chacun son tour, et tout le monde le sait',
+    description:
+      'Chaque membre cotise, un bénéficiaire reçoit la cagnotte à chaque tour. L’ordre de passage est visible par tous : fixé, tiré au sort ou par ordre d’arrivée.',
+    Art: RotationArt,
   },
   {
-    id: 2,
-    image: require('../../../../assets/images/onboarding/on2.jpg'),
-    title: 'Solidarité et transparence',
-    description: 'Chaque cotisation est visible par tous les membres. La transparence renforce la confiance.',
+    id: 'contributions',
+    eyebrow: 'Cotisations',
+    title: 'La cagnotte part quand tout est reçu',
+    description:
+      'Chacun paie par Mobile Money depuis son téléphone, avec son propre code secret. Pas de cagnotte incomplète, et aucune pénalité de retard.',
+    Art: ContributionsArt,
   },
   {
-    id: 3,
-    image: require('../../../../assets/images/onboarding/on3.jpg'),
-    title: 'Tout suivre en temps réel',
-    description: 'Vos cotisations, vos paiements et l’évolution de votre cercle, en un coup d’œil.',
+    id: 'solidarity',
+    eyebrow: 'Solidarité',
+    title: 'L’entraide, avec des garde-fous',
+    description:
+      'Caisse de solidarité ou cagnotte d’aide : l’argent ne part qu’avec l’accord des validateurs choisis par le groupe.',
+    Art: SolidarityArt,
   },
-];
+] as const;
 
 const H_PADDING = 24;
 
 export default function OnboardingScreen() {
   const router = useRouter();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const scrollX = useSharedValue(0);
   const scrollRef = useRef<Animated.ScrollView>(null);
   const [index, setIndex] = useState(0);
 
   const isLast = index === SLIDES.length - 1;
+  // Panneau illustré : environ la moitié de l'écran, sans écraser le texte sur les petits téléphones.
+  const artHeight = Math.max(300, Math.min(440, height * 0.5));
 
   const onScroll = useAnimatedScrollHandler((event) => {
     scrollX.value = event.contentOffset.x;
@@ -71,6 +84,7 @@ export default function OnboardingScreen() {
       <StatusBar barStyle="dark-content" />
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={styles.topBar}>
+          <Image source={wordmark} style={styles.wordmark} contentFit="contain" accessibilityLabel="Venega" />
           {!isLast && (
             <TouchableOpacity
               onPress={finish}
@@ -96,25 +110,28 @@ export default function OnboardingScreen() {
           onMomentumScrollEnd={(e) => setIndex(Math.round(e.nativeEvent.contentOffset.x / width))}
         >
           {SLIDES.map((slide, i) => (
-            <Slide key={slide.id} slide={slide} index={i} width={width} scrollX={scrollX} />
+            <Slide
+              key={slide.id}
+              slide={slide}
+              index={i}
+              width={width}
+              artHeight={artHeight}
+              active={index === i}
+              scrollX={scrollX}
+            />
           ))}
         </Animated.ScrollView>
 
         <View style={styles.footer}>
           <View style={styles.dots}>
-            {SLIDES.map((_, i) => (
-              <Dot key={i} index={i} width={width} scrollX={scrollX} />
+            {SLIDES.map((s, i) => (
+              <Dot key={s.id} index={i} width={width} scrollX={scrollX} />
             ))}
           </View>
 
-          <TouchableOpacity
-            style={styles.primaryBtn}
-            onPress={next}
-            activeOpacity={0.85}
-            accessibilityRole="button"
-          >
+          <PressableScale onPress={next} style={styles.primaryBtn} accessibilityRole="button">
             <Text style={styles.primaryBtnText}>{isLast ? 'Commencer' : 'Suivant'}</Text>
-          </TouchableOpacity>
+          </PressableScale>
         </View>
       </SafeAreaView>
     </View>
@@ -125,11 +142,15 @@ function Slide({
   slide,
   index,
   width,
+  artHeight,
+  active,
   scrollX,
 }: {
   slide: (typeof SLIDES)[number];
   index: number;
   width: number;
+  artHeight: number;
+  active: boolean;
   scrollX: SharedValue<number>;
 }) {
   const range = [(index - 1) * width, index * width, (index + 1) * width];
@@ -139,19 +160,30 @@ function Slide({
     transform: [{ translateY: interpolate(scrollX.value, range, [12, 0, 12], Extrapolation.CLAMP) }],
   }));
 
-  const imageStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: interpolate(scrollX.value, range, [0.94, 1, 0.94], Extrapolation.CLAMP) }],
+  // Léger effet de profondeur : l'illustration glisse moins vite que la page.
+  const artStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: interpolate(scrollX.value, range, [width * 0.25, 0, -width * 0.25], Extrapolation.CLAMP) },
+      { scale: interpolate(scrollX.value, range, [0.92, 1, 0.92], Extrapolation.CLAMP) },
+    ],
   }));
 
+  const { Art } = slide;
   return (
     <View style={[styles.slide, { width }]}>
-      <Animated.Text style={[styles.title, textStyle]}>{slide.title}</Animated.Text>
+      <View style={[styles.artPanel, { height: artHeight }]}>
+        <Animated.View style={artStyle}>
+          <Art active={active} />
+        </Animated.View>
+      </View>
 
-      <Animated.View style={[styles.imageCard, imageStyle]}>
-        <Image source={slide.image} style={styles.image} contentFit="contain" />
+      <Animated.View style={textStyle}>
+        <Text style={styles.eyebrow}>{slide.eyebrow}</Text>
+        <Text style={styles.title} accessibilityRole="header">
+          {slide.title}
+        </Text>
+        <Text style={styles.description}>{slide.description}</Text>
       </Animated.View>
-
-      <Animated.Text style={[styles.description, textStyle]}>{slide.description}</Animated.Text>
     </View>
   );
 }
@@ -173,51 +205,46 @@ function Dot({ index, width, scrollX }: { index: number; width: number; scrollX:
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bg,
-  },
-  safe: {
-    flex: 1,
-  },
+  container: { flex: 1, backgroundColor: colors.bg },
+  safe: { flex: 1 },
   topBar: {
-    height: 48,
+    height: 52,
     paddingHorizontal: H_PADDING,
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  skipText: {
-    ...typography.bodyStrong,
-    color: colors.muted,
+  wordmark: { width: 96, height: 26 },
+  skipText: { ...typography.bodyStrong, color: colors.muted },
+  pager: { flex: 1 },
+  slide: { flex: 1, paddingHorizontal: 16 },
+  artPanel: {
+    borderRadius: 28,
+    backgroundColor: colors.primary.dark,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+    marginTop: 4,
   },
-  pager: {
-    flex: 1,
-  },
-  slide: {
-    flex: 1,
-    paddingHorizontal: H_PADDING,
-    paddingBottom: 8,
+  eyebrow: {
+    ...typography.caption,
+    color: colors.accent.dark,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginTop: 24,
+    paddingHorizontal: 8,
   },
   title: {
     ...typography.title,
-    color: colors.primary.dark,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  imageCard: {
-    flex: 1,
-  },
-  image: {
-    width: '100%',
-    height: '100%',
+    color: colors.ink,
+    marginTop: 6,
+    paddingHorizontal: 8,
   },
   description: {
     ...typography.body,
     lineHeight: 22,
     color: colors.muted,
-    textAlign: 'center',
-    marginTop: 20,
+    marginTop: 8,
     paddingHorizontal: 8,
   },
   footer: {
@@ -226,16 +253,8 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     gap: 20,
   },
-  dots: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 6,
-  },
-  dot: {
-    height: 8,
-    borderRadius: 4,
-  },
+  dots: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  dot: { height: 8, borderRadius: 4 },
   primaryBtn: {
     height: sizes.button,
     borderRadius: radius.pill,
@@ -243,9 +262,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  primaryBtnText: {
-    ...typography.bodyStrong,
-    fontSize: 16,
-    color: '#FFFFFF',
-  },
+  primaryBtnText: { ...typography.bodyStrong, fontSize: 16, color: '#FFFFFF' },
 });

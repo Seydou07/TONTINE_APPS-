@@ -870,6 +870,24 @@ export function buildConditionsText(
   lines.push(`${circle.name}`);
   lines.push(`Type : ${typeLabel[circle.type] ?? circle.type} — Cotisation de ${fmt(circle.tontineAmount)}${circle.solidarityAmount ? ` + ${fmt(circle.solidarityAmount)} de solidarité` : ''} par tour (${frequencyLabel[circle.frequency] ?? circle.frequency}).`);
 
+  lines.push(`Calendrier : ${describeSchedule(circle)}.`);
+  if (isRotative(circle)) {
+    const method = getTurnOrderMethod(circle);
+    lines.push(
+      method === TurnOrderMethod.RANDOM_DRAW
+        ? `Ordre de passage tiré au sort une seule fois, au démarrage du premier tour, visible par tous.`
+        : method === TurnOrderMethod.ARRIVAL_ORDER
+          ? `Ordre de passage : ordre d'arrivée des membres.`
+          : `Ordre de passage fixé par le fondateur.`,
+    );
+    if (circle.nextPaymentRequired) {
+      lines.push(`Le bénéficiaire d'un tour doit avoir payé sa cotisation du tour suivant avant de recevoir la cagnotte.`);
+    }
+    lines.push(`La cagnotte n'est versée que lorsque toutes les cotisations du tour sont reçues. Aucune pénalité de retard.`);
+  } else if (circle.type === CircleType.SOLIDARITY_ONLY) {
+    lines.push(`Cotisation volontaire, sans pénalité. Chaque aide est débloquée selon la règle : ${describeApprovalRule(circle.rules?.approversRequired || 1, circle.rules?.unlockRule ?? UnlockRule.ALL_APPROVERS)}.`);
+  }
+
   if (phase === 'ACTIVE' && isRotative(circle)) {
     const turns = pastTurns(circle, cycle);
     lines.push(`${turns > 0 ? `Ce cercle a déjà effectué ${turns} tour${turns > 1 ? 's' : ''}. Vous rejoignez en cours de rotation et serez placé en dernier dans l'ordre de passage.` : 'Cercle en cours de rotation.'}`);
