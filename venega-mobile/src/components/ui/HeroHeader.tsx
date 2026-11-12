@@ -1,5 +1,6 @@
 import React from 'react';
-import { StatusBar, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { ArrowLeft } from 'lucide-react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, typography } from '@venega/design-tokens';
@@ -54,6 +55,44 @@ export function HeroTitle({ title, subtitle, right }: HeroTitleProps) {
   );
 }
 
+/** Barre de navigation sur le bandeau vert : bouton retour rond, titre et sous-titre blancs. */
+export function HeroNav({
+  title,
+  subtitle,
+  onBack,
+  right,
+}: {
+  title: string;
+  subtitle?: string;
+  onBack: () => void;
+  right?: React.ReactNode;
+}) {
+  return (
+    <View style={styles.nav}>
+      <Pressable
+        onPress={onBack}
+        hitSlop={8}
+        style={({ pressed }) => [styles.back, pressed && styles.backPressed]}
+        accessibilityRole="button"
+        accessibilityLabel="Retour"
+      >
+        <ArrowLeft size={20} color="#FFFFFF" strokeWidth={2.2} />
+      </Pressable>
+      <View style={styles.flex}>
+        <Text style={styles.navTitle} numberOfLines={1} accessibilityRole="header">
+          {title}
+        </Text>
+        {subtitle ? (
+          <Text style={styles.subtitle} numberOfLines={1}>
+            {subtitle}
+          </Text>
+        ) : null}
+      </View>
+      {right}
+    </View>
+  );
+}
+
 export const heroColors = {
   text: '#FFFFFF',
   textSoft: 'rgba(255,255,255,0.72)',
@@ -81,4 +120,15 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   title: { ...typography.title, color: heroColors.text },
   subtitle: { ...typography.footnote, color: heroColors.textSoft, marginTop: 2 },
+  nav: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
+  back: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  backPressed: { backgroundColor: 'rgba(255,255,255,0.22)' },
+  navTitle: { ...typography.headline, color: '#FFFFFF' },
 });

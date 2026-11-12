@@ -85,6 +85,14 @@ export const spacing = {
 } as const;
 
 export const shadows = {
+  /** Ombre presque invisible des cartes de réglages (teintée vert, jamais noire). */
+  soft: {
+    shadowColor: '#12261E',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 1,
+  },
   sm: {
     shadowColor: '#16181D',
     shadowOffset: { width: 0, height: 1 },
@@ -129,6 +137,18 @@ export const typography = {
   callout: { fontSize: 14, lineHeight: 20, fontWeight: '400' },
   footnote: { fontSize: 13, lineHeight: 18, fontWeight: '400' },
   caption: { fontSize: 12, lineHeight: 16, fontWeight: '500' },
+} as const;
+
+/** Chiffres alignés (montants, compteurs) : à combiner avec un style de texte. */
+export const numeric = { fontVariant: ['tabular-nums'] } as const;
+
+/** Durées d'animation (ms) : courtes, sur transform et opacity uniquement. */
+export const motion = {
+  fast: 160,
+  base: 240,
+  slow: 360,
+  /** Décalage entre deux éléments d'une entrée en cascade. */
+  stagger: 40,
 } as const;
 
 /** Dimensions des composants interactifs (cibles tactiles ≥ 48 px). */
