@@ -51,6 +51,26 @@ export enum UnlockRule {
   MAJORITY = 'MAJORITY',
 }
 
+/** Méthode qui fixe l'ordre de passage d'une tontine */
+export enum TurnOrderMethod {
+  /** Le fondateur place lui-même chaque membre (modifiable jusqu'au démarrage du premier tour) */
+  FIXED_BY_FOUNDER = 'FIXED_BY_FOUNDER',
+  /** Tirage au sort fait une seule fois, au démarrage, visible par tous les membres */
+  RANDOM_DRAW = 'RANDOM_DRAW',
+  /** Ordre d'arrivée : le premier inscrit passe en premier */
+  ARRIVAL_ORDER = 'ARRIVAL_ORDER',
+}
+
+/** Statut du numéro Mobile Money qui reçoit l'argent d'une cagnotte d'aide */
+export enum PayoutNumberStatus {
+  /** Numéro Mobile Money vérifié de l'organisateur (celui de son profil) */
+  VERIFIED_OWNER = 'VERIFIED_OWNER',
+  /** Autre numéro saisi par l'organisateur : contrôlé par le back-office avant tout versement */
+  PENDING_REVIEW = 'PENDING_REVIEW',
+  /** Autre numéro contrôlé et accepté par le back-office : les versements sont possibles */
+  VERIFIED_BY_REVIEW = 'VERIFIED_BY_REVIEW',
+}
+
 /** Visibilité d'un contributeur (appel à l'aide) */
 export enum ContributorVisibility {
   PUBLIC = 'PUBLIC',

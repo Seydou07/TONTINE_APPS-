@@ -25,6 +25,8 @@ import {
   KycRequirement,
   AdhesionPaymentStatus,
   DepartureRequestStatus,
+  TurnOrderMethod,
+  PayoutNumberStatus,
 } from './enums';
 
 /** Utilisateur de la plateforme */
@@ -99,16 +101,19 @@ export interface CircleRules {
   unlockRule: UnlockRule;
 
   /**
-   * Nombre d'approbateurs désignés par le fondateur (solidarité).
-   * Tant que le seuil n'est pas atteint, l'argent reste bloqué chez CityNet Pay.
+   * Nombre de validateurs choisi par le fondateur (caisse de solidarité, cagnotte).
+   * Avec `unlockRule` : ALL_APPROVERS = ces validateurs approuvent tous ;
+   * MAJORITY = plus de la moitié d'entre eux. Tant que le seuil n'est pas
+   * atteint, l'argent reste bloqué chez CityNet Pay.
    */
   approversRequired: number;
 
   /**
-   * Pourcentage de réserve prélevé sur chaque tour (0 à 20).
-   * Ex: 5% => coussin de sécurité pour les départs imprévus.
+   * @deprecated Plus utilisé par l'application mobile (une caisse de solidarité
+   * est déjà, en entier, une réserve ; une tontine reverse tout le pot).
+   * Conservé facultatif pour les anciennes données et le site web.
    */
-  reservePercent: number;
+  reservePercent?: number;
 
   /**
    * Appel à l'aide : accepte-t-on des contributions SANS adhésion
@@ -117,7 +122,8 @@ export interface CircleRules {
   allowPublicContributions: boolean;
 
   /**
-   * Appel à l'aide : montant minimum de contribution (XOF).
+   * @deprecated Aucun montant minimum de don sur une cagnotte (règle produit).
+   * Ignoré par l'application mobile ; ne plus renseigner.
    */
   minContribution?: number;
 
@@ -227,6 +233,39 @@ export interface Circle {
    */
   nextPaymentRequired: boolean;
 
+  // ── Calendrier des cotisations (tontine) ──
+
+  /**
+   * Date de la première cotisation (ISO, ex. « 2026-12-06 »). Les échéances suivantes
+   * en découlent selon `frequency` et le jour choisi. Absente : début du cycle ou activation.
+   */
+  startDate?: string;
+
+  /**
+   * Jour de cotisation pour WEEKLY / BIWEEKLY : 1 = lundi … 7 = dimanche (ISO 8601).
+   * Ex. 6 avec `startDate` « 2026-12-06 » = « chaque samedi à partir du 6 décembre ».
+   */
+  contributionWeekday?: number;
+
+  /**
+   * Jour de cotisation pour MONTHLY : 1 à 31 (ramené au dernier jour des mois plus courts).
+   */
+  contributionMonthDay?: number;
+
+  // ── Ordre de passage (tontine) ──
+
+  /** Méthode d'ordre de passage. Absente = FIXED_BY_FOUNDER (comportement historique). */
+  turnOrderMethod?: TurnOrderMethod;
+
+  /**
+   * Date du démarrage du premier tour (ISO). À partir de là, l'ordre de passage,
+   * le montant, la fréquence et le calendrier sont verrouillés.
+   */
+  rotationStartedAt?: string;
+
+  /** Date du tirage au sort (RANDOM_DRAW), fait une seule fois au démarrage, visible par tous. */
+  turnOrderDrawnAt?: string;
+
   /**
    * Conditions d'adhésion au cercle, rédigées par le président.
    * Le nouveau membre doit les lire et les approuver avant de rejoindre.
@@ -296,6 +335,13 @@ export interface Membership {
    * Indique si le membre a un dépôt de garantie actif.
    */
   hasDeposit: boolean;
+
+  /**
+   * Le membre a déjà payé la cotisation du tour SUIVANT (avance).
+   * Exigé du bénéficiaire quand `Circle.nextPaymentRequired` est activé.
+   * Au passage au tour suivant, l'avance devient sa cotisation de ce tour.
+   */
+  nextTurnPrepaid?: boolean;
 }
 
 /**
@@ -406,8 +452,14 @@ export interface AidAppeal {
   collectedAmount: number;
   /** Nombre total de contributeurs (y compris anonymes) */
   contributorCount: number;
-  /** Date limite de collecte (optionnelle) */
+  /** Date limite de collecte (facultative : absente = sans date de fin) */
   deadline?: string;
+  /**
+   * Numéro qui reçoit l'argent : VERIFIED_OWNER = numéro Mobile Money vérifié de
+   * l'organisateur ; PENDING_REVIEW = autre numéro, à contrôler par le back-office
+   * avant tout versement ; VERIFIED_BY_REVIEW = autre numéro accepté après contrôle. Absent (anciennes données) = à traiter comme PENDING_REVIEW.
+   */
+  payoutNumberStatus?: PayoutNumberStatus;
   status: 'ACTIVE' | 'COMPLETED' | 'CLOSED';
   createdAt: string;
 }
