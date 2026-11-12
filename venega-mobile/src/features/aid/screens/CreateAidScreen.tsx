@@ -16,25 +16,54 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import * as Clipboard from 'expo-clipboard';
-import { ArrowLeft, Check, Copy, ImagePlus, Link2, ShieldCheck, Share2, X } from 'lucide-react-native';
+import {
+  ArrowLeft,
+  CalendarRange,
+  Check,
+  ChevronRight,
+  Copy,
+  ImagePlus,
+  Link2,
+  ShieldAlert,
+  ShieldCheck,
+  Share2,
+  X,
+} from 'lucide-react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { colors, radius, typography } from '@venega/design-tokens';
-import { KycStatus } from '@venega/types';
-import type { Circle } from '@venega/types';
-import { createAidAppeal, getAidShareLink, getCurrentUser } from '../../circles/circleStore';
+import { KycStatus, PayoutNumberStatus } from '@venega/types';
+import type { AidAppeal, Circle } from '@venega/types';
+import {
+  createAidAppeal,
+  formatLongDay,
+  getAidShareLink,
+  getCurrentUser,
+  getOrganizerPayoutNumber,
+  parseDay,
+  toDayString,
+} from '../../circles/circleStore';
 import { formatPhone, validatePhone } from '../../auth/validation';
-import { Button, Chip, IconButton, TextField } from '../../../components/ui';
+import {
+  Button,
+  Chip,
+  DatePickerSheet,
+  IconButton,
+  OptionCard,
+  SettingRow,
+  TextField,
+  Toggle,
+} from '../../../components/ui';
 
 const formatXOF = (amount: number) => new Intl.NumberFormat('fr-FR').format(amount) + ' F';
 const toNumber = (v: string) => Number(v.replace(/\D/g, '')) || 0;
 
 const GOAL_PRESETS = [100000, 250000, 500000, 1000000];
-const DURATIONS: { label: string; days: number | null }[] = [
-  { label: '7 jours', days: 7 },
-  { label: '15 jours', days: 15 },
-  { label: '30 jours', days: 30 },
-  { label: 'Sans limite', days: null },
-];
+const DURATIONS = [7, 15, 30];
+const DAY_MS = 86400000;
+/** Date de fin à J+n (« 2026-12-12 »). */
+const inDays = (n: number) => toDayString(new Date(Date.now() + n * DAY_MS));
+/** « 70123456 » → « 70 12 34 56 » */
+const spaced = (digits: string) => digits.replace(/(\d{2})(?=\d)/g, '$1 ');
 const MIN_GOAL = 10000;
 const MIN_STORY = 30;
 
@@ -55,8 +84,14 @@ export default function CreateAidScreen() {
   const [phone, setPhone] = useState('');
   const [story, setStory] = useState('');
   const [goalText, setGoalText] = useState('');
-  const [days, setDays] = useState<number | null>(30);
-  const [created, setCreated] = useState<Circle | null>(null);
+  // Date de fin facultative : sans date, la collecte reste ouverte jusqu'à sa clôture.
+  const [hasEndDate, setHasEndDate] = useState(false);
+  const [endDate, setEndDate] = useState<string>(inDays(30));
+  const [showCalendar, setShowCalendar] = useState(false);
+  // Numéro qui reçoit l'argent : par défaut, celui (vérifié) de l'organisateur.
+  const ownNumber = getOrganizerPayoutNumber();
+  const [useOwnNumber, setUseOwnNumber] = useState(ownNumber.length === 8);
+  const [created, setCreated] = useState<{ circle: Circle; appeal: AidAppeal } | null>(null);
 
   const goal = toNumber(goalText);
   const phoneDigits = phone.replace(/\D/g, '');
@@ -67,7 +102,7 @@ export default function CreateAidScreen() {
   const rules: Record<Field, (v: string) => string | undefined> = {
     title: (v) => (v.trim().length >= 5 ? undefined : 'Le titre doit contenir au moins 5 caractères.'),
     beneficiary: (v) => (v.trim().length >= 2 ? undefined : 'Indiquez le nom de la personne aidée.'),
-    phone: (v) => validatePhone(v),
+    phone: (v) => (useOwnNumber ? undefined : validatePhone(v)),
     story: (v) => (v.trim().length >= MIN_STORY ? undefined : `Expliquez la situation en au moins ${MIN_STORY} caractères.`),
     goal: (v) => (toNumber(v) >= MIN_GOAL ? undefined : `Minimum ${formatXOF(MIN_GOAL)}`),
   };
@@ -102,20 +137,27 @@ export default function CreateAidScreen() {
     setErrors(found);
     if (Object.values(found).some(Boolean)) return;
     // TODO: envoyer à l'API (création + modération) ; la photo doit être téléversée, pas une URI locale.
-    const { circle } = createAidAppeal({
+    const result = createAidAppeal({
       title: title.trim(),
       beneficiaryName: beneficiary.trim(),
-      beneficiaryNumber: `+226 ${phoneDigits.replace(/(\d{2})(?=\d)/g, '$1 ')}`,
+      // Le statut du numéro (vérifié / à vérifier) est décidé par le store, pas par l'écran.
+      beneficiaryNumber: `+226 ${spaced(useOwnNumber ? ownNumber : phoneDigits)}`,
       reason: story.trim(),
       goalAmount: goal,
-      deadline: days ? new Date(Date.now() + days * 86400000).toISOString() : undefined,
+      deadline: hasEndDate ? `${endDate}T23:59:59` : undefined,
       beneficiaryPhoto: photo ?? undefined,
     });
-    setCreated(circle);
+    setCreated(result);
   };
 
   if (created) {
-    return <CreatedView circle={created} onOpen={() => router.replace(`/aid/${created.id}` as any)} />;
+    return (
+      <CreatedView
+        circle={created.circle}
+        pendingReview={created.appeal.payoutNumberStatus === PayoutNumberStatus.PENDING_REVIEW}
+        onOpen={() => router.replace(`/aid/${created.circle.id}` as any)}
+      />
+    );
   }
 
   return (
@@ -198,17 +240,51 @@ export default function CreateAidScreen() {
                 error={errors.beneficiary}
                 maxLength={60}
               />
-              <TextField
-                label="Numéro Mobile Money du bénéficiaire"
-                prefix="+226"
-                placeholder="70 12 34 56"
-                keyboardType="phone-pad"
-                maxLength={11}
-                value={phone}
-                onChangeText={change('phone', setPhone, formatPhone)}
-                error={errors.phone}
-                hint="Les fonds y seront versés après validation."
-              />
+              <View>
+                <Text style={styles.label}>Numéro qui reçoit l’argent</Text>
+                <View style={styles.stack}>
+                  {ownNumber.length === 8 && (
+                    <OptionCard
+                      title="Mon numéro Mobile Money"
+                      description={`+226 ${spaced(ownNumber)} · numéro vérifié de votre compte`}
+                      badge="Recommandé"
+                      selected={useOwnNumber}
+                      onPress={() => {
+                        setUseOwnNumber(true);
+                        setErrors((e) => ({ ...e, phone: undefined }));
+                      }}
+                    />
+                  )}
+                  <OptionCard
+                    title="Un autre numéro"
+                    description="Par exemple celui de la personne aidée"
+                    selected={!useOwnNumber}
+                    onPress={() => setUseOwnNumber(false)}
+                  />
+                </View>
+                {!useOwnNumber && (
+                  <Animated.View entering={FadeIn.duration(240)} style={styles.otherNumber}>
+                    <TextField
+                      label="Numéro Mobile Money"
+                      prefix="+226"
+                      placeholder="70 12 34 56"
+                      keyboardType="phone-pad"
+                      maxLength={11}
+                      value={phone}
+                      onChangeText={change('phone', setPhone, formatPhone)}
+                      error={errors.phone}
+                    />
+                    <View style={styles.reviewNotice}>
+                      <ShieldAlert size={18} color={colors.accent.dark} />
+                      <Text style={styles.reviewText}>
+                        <Text style={styles.reviewStrong}>Numéro à vérifier. </Text>
+                        L’équipe Venega contrôle ce numéro avant tout versement. La cagnotte est en ligne tout de
+                        suite, mais l’argent ne part qu’après ce contrôle : c’est ce qui protège les donateurs.
+                      </Text>
+                    </View>
+                  </Animated.View>
+                )}
+              </View>
               <TextField
                 label="Son histoire"
                 placeholder="Expliquez la situation et à quoi servira l’argent."
@@ -241,13 +317,43 @@ export default function CreateAidScreen() {
                 </View>
               </View>
 
-              <View>
-                <Text style={styles.label}>Durée de la collecte</Text>
-                <View style={styles.chips}>
-                  {DURATIONS.map((d) => (
-                    <Chip key={d.label} label={d.label} selected={days === d.days} onPress={() => setDays(d.days)} />
-                  ))}
-                </View>
+              <View style={styles.group}>
+                <SettingRow
+                  title="Date de fin"
+                  description={
+                    hasEndDate
+                      ? `Collecte ouverte jusqu’au ${formatLongDay(parseDay(endDate)!)}`
+                      : 'Facultative : sans date, la collecte reste ouverte'
+                  }
+                  last={!hasEndDate}
+                >
+                  <Toggle value={hasEndDate} onValueChange={setHasEndDate} />
+                </SettingRow>
+                {hasEndDate && (
+                  <Animated.View entering={FadeIn.duration(240)} style={styles.endDate}>
+                    <View style={styles.chipsTight}>
+                      {DURATIONS.map((d) => (
+                        <Chip
+                          key={d}
+                          label={`${d} jours`}
+                          selected={endDate === inDays(d)}
+                          onPress={() => setEndDate(inDays(d))}
+                        />
+                      ))}
+                    </View>
+                    <TouchableOpacity
+                      style={styles.dateRow}
+                      activeOpacity={0.7}
+                      onPress={() => setShowCalendar(true)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Choisir une autre date de fin"
+                    >
+                      <CalendarRange size={18} color={colors.primary.DEFAULT} />
+                      <Text style={styles.dateText}>Choisir une autre date</Text>
+                      <ChevronRight size={18} color={colors.subtle} />
+                    </TouchableOpacity>
+                  </Animated.View>
+                )}
               </View>
             </View>
 
@@ -265,11 +371,23 @@ export default function CreateAidScreen() {
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
+
+      <DatePickerSheet
+        visible={showCalendar}
+        onClose={() => setShowCalendar(false)}
+        title="Fin de la collecte"
+        value={endDate}
+        minDate={inDays(1)}
+        onConfirm={(d) => {
+          setEndDate(d);
+          setShowCalendar(false);
+        }}
+      />
     </View>
   );
 }
 
-function CreatedView({ circle, onOpen }: { circle: Circle; onOpen: () => void }) {
+function CreatedView({ circle, pendingReview, onOpen }: { circle: Circle; pendingReview: boolean; onOpen: () => void }) {
   const link = getAidShareLink(circle);
   const [copied, setCopied] = useState(false);
 
@@ -322,6 +440,17 @@ function CreatedView({ circle, onOpen }: { circle: Circle; onOpen: () => void })
               <Button title="Partager" icon={Share2} size="sm" onPress={share} style={styles.flex} />
             </View>
           </View>
+
+          {pendingReview && (
+            <View style={[styles.reviewNotice, styles.reviewNoticeCreated]}>
+              <ShieldAlert size={18} color={colors.accent.dark} />
+              <Text style={styles.reviewText}>
+                <Text style={styles.reviewStrong}>Numéro à vérifier. </Text>
+                Les dons sont acceptés dès maintenant, mais aucun versement ne partira avant que l’équipe Venega ait
+                contrôlé le numéro de réception.
+              </Text>
+            </View>
+          )}
         </ScrollView>
 
         <View style={styles.footer}>
@@ -393,6 +522,31 @@ const styles = StyleSheet.create({
 
   fields: { gap: 20, marginTop: 24 },
   label: { ...typography.footnote, fontWeight: '600', color: colors.inkSoft, marginBottom: 8 },
+  stack: { gap: 10 },
+  otherNumber: { marginTop: 16, gap: 12 },
+  reviewNotice: {
+    flexDirection: 'row',
+    gap: 10,
+    padding: 14,
+    borderRadius: radius.md,
+    backgroundColor: colors.accent.tint,
+  },
+  reviewNoticeCreated: { marginTop: 16 },
+  reviewText: { flex: 1, ...typography.footnote, color: colors.inkSoft },
+  reviewStrong: { fontWeight: '700', color: colors.accent.dark },
+  group: { borderRadius: radius.lg, borderWidth: 1, borderColor: colors.line, paddingHorizontal: 16 },
+  endDate: { paddingBottom: 16, gap: 12 },
+  chipsTight: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    height: 48,
+    paddingHorizontal: 12,
+    borderRadius: radius.md,
+    backgroundColor: colors.fill,
+  },
+  dateText: { flex: 1, ...typography.callout, fontWeight: '500', color: colors.ink },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
 
   notice: {

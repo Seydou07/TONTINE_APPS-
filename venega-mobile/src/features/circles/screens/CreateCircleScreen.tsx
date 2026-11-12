@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Alert,
   Share,
 } from 'react-native';
+import type { ScrollViewInstance } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
@@ -19,7 +20,10 @@ import * as Clipboard from 'expo-clipboard';
 import {
   ArrowLeft,
   Banknote,
+  CalendarDays,
+  CalendarRange,
   Check,
+  ChevronRight,
   Copy,
   HeartHandshake,
   ImagePlus,
@@ -27,59 +31,65 @@ import {
   Package,
   Repeat,
   Share2,
+  UserCheck,
   X,
 } from 'lucide-react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
-import { colors, radius, typography } from '@venega/design-tokens';
+import Animated, { FadeIn, useAnimatedStyle, useReducedMotion, withTiming } from 'react-native-reanimated';
+import { colors, motion, numeric, radius, shadows, typography } from '@venega/design-tokens';
 import type { Circle } from '@venega/types';
-import { ReplacementRule, UnlockRule, RefundRule, KycRequirement } from '@venega/types';
-import { addCircle, addFounderMembership, CIRCLE_CREATION_FEE } from '../circleStore';
+import {
+  CircleType,
+  ContributionMode,
+  Frequency,
+  KycRequirement,
+  RefundRule,
+  ReplacementRule,
+  TurnOrderMethod,
+  UnlockRule,
+} from '@venega/types';
+import {
+  addCircle,
+  addFounderMembership,
+  CIRCLE_CREATION_FEE,
+  describeApprovalRule,
+  describeSchedule,
+  formatLongDay,
+  isoWeekday,
+  parseDay,
+  toDayString,
+} from '../circleStore';
+import {
+  EXCLUSION_OPTIONS,
+  FREQUENCY_OPTIONS,
+  KYC_OPTIONS,
+  LEAVING_OPTIONS,
+  TURN_ORDER_OPTIONS,
+  UNLOCK_OPTIONS,
+  formatXOFLong as formatXOF,
+  frequencyLabel,
+  kycLabel,
+  toNumber,
+  turnOrderLabel,
+} from '../circleLabels';
 import {
   Button,
   Chip,
+  DatePickerSheet,
   IconButton,
+  MonthDayPicker,
   NumberStepper,
   OptionCard,
   Segmented,
   SettingRow,
   TextField,
   Toggle,
+  WeekdayPicker,
 } from '../../../components/ui';
 
 type Kind = 'TONTINE' | 'SOLIDARITY';
 type Mode = 'CASH' | 'NATURE';
 
 const STEPS = ['Type', 'Cotisations', 'Règles', 'Récapitulatif'];
-
-const frequencies = [
-  { key: 'DAILY', label: 'Chaque jour' },
-  { key: 'WEEKLY', label: 'Chaque semaine' },
-  { key: 'MONTHLY', label: 'Chaque mois' },
-  { key: 'CUSTOM', label: 'Personnalisée' },
-] as const;
-
-const frequencyLabel: Record<string, string> = {
-  DAILY: 'Journalière',
-  WEEKLY: 'Hebdomadaire',
-  MONTHLY: 'Mensuelle',
-  CUSTOM: 'Personnalisée',
-};
-
-const kycOptions = [
-  { key: KycRequirement.CNIB_SELFIE, label: 'CNIB + selfie', desc: 'Vérification complète de l’identité', badge: 'Recommandé' },
-  { key: KycRequirement.CNIB, label: 'CNIB uniquement', desc: 'Pièce d’identité recto et verso' },
-  { key: KycRequirement.NONE, label: 'Aucun document', desc: 'Pour un cercle entre proches de confiance' },
-];
-
-const leavingOptions = [
-  { key: 'BUYOUT_REQUIRED', label: 'Rachat des tours passés', desc: 'Le remplaçant rachète les cotisations déjà versées' },
-  { key: 'REDUCE_POOL', label: 'Cagnotte ajustée', desc: 'La cagnotte s’adapte au nombre de membres restants' },
-];
-
-const exclusionOptions = ['2', '3', '4', '5'];
-
-const formatXOF = (amount: number) => new Intl.NumberFormat('fr-FR').format(Math.round(amount)) + ' F CFA';
-const toNumber = (v: string) => parseInt(v.replace(/\D/g, ''), 10) || 0;
 
 export default function CreateCircleScreen() {
   const router = useRouter();
@@ -93,36 +103,57 @@ export default function CreateCircleScreen() {
   const [goalValue, setGoalValue] = useState('');
   const [goalImage, setGoalImage] = useState<string | null>(null);
 
-  // Étape 2 — cotisations
+  // Étape 2 — cotisations et calendrier
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
   const [managementFee, setManagementFee] = useState('');
-  const [frequency, setFrequency] = useState<string>('MONTHLY');
-  const [customDays, setCustomDays] = useState('');
+  const [frequency, setFrequency] = useState<Frequency>(Frequency.MONTHLY);
+  const [weekday, setWeekday] = useState<number | undefined>();
+  const [monthDay, setMonthDay] = useState<number | undefined>();
+  const [startDate, setStartDate] = useState<string | undefined>();
+  const [showCalendar, setShowCalendar] = useState(false);
   const [maxMembers, setMaxMembers] = useState(10);
 
   // Étape 3 — règles
   const [beneficiariesPerTurn, setBeneficiariesPerTurn] = useState(1);
-  const [exclusionThreshold, setExclusionThreshold] = useState('3');
+  const [turnOrder, setTurnOrder] = useState<TurnOrderMethod>(TurnOrderMethod.FIXED_BY_FOUNDER);
+  const [nextPaymentRequired, setNextPaymentRequired] = useState(false);
+  const [exclusionThreshold, setExclusionThreshold] = useState(3);
   const [depositRequired, setDepositRequired] = useState(false);
   const [kycRequirement, setKycRequirement] = useState<KycRequirement>(KycRequirement.CNIB_SELFIE);
-  const [leavingRule, setLeavingRule] = useState('BUYOUT_REQUIRED');
+  const [leavingRule, setLeavingRule] = useState<ReplacementRule>(ReplacementRule.PAY_PAST_TURNS);
+  const [approvers, setApprovers] = useState(2);
+  const [unlockRule, setUnlockRule] = useState<UnlockRule>(UnlockRule.ALL_APPROVERS);
   const [conditions, setConditions] = useState('');
 
   const [createdCircle, setCreatedCircle] = useState<Circle | null>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
+  // Chaque étape s'ouvre en haut de page.
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [step]);
 
   const isTontine = kind === 'TONTINE';
   const isNature = isTontine && mode === 'NATURE';
   const contribution = toNumber(amount);
-  const fee = toNumber(managementFee);
+  const fee = isTontine ? toNumber(managementFee) : 0;
   const value = toNumber(goalValue);
   const perMember = contribution + fee;
   const potPerTurn = isTontine ? (contribution * maxMembers) / Math.max(beneficiariesPerTurn, 1) : 0;
   const suggestedNature = isNature && value > 0 ? Math.ceil(value / maxMembers / 100) * 100 : 0;
+  const needsWeekday = frequency === Frequency.WEEKLY || frequency === Frequency.BIWEEKLY;
+  const needsMonthDay = frequency === Frequency.MONTHLY;
+  const schedule = {
+    frequency,
+    startDate,
+    contributionWeekday: needsWeekday ? weekday : undefined,
+    contributionMonthDay: needsMonthDay ? monthDay : undefined,
+  };
+  const dayChosen = (!needsWeekday || !!weekday) && (!needsMonthDay || !!monthDay);
 
-  const typeLabel = !isTontine ? 'Caisse de solidarité' : isNature ? 'Tontine en nature' : 'Tontine en espèces';
+  const typeLabel = !isTontine ? 'Caisse de solidarité' : isNature ? 'Tontine en nature' : 'Tontine en argent';
 
-  type FieldError = Partial<Record<'goalItem' | 'name' | 'amount' | 'customDays', string>>;
+  type FieldError = Partial<Record<'goalItem' | 'name' | 'amount' | 'day' | 'start', string>>;
   const [errors, setErrors] = useState<FieldError>({});
   const validateStep = (): FieldError => {
     if (step === 1) {
@@ -132,8 +163,8 @@ export default function CreateCircleScreen() {
       return {
         name: name.trim().length >= 3 ? undefined : 'Le nom doit contenir au moins 3 caractères.',
         amount: contribution > 0 ? undefined : 'Indiquez le montant de la cotisation.',
-        customDays:
-          frequency !== 'CUSTOM' || toNumber(customDays) > 0 ? undefined : 'Indiquez le nombre de jours entre deux cotisations.',
+        day: !isTontine || dayChosen ? undefined : 'Choisissez le jour de cotisation.',
+        start: !isTontine || startDate ? undefined : 'Choisissez la date de la première cotisation.',
       };
     }
     return {};
@@ -142,6 +173,18 @@ export default function CreateCircleScreen() {
   const edit = (field: keyof FieldError, setter: (v: string) => void) => (v: string) => {
     setter(v);
     if (errors[field]) setErrors((e) => ({ ...e, [field]: undefined }));
+  };
+  const clear = (field: keyof FieldError) => errors[field] && setErrors((e) => ({ ...e, [field]: undefined }));
+
+  /** Date de début choisie : le jour de cotisation se pré-remplit s'il n'est pas encore choisi. */
+  const pickStart = (day: string) => {
+    setStartDate(day);
+    setShowCalendar(false);
+    clear('start');
+    const d = parseDay(day)!;
+    if (!weekday) setWeekday(isoWeekday(d));
+    if (!monthDay) setMonthDay(d.getDate());
+    clear('day');
   };
 
   const pickGoalImage = async () => {
@@ -162,28 +205,27 @@ export default function CreateCircleScreen() {
   const buildCircle = (id: string, inviteCode: string): Circle => ({
     id,
     name: name.trim(),
-    type: (isTontine ? (isNature ? 'NATURE' : 'TONTINE_ONLY') : 'SOLIDARITY_ONLY') as Circle['type'],
+    type: isTontine ? (isNature ? CircleType.NATURE : CircleType.TONTINE_ONLY) : CircleType.SOLIDARITY_ONLY,
     tontineAmount: isTontine ? contribution : 0,
     solidarityAmount: isTontine ? 0 : contribution,
-    frequency: frequency as Circle['frequency'],
-    contributionMode: (isNature ? 'NATURE' : 'CASH') as Circle['contributionMode'],
-    beneficiariesPerTurn: isTontine ? beneficiariesPerTurn : 1,
+    frequency,
+    contributionMode: isNature ? ContributionMode.NATURE : ContributionMode.CASH,
+    beneficiariesPerTurn: isTontine ? beneficiariesPerTurn : 0,
     inviteCode,
     memberCount: 1,
     maxMembers,
     createdAt: new Date().toISOString(),
+    startDate,
+    contributionWeekday: schedule.contributionWeekday,
+    contributionMonthDay: schedule.contributionMonthDay,
+    turnOrderMethod: isTontine ? turnOrder : undefined,
     rules: {
       refundRule: RefundRule.AT_CYCLE_END,
-      replacementRule: !isTontine
-        ? ReplacementRule.NONE
-        : leavingRule === 'BUYOUT_REQUIRED'
-        ? ReplacementRule.PAY_PAST_TURNS
-        : ReplacementRule.REDUCED_POT,
-      unlockRule: UnlockRule.ALL_APPROVERS,
-      approversRequired: 3,
-      reservePercent: 5,
+      replacementRule: isTontine ? leavingRule : ReplacementRule.NONE,
+      // Caisse : le fondateur choisit le nombre de validateurs et la règle (tous / majorité).
+      unlockRule: isTontine ? UnlockRule.ALL_APPROVERS : approvers === 1 ? UnlockRule.ALL_APPROVERS : unlockRule,
+      approversRequired: isTontine ? 0 : approvers,
       allowPublicContributions: false,
-      minContribution: undefined,
       goalAmount: isNature && value > 0 ? value : undefined,
       goalItem: isNature ? goalItem.trim() : undefined,
       goalDetails: isNature && goalDetails.trim() ? goalDetails.trim() : undefined,
@@ -191,10 +233,10 @@ export default function CreateCircleScreen() {
       kycRequirement,
     },
     managementFee: fee,
-    depositRequired,
-    recalculateOnLeave: isTontine && leavingRule === 'REDUCE_POOL',
-    exclusionThreshold: parseInt(exclusionThreshold, 10) || 3,
-    nextPaymentRequired: false,
+    depositRequired: isTontine && depositRequired,
+    recalculateOnLeave: isTontine && leavingRule === ReplacementRule.REDUCED_POT,
+    exclusionThreshold: isTontine ? exclusionThreshold : 0,
+    nextPaymentRequired: isTontine && nextPaymentRequired,
     conditions: conditions.trim(),
     isActive: false,
   });
@@ -235,17 +277,18 @@ export default function CreateCircleScreen() {
         </View>
         <View style={styles.progress}>
           {STEPS.map((label, i) => (
-            <View key={label} style={[styles.progressSeg, i < step && styles.progressSegDone]} />
+            <ProgressSegment key={label} done={i < step} />
           ))}
         </View>
 
         <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView
+            ref={scrollRef}
             contentContainerStyle={styles.scroll}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            <Animated.View key={step} entering={FadeIn.duration(220)}>
+            <Animated.View key={step} entering={FadeIn.duration(motion.base)}>
               <Text style={styles.eyebrow}>{STEPS[step - 1]}</Text>
 
               {/* ── ÉTAPE 1 — TYPE ── */}
@@ -272,7 +315,7 @@ export default function CreateCircleScreen() {
                   </View>
 
                   {isTontine && (
-                    <Animated.View entering={FadeIn.duration(220)} style={styles.section}>
+                    <Animated.View entering={FadeIn.duration(motion.base)} style={styles.section}>
                       <Text style={styles.sectionTitle}>Que reçoit le bénéficiaire ?</Text>
                       <Segmented<Mode>
                         value={mode}
@@ -291,7 +334,7 @@ export default function CreateCircleScreen() {
                   )}
 
                   {isNature && (
-                    <Animated.View entering={FadeIn.duration(260)} style={styles.natureCard}>
+                    <Animated.View entering={FadeIn.duration(motion.slow)} style={styles.natureCard}>
                       <Text style={styles.natureTitle}>Le bien à remettre</Text>
 
                       <TouchableOpacity
@@ -358,7 +401,9 @@ export default function CreateCircleScreen() {
               {step === 2 && (
                 <>
                   <Text style={styles.stepTitle}>Nom et cotisations</Text>
-                  <Text style={styles.stepSubtitle}>Combien chaque membre verse, et à quel rythme.</Text>
+                  <Text style={styles.stepSubtitle}>
+                    {isTontine ? 'Combien chaque membre verse, et quand.' : 'Le montant habituel et le rythme des cotisations.'}
+                  </Text>
 
                   <View style={styles.fields}>
                     <TextField
@@ -371,13 +416,14 @@ export default function CreateCircleScreen() {
                     />
                     <View>
                       <TextField
-                        label={isTontine ? 'Cotisation par membre et par tour' : 'Cotisation par membre'}
+                        label={isTontine ? 'Cotisation par membre et par tour' : 'Cotisation habituelle par membre'}
                         placeholder="0"
                         keyboardType="number-pad"
                         suffix="F CFA"
                         value={amount}
                         onChangeText={edit('amount', setAmount)}
                         error={errors.amount}
+                        hint={isTontine ? undefined : 'Volontaire : aucune pénalité en cas d’oubli.'}
                       />
                       {suggestedNature > 0 && contribution !== suggestedNature && (
                         <TouchableOpacity
@@ -393,46 +439,97 @@ export default function CreateCircleScreen() {
                         </TouchableOpacity>
                       )}
                     </View>
-                    <TextField
-                      label="Frais de gestion (facultatif)"
-                      placeholder="0"
-                      keyboardType="number-pad"
-                      suffix="F CFA"
-                      value={managementFee}
-                      onChangeText={setManagementFee}
-                      hint="Votre commission de président, prélevée à chaque tour."
-                    />
-                  </View>
-
-                  <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Fréquence</Text>
-                    <View style={styles.chips}>
-                      {frequencies.map((f) => (
-                        <Chip key={f.key} label={f.label} selected={frequency === f.key} onPress={() => setFrequency(f.key)} />
-                      ))}
-                    </View>
-                    {frequency === 'CUSTOM' && (
+                    {isTontine && (
                       <TextField
-                        containerStyle={styles.customDays}
-                        placeholder="Ex. 14"
+                        label="Frais de gestion (facultatif)"
+                        placeholder="0"
                         keyboardType="number-pad"
-                        suffix="jours"
-                        value={customDays}
-                        onChangeText={edit('customDays', setCustomDays)}
-                        error={errors.customDays}
-                        hint="Intervalle entre deux cotisations."
+                        suffix="F CFA"
+                        value={managementFee}
+                        onChangeText={setManagementFee}
+                        hint="Votre commission de fondateur, par membre et par tour."
                       />
                     )}
                   </View>
 
                   <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Fréquence</Text>
+                    <View style={styles.chips}>
+                      {FREQUENCY_OPTIONS.map((f) => (
+                        <Chip key={f.key} label={f.label} selected={frequency === f.key} onPress={() => setFrequency(f.key)} />
+                      ))}
+                    </View>
+                  </View>
+
+                  {(needsWeekday || needsMonthDay) && (
+                    <Animated.View key={frequency} entering={FadeIn.duration(motion.base)} style={styles.section}>
+                      <Text style={styles.sectionTitle}>
+                        {needsWeekday ? 'Quel jour de la semaine ?' : 'Quel jour du mois ?'}
+                        {!isTontine ? <Text style={styles.optional}> (facultatif)</Text> : null}
+                      </Text>
+                      {needsWeekday ? (
+                        <WeekdayPicker
+                          value={weekday}
+                          onChange={(d) => {
+                            setWeekday(d);
+                            clear('day');
+                          }}
+                        />
+                      ) : (
+                        <View style={styles.monthGrid}>
+                          <MonthDayPicker
+                            value={monthDay}
+                            onChange={(d) => {
+                              setMonthDay(d);
+                              clear('day');
+                            }}
+                          />
+                        </View>
+                      )}
+                      {errors.day ? <Text style={styles.error}>{errors.day}</Text> : null}
+                      {needsMonthDay && (monthDay ?? 0) > 28 ? (
+                        <Text style={styles.sectionHint}>Les mois plus courts, la cotisation tombe le dernier jour du mois.</Text>
+                      ) : null}
+                    </Animated.View>
+                  )}
+
+                  <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>
+                      Première cotisation
+                      {!isTontine ? <Text style={styles.optional}> (facultatif)</Text> : null}
+                    </Text>
+                    <TouchableOpacity
+                      style={[styles.dateRow, errors.start && styles.dateRowError]}
+                      activeOpacity={0.7}
+                      onPress={() => setShowCalendar(true)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Choisir la date de la première cotisation"
+                    >
+                      <View style={styles.dateIcon}>
+                        <CalendarRange size={18} color={colors.primary.DEFAULT} />
+                      </View>
+                      <Text style={[styles.dateText, !startDate && styles.datePlaceholder]}>
+                        {startDate ? formatLongDay(parseDay(startDate)!) : 'Choisir une date'}
+                      </Text>
+                      <ChevronRight size={18} color={colors.subtle} />
+                    </TouchableOpacity>
+                    {errors.start ? <Text style={styles.error}>{errors.start}</Text> : null}
+                    {startDate && dayChosen ? (
+                      <View style={styles.preview}>
+                        <CalendarDays size={16} color={colors.primary.DEFAULT} />
+                        <Text style={styles.previewText}>{describeSchedule(schedule)}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+
+                  <View style={[styles.section, styles.group]}>
                     <SettingRow title="Nombre de membres" description="Vous compris" last>
                       <NumberStepper value={maxMembers} onChange={setMaxMembers} min={2} max={50} />
                     </SettingRow>
                   </View>
 
                   {contribution > 0 && (
-                    <View style={styles.totalCard}>
+                    <Animated.View entering={FadeIn.duration(motion.base)} style={styles.totalCard}>
                       <View style={styles.totalRow}>
                         <Text style={styles.totalLabel}>Chaque membre verse</Text>
                         <Text style={styles.totalValue}>{formatXOF(perMember)}</Text>
@@ -443,7 +540,7 @@ export default function CreateCircleScreen() {
                           <Text style={styles.totalValueStrong}>{formatXOF(potPerTurn)}</Text>
                         </View>
                       )}
-                    </View>
+                    </Animated.View>
                   )}
                 </>
               )}
@@ -454,45 +551,111 @@ export default function CreateCircleScreen() {
                   <Text style={styles.stepTitle}>Règles du cercle</Text>
                   <Text style={styles.stepSubtitle}>Elles protègent le groupe et s’appliquent à tous, vous compris.</Text>
 
-                  <View style={styles.group}>
-                    {isTontine && (
-                      <SettingRow title="Bénéficiaires par tour" description="Membres servis à chaque tour">
-                        <NumberStepper
-                          value={beneficiariesPerTurn}
-                          onChange={setBeneficiariesPerTurn}
-                          min={1}
-                          max={Math.max(1, Math.floor(maxMembers / 2))}
-                        />
-                      </SettingRow>
-                    )}
-                    <SettingRow
-                      title="Dépôt de garantie"
-                      description="Une cotisation versée à l’entrée, rendue en fin de cercle"
-                      last
-                    >
-                      <Toggle value={depositRequired} onValueChange={setDepositRequired} />
-                    </SettingRow>
-                  </View>
+                  {isTontine ? (
+                    <>
+                      <Text style={styles.sectionTitle}>Ordre de passage</Text>
+                      <View style={styles.stack}>
+                        {TURN_ORDER_OPTIONS.map((o) => (
+                          <OptionCard
+                            key={o.key}
+                            title={o.label}
+                            description={o.desc}
+                            selected={turnOrder === o.key}
+                            onPress={() => setTurnOrder(o.key)}
+                          />
+                        ))}
+                      </View>
 
-                  <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Retards tolérés avant exclusion</Text>
-                    <View style={styles.chips}>
-                      {exclusionOptions.map((opt) => (
-                        <Chip
-                          key={opt}
-                          label={`${opt} retards`}
-                          selected={exclusionThreshold === opt}
-                          onPress={() => setExclusionThreshold(opt)}
-                        />
-                      ))}
-                    </View>
-                    <Text style={styles.sectionHint}>Au-delà, le bureau peut voter l’exclusion du membre.</Text>
-                  </View>
+                      <View style={[styles.section, styles.group]}>
+                        <SettingRow title="Bénéficiaires par tour" description="Membres servis à chaque tour">
+                          <NumberStepper
+                            value={beneficiariesPerTurn}
+                            onChange={setBeneficiariesPerTurn}
+                            min={1}
+                            max={Math.max(1, Math.floor(maxMembers / 2))}
+                          />
+                        </SettingRow>
+                        <SettingRow
+                          title="Payer le tour suivant d’abord"
+                          description="Le bénéficiaire paie sa prochaine cotisation avant de recevoir la cagnotte"
+                        >
+                          <Toggle value={nextPaymentRequired} onValueChange={setNextPaymentRequired} />
+                        </SettingRow>
+                        <SettingRow
+                          title="Dépôt de garantie"
+                          description="Une cotisation déposée par qui rejoint en cours de route, rendue à la fin"
+                          last
+                        >
+                          <Toggle value={depositRequired} onValueChange={setDepositRequired} />
+                        </SettingRow>
+                      </View>
+
+                      <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Retards tolérés avant exclusion</Text>
+                        <View style={styles.chips}>
+                          {EXCLUSION_OPTIONS.map((n) => (
+                            <Chip
+                              key={n}
+                              label={`${n} retards`}
+                              selected={exclusionThreshold === n}
+                              onPress={() => setExclusionThreshold(n)}
+                            />
+                          ))}
+                        </View>
+                        <Text style={styles.sectionHint}>
+                          Aucune pénalité : au-delà, le fondateur peut seulement proposer l’exclusion.
+                        </Text>
+                      </View>
+
+                      <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Si un membre quitte le cercle</Text>
+                        <View style={styles.stack}>
+                          {LEAVING_OPTIONS.map((opt) => (
+                            <OptionCard
+                              key={opt.key}
+                              title={opt.label}
+                              description={opt.desc}
+                              selected={leavingRule === opt.key}
+                              onPress={() => setLeavingRule(opt.key)}
+                            />
+                          ))}
+                        </View>
+                      </View>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={styles.sectionTitle}>Validation des aides</Text>
+                      <View style={styles.group}>
+                        <SettingRow title="Nombre de validateurs" description="Désignés parmi les membres, après la création">
+                          <NumberStepper value={approvers} onChange={setApprovers} min={1} max={9} />
+                        </SettingRow>
+                        {approvers > 1 ? (
+                          <View style={styles.groupInner}>
+                            <Text style={styles.groupLabel}>Qui doit approuver une aide ?</Text>
+                            <Segmented<UnlockRule>
+                              value={unlockRule}
+                              onChange={setUnlockRule}
+                              options={UNLOCK_OPTIONS.map((o) => ({ key: o.key, label: o.label }))}
+                            />
+                          </View>
+                        ) : null}
+                      </View>
+                      <View style={styles.preview}>
+                        <UserCheck size={16} color={colors.primary.DEFAULT} />
+                        <Text style={styles.previewText}>
+                          {describeApprovalRule(approvers, approvers === 1 ? UnlockRule.ALL_APPROVERS : unlockRule)}
+                        </Text>
+                      </View>
+                      <Text style={styles.sectionHint}>
+                        L’argent de la caisse reste bloqué tant que cette règle n’est pas respectée.
+                      </Text>
+                    </>
+                  )}
 
                   <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Documents demandés aux membres</Text>
                     <View style={styles.stack}>
-                      {kycOptions.map((opt) => (
+                      {KYC_OPTIONS.map((opt) => (
                         <OptionCard
                           key={opt.key}
                           title={opt.label}
@@ -505,31 +668,14 @@ export default function CreateCircleScreen() {
                     </View>
                   </View>
 
-                  {isTontine && (
-                    <View style={styles.section}>
-                      <Text style={styles.sectionTitle}>Si un membre quitte le cercle</Text>
-                      <View style={styles.stack}>
-                        {leavingOptions.map((opt) => (
-                          <OptionCard
-                            key={opt.key}
-                            title={opt.label}
-                            description={opt.desc}
-                            selected={leavingRule === opt.key}
-                            onPress={() => setLeavingRule(opt.key)}
-                          />
-                        ))}
-                      </View>
-                    </View>
-                  )}
-
                   <TextField
                     containerStyle={styles.section}
-                    label="Conditions d’adhésion (facultatif)"
-                    placeholder="Ex. Cotisation avant le 5 de chaque mois. Prévenir le bureau en cas d’empêchement."
+                    label="Règlement du cercle (facultatif)"
+                    placeholder="Ex. Cotisation avant 18 h le jour prévu. Prévenir le bureau en cas d’empêchement."
                     multiline
                     value={conditions}
                     onChangeText={setConditions}
-                    hint="Chaque nouveau membre devra les accepter."
+                    hint="Chaque nouveau membre devra l’accepter."
                   />
                 </>
               )}
@@ -538,7 +684,11 @@ export default function CreateCircleScreen() {
               {step === 4 && (
                 <>
                   <Text style={styles.stepTitle}>Tout est correct ?</Text>
-                  <Text style={styles.stepSubtitle}>Vous pourrez modifier ces réglages plus tard.</Text>
+                  <Text style={styles.stepSubtitle}>
+                    {isTontine
+                      ? 'Montant, calendrier et ordre de passage restent modifiables jusqu’au premier tour.'
+                      : 'Vous pourrez modifier ces réglages plus tard.'}
+                  </Text>
 
                   <SummaryCard title="Cercle" onEdit={() => setStep(1)}>
                     {isNature && goalImage ? (
@@ -555,29 +705,33 @@ export default function CreateCircleScreen() {
                     <SummaryRow label="Cotisation" value={formatXOF(contribution)} />
                     {fee > 0 && <SummaryRow label="Frais de gestion" value={formatXOF(fee)} />}
                     <SummaryRow
-                      label="Fréquence"
-                      value={frequency === 'CUSTOM' ? `Tous les ${toNumber(customDays)} jours` : frequencyLabel[frequency] ?? '—'}
+                      label="Calendrier"
+                      value={startDate || dayChosen ? describeSchedule(schedule) : frequencyLabel(frequency)}
                     />
                     <SummaryRow label="Total par membre" value={formatXOF(perMember)} strong last={!isTontine} />
                     {isTontine && <SummaryRow label="Cagnotte par tour" value={formatXOF(potPerTurn)} strong last />}
                   </SummaryCard>
 
                   <SummaryCard title="Règles" onEdit={() => setStep(3)}>
-                    {isTontine && <SummaryRow label="Bénéficiaires par tour" value={`${beneficiariesPerTurn}`} />}
-                    <SummaryRow label="Retards tolérés" value={exclusionThreshold} />
-                    <SummaryRow label="Dépôt de garantie" value={depositRequired ? 'Oui' : 'Non'} />
-                    <SummaryRow
-                      label="Documents"
-                      value={kycOptions.find((o) => o.key === kycRequirement)?.label ?? '—'}
-                      last={!isTontine}
-                    />
-                    {isTontine && (
+                    {isTontine ? (
+                      <>
+                        <SummaryRow label="Ordre de passage" value={turnOrderLabel(turnOrder)} />
+                        <SummaryRow label="Bénéficiaires par tour" value={`${beneficiariesPerTurn}`} />
+                        <SummaryRow label="Tour suivant payé d’abord" value={nextPaymentRequired ? 'Oui' : 'Non'} />
+                        <SummaryRow label="Dépôt de garantie" value={depositRequired ? 'Oui' : 'Non'} />
+                        <SummaryRow label="Retards tolérés" value={`${exclusionThreshold}`} />
+                        <SummaryRow
+                          label="En cas de départ"
+                          value={LEAVING_OPTIONS.find((o) => o.key === leavingRule)?.label ?? '—'}
+                        />
+                      </>
+                    ) : (
                       <SummaryRow
-                        label="En cas de départ"
-                        value={leavingOptions.find((o) => o.key === leavingRule)?.label ?? '—'}
-                        last
+                        label="Validation des aides"
+                        value={describeApprovalRule(approvers, approvers === 1 ? UnlockRule.ALL_APPROVERS : unlockRule)}
                       />
                     )}
+                    <SummaryRow label="Documents" value={kycLabel(kycRequirement)} last />
                   </SummaryCard>
 
                   <View style={styles.notice}>
@@ -593,13 +747,33 @@ export default function CreateCircleScreen() {
           </ScrollView>
 
           <View style={styles.footer}>
-            <Button
-              title={step === STEPS.length ? 'Créer le cercle' : 'Continuer'}
-              onPress={goNext}
-            />
+            <Button title={step === STEPS.length ? 'Créer le cercle' : 'Continuer'} onPress={goNext} />
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
+
+      <DatePickerSheet
+        visible={showCalendar}
+        onClose={() => setShowCalendar(false)}
+        title="Première cotisation"
+        value={startDate}
+        minDate={toDayString(new Date())}
+        highlightWeekday={needsWeekday ? weekday : undefined}
+        onConfirm={pickStart}
+      />
+    </View>
+  );
+}
+
+/** Segment de la barre de progression : se remplit en douceur (transform seulement). */
+function ProgressSegment({ done }: { done: boolean }) {
+  const reduced = useReducedMotion();
+  const fill = useAnimatedStyle(() => ({
+    transform: [{ scaleX: reduced ? (done ? 1 : 0) : withTiming(done ? 1 : 0, { duration: motion.slow }) }],
+  }));
+  return (
+    <View style={styles.progressSeg}>
+      <Animated.View style={[styles.progressFill, fill]} />
     </View>
   );
 }
@@ -648,7 +822,7 @@ function CreatedView({ circle, onDone }: { circle: Circle; onDone: () => void })
       <StatusBar barStyle="dark-content" />
       <SafeAreaView style={styles.flex} edges={['top', 'bottom']}>
         <ScrollView contentContainerStyle={styles.createdScroll} showsVerticalScrollIndicator={false}>
-          <Animated.View entering={FadeIn.duration(300)} style={styles.createdHero}>
+          <Animated.View entering={FadeIn.duration(motion.slow)} style={styles.createdHero}>
             <View style={styles.createdIcon}>
               <Check size={32} color={colors.primary.DEFAULT} strokeWidth={2.5} />
             </View>
@@ -677,6 +851,9 @@ function CreatedView({ circle, onDone }: { circle: Circle; onDone: () => void })
             <Text style={styles.noticeText}>
               Le cercle s’active après le paiement des frais de {formatXOF(CIRCLE_CREATION_FEE)}. Retrouvez-le dans
               « Mes cercles » pour le régler.
+              {circle.type !== CircleType.SOLIDARITY_ONLY
+                ? ' Vous démarrerez ensuite le premier tour depuis « Gérer le cercle », quand tous les membres seront là.'
+                : ''}
             </Text>
           </View>
         </ScrollView>
@@ -708,6 +885,7 @@ const styles = StyleSheet.create({
   headerStep: {
     width: 40,
     ...typography.footnote,
+    ...numeric,
     fontWeight: '600',
     color: colors.muted,
     textAlign: 'center',
@@ -723,9 +901,12 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
     backgroundColor: colors.line,
+    overflow: 'hidden',
   },
-  progressSegDone: {
+  progressFill: {
+    ...StyleSheet.absoluteFill,
     backgroundColor: colors.primary.DEFAULT,
+    transformOrigin: 'left',
   },
 
   scroll: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 32 },
@@ -743,15 +924,56 @@ const styles = StyleSheet.create({
   fields: { gap: 20 },
   section: { marginTop: 28 },
   sectionTitle: { ...typography.bodyStrong, color: colors.ink, marginBottom: 12 },
+  optional: { ...typography.callout, fontWeight: '400', color: colors.muted },
   sectionHint: { ...typography.footnote, color: colors.muted, marginTop: 10 },
+  error: { ...typography.footnote, color: colors.danger.DEFAULT, marginTop: 8 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  customDays: { marginTop: 16 },
+  monthGrid: { borderRadius: radius.lg, borderWidth: 1, borderColor: colors.line, padding: 4 },
   group: {
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.line,
     paddingHorizontal: 16,
+    backgroundColor: colors.bg,
   },
+  groupInner: {
+    paddingVertical: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.line,
+  },
+  groupLabel: { ...typography.footnote, fontWeight: '600', color: colors.inkSoft, marginBottom: 10 },
+
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    height: 56,
+    paddingHorizontal: 12,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.lineStrong,
+  },
+  dateRowError: { borderColor: colors.danger.DEFAULT },
+  dateIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: colors.primary.tint,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dateText: { flex: 1, ...typography.body, fontWeight: '500', color: colors.ink },
+  datePlaceholder: { color: colors.subtle, fontWeight: '400' },
+  preview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 12,
+    padding: 12,
+    borderRadius: radius.md,
+    backgroundColor: colors.primary.tint,
+  },
+  previewText: { flex: 1, ...typography.callout, fontWeight: '600', color: colors.primary.dark },
 
   /* ── Bloc « bien à remettre » ── */
   natureCard: {
@@ -782,7 +1004,7 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: 'rgba(22, 24, 29, 0.6)',
+    backgroundColor: 'rgba(18, 38, 30, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -818,12 +1040,13 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 10,
     borderRadius: radius.lg,
-    backgroundColor: colors.primary.tint,
+    backgroundColor: colors.primary.dark,
+    ...shadows.soft,
   },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
-  totalLabel: { ...typography.callout, color: colors.inkSoft },
-  totalValue: { ...typography.bodyStrong, color: colors.ink },
-  totalValueStrong: { ...typography.headline, fontWeight: '700', color: colors.primary.dark },
+  totalLabel: { ...typography.callout, color: 'rgba(255,255,255,0.75)' },
+  totalValue: { ...typography.bodyStrong, ...numeric, color: '#FFFFFF' },
+  totalValueStrong: { ...typography.headline, ...numeric, fontWeight: '700', color: colors.accent.DEFAULT },
 
   /* ── Récapitulatif ── */
   summaryCard: {
@@ -834,6 +1057,7 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 4,
     marginBottom: 16,
+    backgroundColor: colors.bg,
   },
   summaryHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   summaryTitle: { ...typography.bodyStrong, color: colors.ink },
@@ -842,7 +1066,7 @@ const styles = StyleSheet.create({
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 16, paddingVertical: 12 },
   summaryRowBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line },
   summaryLabel: { ...typography.callout, color: colors.muted },
-  summaryValue: { flexShrink: 1, ...typography.callout, fontWeight: '500', color: colors.ink, textAlign: 'right' },
+  summaryValue: { flexShrink: 1, ...typography.callout, ...numeric, fontWeight: '500', color: colors.ink, textAlign: 'right' },
   summaryValueStrong: { fontWeight: '700' },
 
   notice: {

@@ -3,11 +3,17 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Share 
 import { Image } from 'expo-image';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft, HeartHandshake, ShieldCheck, Check, EyeOff, Share2 } from 'lucide-react-native';
+import { ArrowLeft, HeartHandshake, ShieldAlert, ShieldCheck, Check, EyeOff, Share2 } from 'lucide-react-native';
 import { colors, radius, typography } from '@venega/design-tokens';
 import { mockAidAppeal, mockAidContributions, PaymentMethod, ContributorVisibility } from '@venega/types';
 import { Avatar, Button, Chip, IconButton, Sheet, SettingRow, TextField, Toggle } from '../../src/components/ui';
-import { getAidAppeal, getAidShareLink, getCircle, recordAidContribution } from '../../src/features/circles/circleStore';
+import {
+  getAidAppeal,
+  getAidShareLink,
+  getCircle,
+  isAidPayoutNumberVerified,
+  recordAidContribution,
+} from '../../src/features/circles/circleStore';
 import { formatPhone, validatePhone } from '../../src/features/auth/validation';
 import OperatorPicker, { operatorLogos } from '../../src/features/circles/components/OperatorPicker';
 import {
@@ -67,7 +73,7 @@ ${getAidShareLink(circle)}`,
   const [operator, setOperator] = useState<string | null>(null);
 
   const amount = customAmount ? parseInt(customAmount, 10) || 0 : quickAmount;
-  const minAmount = circle?.rules?.minContribution ?? 100;
+  // Aucun montant minimum de don (règle produit) : chacun donne ce qu'il peut.
 
   // Erreurs sous les champs, effacées dès que la saisie est corrigée.
   type Field = 'amount' | 'name' | 'phone' | 'operator';
@@ -75,7 +81,7 @@ ${getAidShareLink(circle)}`,
   const validate = (field: Field, v: { amount: number; name: string; phone: string; operator: string | null }) => {
     switch (field) {
       case 'amount':
-        return v.amount >= minAmount ? undefined : `Le montant minimum est de ${formatXOF(minAmount)}.`;
+        return v.amount > 0 ? undefined : 'Indiquez le montant de votre don.';
       case 'name':
         return anonymous || v.name.trim().length >= 2 ? undefined : 'Indiquez votre nom, ou choisissez de rester anonyme.';
       case 'phone':
@@ -230,6 +236,14 @@ ${getAidShareLink(circle)}`,
                 après validation des approbateurs du cercle.
               </Text>
             </View>
+            {!isAidPayoutNumberVerified(appeal) && (
+              <View style={[styles.trust, styles.review]}>
+                <ShieldAlert size={18} color={colors.accent.dark} strokeWidth={2} />
+                <Text style={[styles.trustText, styles.reviewText]}>
+                  Numéro de réception en cours de vérification par Venega : aucun versement ne part avant ce contrôle.
+                </Text>
+              </View>
+            )}
 
             <View style={styles.separator} />
 
@@ -500,6 +514,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary.tint,
   },
   trustText: { flex: 1, ...typography.footnote, color: colors.primary.dark },
+  review: { backgroundColor: colors.accent.tint, marginTop: 8 },
+  reviewText: { color: colors.accent.deep },
 
   /* Contributeurs */
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
